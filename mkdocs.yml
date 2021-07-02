@@ -1,0 +1,7 @@
+site_name: brikWork Docs
+site_url: https://example.com/
+
+markdown_extensions:
+  - smarty
+  - extra
+  - toc
