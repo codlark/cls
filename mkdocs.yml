@@ -1,7 +1,24 @@
 site_name: brikWork Docs
-site_url: https://example.com/
+site_url: https://brikwork.readthedocs.io/en/latest/
 
 markdown_extensions:
   - smarty
   - extra
   - toc
+  - nl2br
+
+nav:
+  - ./index.md
+  - ./Example.md
+  - ./Syntax.md
+  - ./Using.md
+  - 'Reference':
+    - ./Layout-and-Elements.md
+    - ./Values.md
+    - ./Briks.md
+  - ./Glossary.md
+  - 'Home Page': 'https://codlark.itch.io/brikwork'
+
+theme:
+  name: readthedocs
+  highlightjs: false

@@ -23,5 +23,5 @@ setup(
     version='0.1',
     description='brikWork command line app',
     options = dict(build_exe=build_options),
-    executables=[Executable("brikWork.py")]
+    executables=[Executable("brikWork.py", icon="../logo.ico")]
     )

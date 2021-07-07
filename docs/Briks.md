@@ -93,22 +93,6 @@ When the first character of `TEST` of an `[if| ]` is `?` the rest of the argumen
 ```
 This would evaluate to "Last asset!" on the last asset and "Still waiting..." on every other asset
 
-`[#| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed proper order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic
-Accepted operators are
-
- * `+` - addition
- * `-` - subtraction
- * `*` - multiplication
- * `/` - division
- * `%` - modulus, the remainder of division
-
-Division has a specific property. If the result features a decimal portion it will propagate to the other operators, but will be removed before the brik returns.
-```none
-[#| [assetIndex] / [assetCount]  * 100]
-```
-This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61"
-
 `[/| VALUE ]` - the expansion brik
 The expansion brik processes escapes and expands them. Normally this is the last step of evaluating a value but this brik lets you do it early. As an example, you can use the expansion brik to dynamically generate brik names
 ```none

@@ -1,38 +1,51 @@
 # Syntax
-brikWork technically uses 3 different parsers at different points of generating assets, each with it's own quirks. For reference, we'll be looking at this example thru out
+brikWork technically uses 3 different parsers at different points of generating assets, each with it's own quirks. For reference, we'll be looking at the werewolf.bwl example included with brikWork
 
-```none
+```
 [layout]
 width = 2.5in
 height = 3.5in
-name = [name][repeatIndex].png
-output = ./out/
+name = [role][repeatIndex].png
+output = out/
 
 [names]
-res = ./res/
 bloodRed = #a32b1d
 #maybe a little dark, but readability is important
+
+[titleBoarder]
+type = rect
+x = center
+y = .5in
+width = 1.5in
+height = .25in
+lineWidth = 
+xRadius = .125in
+yRadius = .125in
+
 
 [title]
 type = label
 x = center
 y = .5in
-width = 2.5in
-text = [capitalize| [name] ]
-color = [if| [eq| [name] | werewolf ] | [bloodRed] | black ]
-fontSize = 24
+width = 1.5in
+height = .25in
+text = [capitalize| [role] ]
+color = [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
+alignment = center middle
+fontSize = 36
+fontFamily = Palatino Linotype
 
 [icon]
 type = image
 x = center
-y = 1.75in
-source = [res][name].png
+y = 1in
+source = images/[role].png
 
 [data]
-repeat,name
-1,moderator
-2,werewolf
-4,villager
+repeat, role
+2, werewolf
+4, villager
+1, seer
 ```
 
 ## Layout File Parser
@@ -43,7 +56,7 @@ Inside `[layout]` and element sections are property definitions. Properties conf
 
 ### `[names]` section
 
-The `[names]` section allows you to define user [briks](#brik-syntax). Note how the name in the example looks like a property definition. These are useful for values that will be seen repeatedly such as colors or icons for labels
+The `[names]` section allows you to define user [briks](#brik-syntax). Note how the name in the example looks like a property definition. These are useful for values that will be seen repeatedly such as colors or icons for labels. Names for user briks should not include special characters, spaces are okay. There is no guarantee that some other part of brikWork won't see them as something else
 
 ### `[data]` section
 
@@ -51,11 +64,11 @@ The `[data]` section holds the rows of data that end up in your assets. Data is 
 
 ### Whitespace
 
-In layout definition files newlines separate property definitions, making it an error to put two property definitions on a single line. Otherwise, spaces and tabs are largely ignored, and are removed when they surround a property or a value
+In layout definition files newlines separate property definitions, making it an error to put two property definitions on a single line. Otherwise, spaces and tabs are largely ignored, and are removed when they touch the begining of a line, the end of a line, or the equals sign
 
 ### Comments
 
-A comment is a line that has a pound sign, `#`, for its first character. Everything after the pound sign is ignored, including property definitions. Comments are currently not allowed in the `[data]` section or an external data file, this is considered a bug
+A comment is a line that has a pound sign, `#`, for its first character. Everything after the pound sign is ignored, including property definitions. Comments are also available in data
 
 ## Brik Syntax
 
@@ -67,20 +80,18 @@ Function briks have extra syntax over other briks in the form of arguments. Argu
 
 An escape is a means of preventing a part of a value from being evaluated, it "escapes" the parser. brikWork uses the common idiom of using the back slash `\` as the escape character, with any character after it not having any special value, this can be used to put square brackets in your value without them being evaluated as briks, or to put spaces at the edge of a value. Escapes known to brikWork are
 
-
-
 Escape | Meaning | Escape | Meaning
 ------ | ------- | ------ | -------
 `\n` | a new line | `\s` | a space
-`\t` | a tab | `\|` | a vertical bar
-`\[` | an opening square bracket | `\]` | a closing square bracket
-`\` | a literal backslash | anything else is left untouched {: colspan='2'}
+`\t` | a tab | `\\` | a literal backslash
+
+Anything else has it's back slash removed and put into the final value. Because escapes are the last thing evaluated something like `\[new\]` won't be evaluated as a brik and instead will be "[new]" in the asset
 
 ## CSV Syntax
 
-brikWork uses comma separated values for data, which has a more strict format that the other syntax used by brikWork. Of note is that the spaces around values are not ignored, the entire string from comma to comma is used. The first row is used as a header row, with those names being available as briks called column briks
+brikWork uses comma seperated values for data. Like with properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. The parser keeps track of how many names are seen in the first row as well as how many columns it's seen on the current row, if the parser knows it's on the last column of a row it will ignore any more commas
 
-A layout file does not need any data. If both the `data` property is blank and the `[data]` section is not used, only one asset will be generated, and no column blocks will be available. The brikWork logo is generated this way
+A layout file does not need any data. If both the `data` property is blank and the `[data]` section is not used, only one asset will be generated, and no column blocks will be available. Data is also considered blank if there are fewer than two lines
 
 A column with the name `repeat` acts as a special column. When a row's repeat value is more than one, multiple assets are generated from that row, each evaluated on their own, each counted as their own asset. A repeat column is not required
 

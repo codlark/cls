@@ -10,6 +10,7 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from bwUtils import *
 
+
 class Validation():
     '''This object holds all the property validators and runs them
     at a future date it may also store the mapping between user property
@@ -135,6 +136,7 @@ class TextElement(Element):
         if elem.overline: style += 'text-decoration: overline;\n'
         if elem.underline: style += 'text-decoration: underline;\n'
         if elem.lineThrough: style += 'text-decoration: line-through;\n'
+        #style += "font-variant-numeric: lining-nums;\n" someday
         label.setStyleSheet(style+'}')
         label.setText(re.sub(r'\n', '<br>', elem.text))
         painter.drawPixmap(upperLeft, label.grab())
@@ -336,8 +338,11 @@ class AssetPainter():
 elemConstuctors = dict(label=TextElement, image=ImageElement, rect=RectangleElement,
     circle=EllipseElement, ellipse=EllipseElement, line=LineElement)
 
-def parseData(rows:str) -> csv.DictReader:
-    data = list(csv.DictReader(rows.splitlines(), restval=''))
+def parseData(rows:str):
+    data = parseCSV(rows)
+    if data is None:
+        return None
+        
     newData = []
 
     if 'repeat' in data[0]:

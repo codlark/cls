@@ -3,13 +3,13 @@ This is a shorter page to quickly go over the types of values used by properties
 
 ## Numbers
 
-Most numbers used in brikWork are locations and sizes, like `x` and `width`. These numbers, called `NUM` on [Layout and Elements](../Layout-and-Elements/), by default are in pixels and aren't allowed to have a decimal point. Sizes can also be in inches, by having `in` attached to the end, like `1in`, without a space. Inches can have a decimal point like `1.25in`. Inches are converted to pixels at a dpi(dots per inch) of 300 which is commonly used by print on demand services. In a future update, not only will there be more units but also dpi will be changeable
+Most numbers used in brikWork are locations and sizes, like `x` and `width`. These numbers, called `NUM` on [Layout and Elements](../Layout-and-Elements/), by default are in pixels and aren't allowed to have a decimal point. Sizes can also be in inches, by having `in` attached to the end, like `1in`. Inches can have a decimal point like `1.25in`. Inches are converted to pixels at a dpi(dots per inch) of 300 which is commonly used by print on demand services. In a future update, not only will there be more units but also dpi will be changeable
 
 Lastly some properties use numbers in different units, these will be spelled out in their entry on [Layout and Elements](../Layout-and-Elements/).
 
 ## True/False values
 
-Some properties merely need to know if you want them on or off, such as `underline`. This is done with true/false values. Indicated with `T/F` on "Layout and Elements":../Layout-and-Elements , these values are fairly flexible. A true value is one of `true`, `yes`, and `on` while a false value is one of `false`, `no`, and `off`. They all evaluate the same in the end, so use whichever feels more readable. In a future update the user will be able to add more true/false values
+Some properties merely need to know if you want them on or off, such as `underline`. This is done with true/false values. Indicated with `T/F` on "Layout and Elements":../Layout-and-Elements , these values are fairly flexible. A true value is one of `true`, `yes`, and `on` while a false value is one of `false`, `no`, `off`, `0`, or an empty string. They all evaluate the same in the end, so use whichever feels more readable. In a future update the user will be able to add more true/false values
 
 ## Colors
 

@@ -277,6 +277,7 @@ def expansionMacro(context, value, *args):
 
 @BrikStore.addStdlib('?', 1)
 def comparisonMacro(context, value, *args):
+    prop = context.store.briks['']
     nValue = context.parse(value)
     try:
         left, op, right = re.split(r'(==|!=|<=?|>=?)', nValue, maxsplit=1)
@@ -308,18 +309,39 @@ def comparisonMacro(context, value, *args):
     else:
         return 'false'
 
+#@BrikStore.addStdlib('#', 1)
 def mathMacro(context, value, *args):
+    #I gotta propperly parse these, this sucks
     tokens = [s.strip() for s in re.split(r'([-+*/%])', value)]
     
-    operand = True
+    accum = 0
+    op = '+'
     #true if were looking for an operand, false otherwise
 
     for token in tokens:
         
-        if operand:
-            pass
-            #turn into number
-            #apply to acc
+        currentToken = asNum(token)
+        if currentToken is None:
+            if token in '-+*/%':
+                op = token
+            else:
+                raise brikWorkError(errString.invalidArg.format(
+                    value=token, arg='NUM or OPERATOR', brik='#'
+                ))
+        else:
+            if op == '+':
+                accum += currentToken
+            elif op == '-':
+                accum -= currentToken
+            elif op == '*':
+                accum *= currentToken
+            elif op == '/':
+                accum /= currentToken
+            elif op == '%':
+                accum %= currentToken
+    return str(int(accum))
+
+        
 
 
 #def brik(context, arg, *args):

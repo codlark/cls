@@ -1,0 +1,44 @@
+[layout]
+width = 2.5in
+height = 3.5in
+name = [role][repeatIndex].png
+output = out/
+
+[names]
+bloodRed = #a32b1d
+#maybe a little dark, but readability is important
+
+[titleBoarder]
+type = rect
+x = center
+y = .5in
+width = 1.5in
+height = .25in
+lineWidth = 6
+xRadius = .125in
+yRadius = .125in
+
+
+[title]
+type = label
+x = center
+y = .5in
+width = 1.5in
+height = .25in
+text = [capitalize| [role] ]
+color = [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
+alignment = center middle
+fontSize = 36
+fontFamily = Palatino Linotype
+
+[icon]
+type = image
+x = center
+y = 1in
+source = images/[role].png
+
+[data]
+repeat, role
+2, werewolf
+4, villager
+1, seer

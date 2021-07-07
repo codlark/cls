@@ -1,13 +1,34 @@
 # brikWork
-brikWork is a scripty board game asset maker, allowing you to make assets, like cards or tokens, with a simple INI description file and CSV data file. On these pages you'll find detailed explanations of the syntax and properties used to make assets
+brikWork is a scripty asset maker for board games. brikWork turns text based layout files into assets using Qt6
+
+Use brikWork to make cards and things for print-n-play games, for testing with Table Top Simulator, or to add a little flair to your favorite table top rpg
+
+brikWork is still early in development and may contain bugs or change substantially
+
+
+Current features
+
+ * combine text, images, and shapes
+ * styled, unicode compliant text with HTML markup
+ * stronger-than-it-needs-to-be scripting functionality
+ * command line interface
+ * define sizes and location in pixels or inches
+
+Future features
+
+ * more shapes and better colors
+ * printer or pdf output
+ * millimeter sizes
+ * vs code plugin for syntax highlighting
+ * better way to run brikWork
 
 ## brikWork layouts in brief
 
-A layout file is an INI file with an optional section of CSV data at the end that gets turned into a set of assets. Data from the CSV data is available to the layout to generate distinct assets. A layout is made of elements and those elements have properties that are set to values, including a programming utility called briks
+A layout file is an INI like file with an optional section of CSV data at the end that gets turned into a set of assets. Data from the CSV data is available to the layout to generate distinct assets. A layout is made of elements and those elements have properties that are set to values, including a programming utility called briks
 
 ## brikWork layouts in longer
 
-A layout file is an INI file with sections for the layout properties and the elements
+A layout file is an INI like file with sections for the layout properties and the elements
 ```none
 [layout]
 width = 2.5in

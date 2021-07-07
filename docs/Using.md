@@ -1,5 +1,5 @@
 # Using brikWork
-The birkWork command line app is currently the only way to use brikWork short of importing the engine from your own python application. In the future the engine will be usable from a vs code plugin, which will be the recommended way
+The birkWork command line app is currently the only way to use brikWork short of importing the engine from your own python application. In the future the engine will be usable from a vs code plugin or small Qt app, depending on interest
 
 Currently the command line app is only tested on Windows, with Linux coming down the line
 

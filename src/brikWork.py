@@ -31,8 +31,9 @@ try:
     painter.paint()
     assetTotal = len(painter.images)
     painter.save()
+    print(f'generated {assetTotal} assets in {layout.output}')
 except brikWorkError as e:
     print('an error occured while generating assets:')
     print(e.message)
 
-print(f'generated {assetTotal} assets in {layout.output}')
+x = input('press enter to exit ')
