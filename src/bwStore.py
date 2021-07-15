@@ -1,6 +1,6 @@
+import os
 import re
 from collections import ChainMap
-from types import SimpleNamespace
 from typing import Union, Callable, Collection
 from bwUtils import *
 
@@ -55,12 +55,14 @@ class BrikStore():
                 return brik.format(args=args)
             else:
                 if len(args) < brik[1]:
-                    raise brikWorkError(f"not enough arguments for '{name}' in '{context.source}'")
+                    raise bWError('not enough arguments for [{brik}| ]',
+                    elem=context.elem, prop=context.prop, brik=name
+                    )
                 return brik[0](context, *args)
         else:
             return ''
         
-    def parseBrikArg(self,ps) -> str:
+    def parseBrikArg(self, ps, context) -> str:
         argB = []
         brikStack = []
         char = ''
@@ -91,8 +93,8 @@ class BrikStore():
 
             ps.pos += 1
         
-        raise brikWorkError(errString.unclosedBrik.format(
-            **self.formatArgs(source=ps.string)))
+        raise UnclosedBrikError(context.elem, context.prop, ps.source)
+
 
     def evalBrik(self, ps) -> str:
         nameB = []
@@ -102,7 +104,9 @@ class BrikStore():
         context = Collection(
             store=self,
             parse=self.parse,
-            source=ps.string
+            source=ps.string,
+            prop = self.briks['propertyName'],
+            elem = self.briks['elementName']
         )
         while ps.pos < len(ps.string):
             char = ps.string[ps.pos]
@@ -114,7 +118,7 @@ class BrikStore():
                 
             elif char == '|':
                 ps.pos += 1
-                args.append(self.parseBrikArg(ps))
+                args.append(self.parseBrikArg(ps, context))
             
             elif char == ']':
                 return self.call(''.join(nameB).strip(), context, args)
@@ -124,8 +128,7 @@ class BrikStore():
 
             ps.pos += 1
 
-        raise brikWorkError(errString.unclosedBrik.format(
-            **self.formatArgs(source=ps.string)))
+        raise UnclosedBrikError(context.elem, context.prop, ps.string)
 
     def evalValue(self, string:str) -> str:
         ps = Collection()
@@ -185,8 +188,8 @@ def ifBrik(context, test, true, false='', *args):
     if test[0] == '?' :
         b = asBool(comparisonMacro(context, test[1:]))
     else:
-        b = asBool(context.parse(test), err=errString.invalidArg.format(
-            value=test, arg='TEST', brik='if'
+        b = asBool(context.parse(test), err=InvalidArgError(
+            context.elem, context.prop, 'if', 'TEST', test
         ))
     if b:
         return true
@@ -226,9 +229,9 @@ def boldBrik(context, string, *args):
 
 @BrikStore.addStdlib('dup', 2)
 def repeatBrik(context, times, value, *args):
-    times = context.parse(times)
-    times = asNum(times, err=errString.invalidArg.format(
-        value=times, arg='TIMES', brik='dup'
+    nTimes = context.parse(times)
+    times = asNum(times, err=InvalidArgError(
+        context.elem, context.prop, 'dup', 'TIMES', nTimes
     ))
     result = []
     newStore = context.store.copy()
@@ -262,11 +265,11 @@ def upperBrik(context, value, *args):
 @BrikStore.addStdlib('substring', 3)
 def subBrik(context, value, start, length, *args):
     value = context.parse(value)
-    start = asNum(context.parse(start), err=errString.invalidArg.format(
-        value=start, arg='START', brik='substring'
+    start = asNum(context.parse(start), err=InvalidArgError(
+        context.elem, context.prop, 'substring', 'START', start
     ))-1
-    length = asNum(context.parse(length), err=errString.invalidArg.format(
-        value=length, arg='LENGTH', brik='substring'
+    length = asNum(context.parse(length), err=InvalidArgError(
+        context.elem, context.prop, 'substring', 'LENGTH', length
     ))
     return value[start:start+length]
 
@@ -282,12 +285,14 @@ def comparisonMacro(context, value, *args):
     try:
         left, op, right = re.split(r'(==|!=|<=?|>=?)', nValue, maxsplit=1)
     except ValueError as e:
-        raise brikWorkError(f"A comparison could not be found in '{value}'")
-    left = asNum(left.strip(), err=errString.invalidArg.format(
-        value=left, arg='OPERAND', brik='?'
+        raise bWError("'{value}' does not contain a valid comparison",
+        prop=context.prop, elem=context.elem, value=value
+        )
+    left = asNum(left.strip(), err=InvalidArgError(
+        context.elem, context.prop, '?', 'OPERAND', left
     ))
-    right = asNum(right.strip(), err=errString.invalidArg.format(
-        value=right, arg='OPERAND', brik='?'
+    right = asNum(right.strip(), err=InvalidArgError(
+        context.elem, context.prop, '?', 'OPERAND', right
     ))
     op = op.strip()
     if op == '==':
@@ -303,45 +308,113 @@ def comparisonMacro(context, value, *args):
     elif op == '<=':
         final = left <= right
     else:
-        raise brikWorkError(f"A comparison could not be found in '{value}'")
+        raise bWError("'{value}' does not contain a valid comparison",
+        prop=context.prop, elem=context.elem, value=value
+        )
     if final:
         return 'true'
     else:
         return 'false'
 
-#@BrikStore.addStdlib('#', 1)
+@BrikStore.addStdlib('#', 1)
 def mathMacro(context, value, *args):
-    #I gotta propperly parse these, this sucks
-    tokens = [s.strip() for s in re.split(r'([-+*/%])', value)]
     
-    accum = 0
-    op = '+'
-    #true if were looking for an operand, false otherwise
+    value = context.parse(value)
+    ops = '+-*/%'
+
+    makeToken = lambda x: ''.join(x).strip()
+    tokens = []
+    token = []
+    for c in value:
+        if c == ' ':
+            tokens.append(makeToken(token))
+            token = []
+        elif c in ops:
+            tokens.append(makeToken(token))
+            tokens .append(c)
+            token = []
+
+        else:
+            token.append(c)
+    if len(token) > 0:
+        tokens.append(makeToken(token))
+
+    accum = None
+    op = None
+    newTokens = []
 
     for token in tokens:
-        
+        if token == '': continue
         currentToken = asNum(token)
         if currentToken is None:
-            if token in '-+*/%':
+            if token in '*/%':
                 op = token
+            elif token in '+-':
+                if accum is None:
+                    raise bWError("{op} in '{source}' is missing a left operand",
+                    elem=context.elem, prop=context.prop, source=value, op=token
+                    )    
+                newTokens.append(accum)
+                accum = None
+                newTokens.append(token)
+                op = None
             else:
-                raise brikWorkError(errString.invalidArg.format(
-                    value=token, arg='NUM or OPERATOR', brik='#'
-                ))
+                raise InvalidArgError(context.elem, context.prop, '#', 'OPERATION',token)
         else:
-            if op == '+':
-                accum += currentToken
-            elif op == '-':
-                accum -= currentToken
+            if op is None:
+                accum = currentToken
+            elif accum is None:
+                raise bWError("{op} in '{source}' is missing a left operand",
+                elem=context.elem, prop=context.prop, source=value, op=op
+                )
             elif op == '*':
                 accum *= currentToken
             elif op == '/':
                 accum /= currentToken
             elif op == '%':
                 accum %= currentToken
+
+
+    newTokens.append(accum)
+    accum = None
+    op = None
+
+    for token in newTokens:
+        #currentToken = asNum(token)
+        #if currentToken is None:
+        if type(token) not in (int, float):
+            op = token
+        else:
+            if op is None:
+                accum = token#currentToken
+            elif accum is None:
+                raise bWError("{op} in '{source}' is missing a left operand",
+                elem=context.elem, prop=context.prop, source=value, op=op
+                )
+            elif op == '+':
+                accum += token#currentToken
+            elif op == '-':
+                accum -= token#currentToken
+            else:
+                raise bWError("huh, not sure how you got here, anyway, {op} in '{source}' is not an operator",
+                elem=context.elem, prop=context.prop, source=value, op=op
+                )
+
     return str(int(accum))
 
-        
+def fileBrik(context, filename, *args):
+    name = context.parse(filename)
+    if not os.path.isfile(name):
+        raise InvalidArgError(context.elem, context.prop, 'file', 'FILENAME', filename)
+    try:
+        with open(name, encoding='utf-8') as file:
+            fileContents = file.read()
+    except OSError:
+        raise bWError("Could not open '{filename}'", elem=context.elem, prop=context.prop)
+    return fileContents
+
+    
+    
 
 
 #def brik(context, arg, *args):

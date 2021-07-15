@@ -1,45 +1,49 @@
-[layout]
-width = 675
-height = 1050
-name = test[assetIndex].png
-output = out/
-#data = test.csv
+layout:
+    width: 675
+    height: 1050
+    name: test[assetIndex].png
+    output: out/
+    #data: test.csv
+    #template: template.bwl
 
-[title]
-type = label
-x = center
-y = .25in
-width = 1.75in
-height = 2in
-text = [title]
-fontSize = 30
+title:
+    type: label
+    x: center
+    y: .25in
+    width: 1.75in
+    height: 2in
+    text: [title]
+    fontSize: 30
 
-[icon]
-type = image
-x = center
-y = 0.875in
-source = res/[img]
+icon:
+    type: image
+    x: center
+    y: 0.875in
+    source: res/[img]
 
-[body boarder]
-type = rect
-x = center
-y = 1.5in
-width = 1.75in
-height = 1.75in
-xRadius = 40
-yRadius = 80
+bodyBorder:
+    type: rect
+    x: center
+    y: 1.5in
+    width: 1.75in
+    height: 1.75in
+    xRadius: 40
+    yRadius: 80
 
-[body]
-type = label
-x = center
-y = 1.625in
-width = 1.5in
-height = 1.25in
-text = [body]
-fontFamily = Cormorant
+body:
+    type: label
+    x: center
+    y: 1.625in
+    width: 1.5in
+    height: 1.25in
+    text: [body]
+    fontFamily: Cormorant
 
-[data]
-title,, img, body
+#banjo:
+#    draw: off
+
+data:
+title, img, body
 Smile, smile.png, This face is smiling.
 Neutral, flat.png, This face is neither smiling nor frowning.
 Frown, frown.png, This face is frowning, [i|unfortunate].

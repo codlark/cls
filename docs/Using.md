@@ -15,6 +15,8 @@ The basic usage is to pass the layout file to the app
 ```
 You can do this on the command line like above, drag and drop the layout file onto brikWork.exe, or right click a layout file, select "Open With...", and select brikWork.exe
 
+
+
 ## layout files
 
 Layout files use the extension .bwl 

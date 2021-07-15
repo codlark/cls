@@ -1,6 +1,5 @@
 import os
 import re
-import csv
 import configparser
 from bwStore import BrikStore
 from dataclasses import dataclass, asdict, field
@@ -19,8 +18,8 @@ class Validation():
     validators = {}
 
     @classmethod
-    def addValidator(cls, name, func, msg=errString.invalidFor):
-        cls.validators[name] = (func, msg)
+    def addValidator(cls, name, func):
+        cls.validators[name] = func
         return name
 
     def __init__(self, layout:'Layout'):
@@ -34,11 +33,10 @@ class Validation():
             if type(value) == str:
                 return evalEscapes(value)
             #not actually sure what to do here?
-        func, msg = self.validators[name]
+        func = self.validators[name]
         newValue = func(value)
         if newValue is None:
-            raise brikWorkError(msg.format(
-                name=name, value=value, element=element))
+            raise InvalidValueError(element, name, value)
         elif type(newValue) == str:
             #do I want this here or generate?
             return evalEscapes(newValue)
@@ -52,6 +50,7 @@ prop = Validation.addValidator
 @dataclass
 class Element():
     name:str = ''
+    draw:prop('draw', asBool) = 'true'
     x:prop('x', asNum) = '0'
     y:prop('y', asNum) = '0'
     width:prop('width', asNum) = '50'
@@ -144,8 +143,12 @@ class TextElement(Element):
         # - should I allow pt and px? (extra validation)
         
 
+imageCache = {}
 def validateImage(value):
-    return QImage(value)
+    if value not in imageCache:
+        imageCache[value] = QImage(value)
+    return imageCache[value]
+        
 
 @dataclass
 class ImageElement(Element):
@@ -245,6 +248,7 @@ class LineElement(ShapeElement):
     
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
+        ShapeElement.readyPainter(elem, painter)
         painter.resetTransform()
         painter.drawLine(elem.x, elem.y, elem.x2, elem.y2)
 
@@ -263,6 +267,7 @@ class Layout():
     output:str = ''
     data:str = None
     elements:list = field(default_factory=list)
+    template:str = ''
 
     def addElement(self, element:Element):
         self.elements.append(element)
@@ -283,12 +288,16 @@ class AssetPainter():
             if not os.path.isfile(self.layout.output):
                 os.mkdir(self.layout.output)
             else:
-                raise brikWorkError(f'{self.layout.output} exists and is not a directory')
+                raise bWError("'{dir}' exists and is not a directory",
+                origin="output in section layout", dir=self.layout.output
+                )
 
 
     def paintElement(self, template:Element, painter:QPainter):
         '''Paint a given element'''
         elem = Element.generate(template, self.validator)
+        if not elem.draw:
+            return
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
@@ -388,56 +397,103 @@ def parseData(rows:str):
 
     return newData
 
-def parseLayout(string:str):
 
-    halves = re.split(r'\n\s*\[ *data *\]\s*\n', string, maxsplit=1)
+
+def parseLayout(string:str, filename):
+
+    halves = re.split(r'\n\s*data\s*:\s*\n', string, maxsplit=1)
     script = halves[0]
     if len(halves) == 1:
         rows = None
     else:
         rows = halves[1]
 
-    parser = configparser.ConfigParser(allow_no_value=False, delimiters='=', 
+    parser = configparser.ConfigParser(allow_no_value=False, delimiters=':', 
         comment_prefixes='#', empty_lines_in_values=False, default_section="~~don't use~~",
         interpolation=None)
+    #this prevents case folding on options
     parser.optionxform = lambda option: option
     #below re was copied from the docs
-    parser.SECTCRE = re.compile(r"\[ *(?P<header>[^]]+?) *\]")
+    parser.SECTCRE = re.compile(r"^ *(?P<header>[^:]+?) *: *$")
+    #parser.SECTCRE = re.compile(r"\[ *(?P<header>[^]]+?) *\]")
     layout = Layout()
-    #parser.read_dict(dict(layout= asdict(layout)))
     try:
-    #I should pass in the name of the layout file
         parser.read_string(script)
     
     except configparser.MissingSectionHeaderError as e:
-        raise brikWorkError('This file has no sections')
+        raise bWError('layout is missing a section header', layout=filename)
     except configparser.DuplicateSectionError as e:
-        raise brikWorkError(f'The element name \'{e.section}\' is used a second time')
+        raise bWError("element name '{name}' is used twice",
+        name=e.section, layout=filename
+        )
     except configparser.DuplicateOptionError as e:
-        raise brikWorkError(f'The element name \'{e.section}\' uses the property \'{e.option}\' a second time')
+        raise bWError("property '{prop}' is given twice",
+        prop=e.option, elem=e.section
+        )
     except configparser.ParsingError as e:
         err = e.errors[0]
         #raise brikWorkError(f'Syntax error on line {err[0]}: {err[1]}')
-        raise brikWorkError(f"'{err[1]}' contains a syntax error")
+        #raise brikWorkError(f"'{err[1]}' contains a syntax error")
+        raise bWError("'{line}' contains a syntax error",
+        layout=filename, line=err[1][1:-1]
+        )
     except configparser.Error as e:
-        raise brikWorkError('An arbitrary error as occured while parsing your layout file, please alert the devs.')
+        raise bWError('An arbitrary error as occured while parsing your layout file, please alert the devs.')
+
+    #if 'template' in parser['layout']:
+    if parser.has_option('layout', 'template'):
+        try:
+            with open(parser['layout']['template'], encoding='utf-8') as file:
+                templateString = file.read()
+        except OSError:
+            raise bWError("could not open template file '{filename}'",
+            file=filename, filename=parser['layout']['template'])
+        newParser, newRows = parseLayout(templateString, parser['layout']['template'])
+        
+        newParser.read_dict(parser)
+        parser = newParser
+        if rows is None:
+            print(rows)
+            rows = newRows
+    
+    if parser.has_option('layout', 'data'):
+        dataFile = parser['layout']['data']
+        #we have to delete it to ensure proper precedence wrt templates
+        del parser['layout']['data']
+        if os.path.isfile(dataFile):
+            try:
+                with open(dataFile, encoding='utf-8') as file:
+                    rows = file.read()
+            except OSError:
+                raise bWError("could not open data file '{filename}'",
+                file=filename, filename=dataFile
+                )
+            dataFile = parseData(rows)
+        else:
+            raise bWError("'{file}' is not a usable data file",
+            layout=filename, file=dataFile)
+
+    return parser, rows
+
+def buildLayout(string:str, filename):
+
+    parser, rows = parseLayout(string, filename)
 
     try:
         layout = Layout(**parser['layout'])
     except TypeError as e:
         prop = e.args[0].split()[-1][1:-1]
-        raise brikWorkError(errString.invalidProp.format(name=prop, element='layout'))
+        raise bWError("{prop} is not a valid layout property", 
+        layout=filename, prop=prop
+        )
 
-    
-    width = asNum(layout.width, err=errString.invalidFor.format(
-        value=layout.width, name='width', element='layout'))
+    width = asNum(layout.width, err=bWError("'{value}' is not a valid width",
+        layout=filename, value=layout.width))
     layout.width = width
     
-    height = asNum(layout.height, err=errString.invalidFor.format(
-        value=layout.height, name='height', element='layout'))
+    height = asNum(layout.height, err=bWError("'{value}' is not a valid height",
+        layout=filename, value=layout.height))
     layout.height = height
-    
-
 
     for name, section in parser.items():
         
@@ -458,7 +514,9 @@ def parseLayout(string:str):
         else:
             type = section.pop('type', None)
             if type is None:
-                raise brikWorkError(f"element '{name}' lacks a type")
+                #I think after the rework this won't be an error
+                raise bWError("this element lacks a type", elem=name)
+
             copy = {}
             for prop,value in section.items():
                 copy[re.sub(' ', '_', prop)] = value
@@ -466,27 +524,17 @@ def parseLayout(string:str):
             try:
                 element = elemConstuctors[type](**copy)
             except KeyError as e:
-                raise brikWorkError(errString.invalidName.format(
-                    value=type, name='type'))
+                raise bWError("'{type}' is not a valid type",
+                type=type, elem=name
+                )
             except TypeError as e:
                 prop = e.args[0].split()[-1][1:-1]
-                raise brikWorkError(errString.invalidProp.format(
-                    name=prop, element=type
-                ))
+                raise InvalidPropError(name, prop)
             element.name = name
             layout.addElement(element)
     
     
-    if layout.data is not None:
-        if os.path.isfile(layout.data):
-            with open(layout.data) as file:
-                rows = file.read()
-            layout.data = parseData(rows)
-        else:
-            raise brikWorkError(errString.validFor.format(
-                value=layout.data, name='data', element='layout'
-            ))
-    elif rows is not None:
+    if rows is not None:
         layout.data = parseData(rows)
     
     if '[' not in layout.name and layout.data is not None:

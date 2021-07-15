@@ -1,0 +1,36 @@
+layout:
+    template: indexes.bwl
+
+names:
+    rank: [substring| [royal]| 1| 1]
+    #grab the first character of [royal]
+
+upperArt:
+    type: image
+    x: .5in
+    y: .5in
+    source: images/[color][royal].png
+
+#okay, these are chess pieces, and the jack is the knight, but I already had these
+
+lowerArt:
+    type: image
+    x: 1.5in
+    y: 2in
+    source: images/[color][royal].png
+    rotation: 180
+
+data:
+suit, color, royal
+spade, black, Jack
+spade, black, Queen
+spade, black, King
+heart, red, Jack
+heart, red, Queen
+heart, red, King
+club, black, Jack
+club, black, Queen
+club, black, King
+diamond, red, Jack
+diamond, red, Queen
+diamond, red, King

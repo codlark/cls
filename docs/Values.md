@@ -8,7 +8,7 @@ Most numbers used in brikWork are locations and sizes, like `x` and `width`. The
 Lastly some properties use numbers in different units, these will be spelled out in their entry on [Layout and Elements](../Layout-and-Elements/).
 
 ## True/False values
-
+<!-- rename this to toggle value???-->
 Some properties merely need to know if you want them on or off, such as `underline`. This is done with true/false values. Indicated with `T/F` on "Layout and Elements":../Layout-and-Elements , these values are fairly flexible. A true value is one of `true`, `yes`, and `on` while a false value is one of `false`, `no`, `off`, `0`, or an empty string. They all evaluate the same in the end, so use whichever feels more readable. In a future update the user will be able to add more true/false values
 
 ## Colors
@@ -21,4 +21,4 @@ A string is any value or other piece of text that isn't one of the above values 
 
 ## File Paths
 
-The `output` and `data` properties of the `[layout]` section and the `source` property of images use file paths. Due to backslash being the escape character, use a forward slash `/` as the path separator even on Windows, they will be properly converted. Paths are considered relative to the location of the layout file as long as they don't begin with a slash, otherwise they will be considered as being at the root of the file system, C:\ on Windows. When in doubt there's nothing wrong with using the full file path
+The `output`, `data`, and `template` properties of the `layout` section and the `source` property of images use file paths. Due to backslash being the escape character, use a forward slash `/` as the path separator even on Windows, they will be properly converted. Paths are considered relative to the location of the layout file as long as they don't begin with a slash, otherwise they will be considered as being at the root of the file system, C:\ on Windows. When in doubt there's nothing wrong with using the full file path. Folders should end with a slash, like the `out/` in the example

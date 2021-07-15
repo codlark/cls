@@ -4,10 +4,53 @@ from types import SimpleNamespace
 from typing import *
 
 
-class brikWorkError(Exception):
-    def __init__(self, msg):
-        self.message = msg
-        super().__init__()
+class bWError(Exception):
+
+    def __init__(self, msg, /, **kwargs):
+        if 'origin' in kwargs:
+            self.msg = "{origin}:\n\t"+msg
+        elif 'layout' in kwargs:
+            self.msg = "layout '{layout}':\n\t"+msg
+        elif 'file' in kwargs:
+            self.msg = "file '{file}':\n\t"+msg
+        elif 'prop' in kwargs:
+            self.msg = "property '{prop}' in element '{elem}:'\n\t"+msg
+        elif 'elem' in kwargs:
+            self.msg = "element '{elem}':\n\t"+msg
+        else:
+            self.msg = "unknown error source:\n\t"+msg
+        self.kwargs = kwargs
+
+
+    @property
+    def message(self):
+        return self.msg.format(**self.kwargs)
+
+# I actually want to make this not even an error, it just gets ignored
+class InvalidPropError(bWError):
+    def __init__(self, elem, prop):
+        super().__init__("'{prop}' is not a valid property for this element", 
+        elem=elem, prop=prop
+        )
+    
+class InvalidValueError(bWError):
+    def __init__(self, elem, prop, value):
+        super().__init__("'{value}' is not a valid value for this property",
+        elem=elem, prop=prop, value=value
+        )
+
+class InvalidArgError(bWError):
+    def __init__(self, elem, prop, brik, arg, value):
+        super().__init__("'{value}' is not a valid {arg} argument for brik [{brik}| ]",
+        elem=elem, prop=prop, brik=brik, arg=arg, value=value
+        )
+
+class UnclosedBrikError(bWError):
+    def __init__(self, elem, prop, source):
+        super().__init__("'{source}' has an unclosed brik",
+        elem=elem, prop=prop, source=source
+        )
+        
 
 class Collection(SimpleNamespace):
     '''Used to hold generated elements'''
@@ -16,34 +59,24 @@ class Collection(SimpleNamespace):
     def _get(self, name:str) -> Any:
         return self.__dict__[name]
     
-#in the future this may be better as subclasses or brikWorkError
-errString = Collection()
-errString.invalid = "'{value}' is not a valid value"
-errString.invalidName = "'{value}' is not a valid {name} value"
-errString.invalidFor = "'{value}' is not a valid {name} value for {element}"
-errString.invalidProp = "'{name}' is not a valid property for {element}"
-errString.invalidArg = "'{value}' is not a valid {arg} agument for [{brik}| ]"
-errString.unclosedBrik = "unclosed brik in {source} from {prop} of {element}"
 
-def asNum(string:str, *, err:Union[bool, str] = False) -> Union[int, Literal[None]]:
+def asNum(string:str, *, err:Union[bool, bWError] = False) -> Union[int, Literal[None]]:
     if re.match(r'^-?\d+$', string):
         return int(string)
     elif re.match(r'^\d*(\.\d+)? *in$', string):
         #FIXME this uses a hardcoded dpi
-        return int(float(string[:-2])*300)
+        #I'll need to get context in here somehow lol
+        return int(float(string[:-2].strip())*300)
     else:
         if err:
-            if type(err) == str:
-                raise brikWorkError(err)
-            else:
-                raise brikWorkError(f"'{string}' is not a valid number")
+            raise err
         else:
             return None
 
 trues = 'yes on true'.split()
 falses = 'no off false 0'.split()
 falses.extend((0, ''))
-def asBool(string:str, err:Union[bool, str] = False) -> Union[bool, Literal[None]]:
+def asBool(string:str, err:Union[bool, bWError] = False) -> Union[bool, Literal[None]]:
     '''returns either a bool or None'''
     folded = string.lower()
     if folded in trues:
@@ -52,10 +85,7 @@ def asBool(string:str, err:Union[bool, str] = False) -> Union[bool, Literal[None
         return False
     else:
         if err:
-            if type(err) == str:
-                raise brikWorkError(err)
-            else:
-                raise brikWorkError(f"'{string}' is not a valid true/false value")
+            raise err
         else:
             return None
 
@@ -73,7 +103,6 @@ def evalEscapes(string:str) -> str:
 
 
 def parseCSV(string:str):
-    #TODO do comments
     lines = string.strip().split('\n')
 
     cleanLines = []
@@ -120,5 +149,8 @@ def parseCSV(string:str):
                 c += 1
 
         record.append(line[c+1:].strip())
-        sheet.append(dict(zip(headers, record)))
+        if numHeaders > 1:
+            sheet.append(dict(zip(headers, record)))
+        else:
+            sheet.append({headers[0]: line.strip()})
     return sheet

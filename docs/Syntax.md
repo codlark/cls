@@ -2,46 +2,45 @@
 brikWork technically uses 3 different parsers at different points of generating assets, each with it's own quirks. For reference, we'll be looking at the werewolf.bwl example included with brikWork
 
 ```
-[layout]
-width = 2.5in
-height = 3.5in
-name = [role][repeatIndex].png
-output = out/
+layout:
+    width: 2.5in
+    height: 3.5in
+    name: [role][repeatIndex].png
+    output: out/
 
-[names]
-bloodRed = #a32b1d
-#maybe a little dark, but readability is important
+names:
+    bloodRed: #a32b1d
+    #maybe a little dark, but readability is important
 
-[titleBoarder]
-type = rect
-x = center
-y = .5in
-width = 1.5in
-height = .25in
-lineWidth = 
-xRadius = .125in
-yRadius = .125in
+titleBorder:
+    type: rect
+    x: center
+    y: .5in
+    width: 1.5in
+    height: .25in
+    lineWidth: 6
+    xRadius: .125in
+    yRadius: .125in
 
+title:
+    type: label
+    x: center
+    y: .5in
+    width: 1.5in
+    height: .25in
+    text: [capitalize| [role] ]
+    color: [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
+    alignment: center middle
+    fontSize: 36
+    fontFamily: Palatino Linotype
 
-[title]
-type = label
-x = center
-y = .5in
-width = 1.5in
-height = .25in
-text = [capitalize| [role] ]
-color = [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
-alignment = center middle
-fontSize = 36
-fontFamily = Palatino Linotype
+icon:
+    type: image
+    x: center
+    y: 1in
+    source: images/[role].png
 
-[icon]
-type = image
-x = center
-y = 1in
-source = images/[role].png
-
-[data]
+data:
 repeat, role
 2, werewolf
 4, villager
@@ -50,17 +49,17 @@ repeat, role
 
 ## Layout File Parser
 
-The basic structure of the layout file is of a series of sections, each started by a header. Sections include `[layout]`, `[names]`, `[data]` and element sections. Headers are square brackets with a name in between. Element sections must have unique names. The `[layout]`, `[names]`, and `[data]` sections must have those specific names
+The basic structure of the layout file is of a series of sections, each started by a header. Sections include `layout`, `names`, `data` and element sections. Headers are a name followed by a colon and a newline. Element sections must have unique names. The `layout`, `names`, and `data` names are reserved for those sections
 
-Inside `[layout]` and element sections are property definitions. Properties configure the layout when in `[layout]` or an element when in an element section. A property definition consists of a property and a value separated by an equals sign. For a full list of properties see [Layout and Elements](../Layout-and-Elements/) and for a look at values see [Values](../Values/)
+Inside `layout` and element sections are property definitions. Properties configure the layout when in `layout` or an element when in an element section. A property definition consists of a property and a value separated by a colon. Property definitions must be indented. For a full list of properties see [Layout and Elements](../Layout-and-Elements/) and for a look at values see [Values](../Values/)
 
-### `[names]` section
+### `names` section
 
-The `[names]` section allows you to define user [briks](#brik-syntax). Note how the name in the example looks like a property definition. These are useful for values that will be seen repeatedly such as colors or icons for labels. Names for user briks should not include special characters, spaces are okay. There is no guarantee that some other part of brikWork won't see them as something else
+The `names` section allows you to define user [briks](#brik-syntax). Note how the name in the example looks like a property definition. These are useful for values that will be seen repeatedly such as colors or icons for labels. Names for user briks should not include special characters, spaces are okay, as here is no guarantee that some other part of brikWork won't see a special character as something else
 
-### `[data]` section
+### `data` section
 
-The `[data]` section holds the rows of data that end up in your assets. Data is in the form of comma separated values, or CSV. The first row is the header, which is used as a [brik](#brik-syntax) to insert it into your asset. The `[data]` section must be the last section in the file
+The `data` section holds the rows of data that end up in your assets. Data is in the form of comma separated values, or CSV. The first row is the header, which is used as a [brik](#brik-syntax) to insert it into your asset. The `data` section must be the last section in the file
 
 ### Whitespace
 
@@ -68,7 +67,7 @@ In layout definition files newlines separate property definitions, making it an 
 
 ### Comments
 
-A comment is a line that has a pound sign, `#`, for its first character. Everything after the pound sign is ignored, including property definitions. Comments are also available in data
+A comment is a line that has a pound sign, `#`, for its first character after any indent. Everything after the pound sign is ignored, including property definitions. Comments are also available in data
 
 ## Brik Syntax
 
@@ -89,9 +88,9 @@ Anything else has it's back slash removed and put into the final value. Because 
 
 ## CSV Syntax
 
-brikWork uses comma seperated values for data. Like with properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. The parser keeps track of how many names are seen in the first row as well as how many columns it's seen on the current row, if the parser knows it's on the last column of a row it will ignore any more commas
+brikWork uses comma seperated values for data. Like with properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. The parser keeps track of how many names are seen in the first row as well as how many columns it's seen on the current row, if the parser knows it's on the last column of a row it will ignore any more commas. Data does not need to be indented
 
-A layout file does not need any data. If both the `data` property is blank and the `[data]` section is not used, only one asset will be generated, and no column blocks will be available. Data is also considered blank if there are fewer than two lines
+A layout file does not need any data. If both the `data` property is blank and the `data` section is not used, only one asset will be generated, and no column blocks will be available. Data is also considered blank if there are fewer than two lines
 
 A column with the name `repeat` acts as a special column. When a row's repeat value is more than one, multiple assets are generated from that row, each evaluated on their own, each counted as their own asset. A repeat column is not required
 

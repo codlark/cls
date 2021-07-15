@@ -16,7 +16,9 @@ nav:
     - ./Layout-and-Elements.md
     - ./Values.md
     - ./Briks.md
+    - ./Templates.md
   - ./Glossary.md
+  - ./changelog.md
   - 'Home Page': 'https://codlark.itch.io/brikwork'
 
 theme:

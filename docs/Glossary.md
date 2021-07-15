@@ -35,6 +35,6 @@ Property
 :   A changeable feature of a layout or element, for example `width` or `rotation`
 
 Value
-:   The assigned contents of a property. In `width = 1in` the `1in` is a value
+:   The assigned contents of a property. In `width: 1in` the `1in` is a value
 :   The term value is also used when referring to the data, where it refers to the specific values available as column briks
  

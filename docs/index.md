@@ -24,29 +24,29 @@ Future features
 
 ## brikWork layouts in brief
 
-A layout file is an INI like file with an optional section of CSV data at the end that gets turned into a set of assets. Data from the CSV data is available to the layout to generate distinct assets. A layout is made of elements and those elements have properties that are set to values, including a programming utility called briks
+A layout file is a simple text file with an optional section of CSV data at the end that gets turned into a set of assets. Data from the CSV data is available to the layout to generate distinct assets. A layout is made of elements and those elements have properties that are set to values, including a programming utility called briks
 
 ## brikWork layouts in longer
 
-A layout file is an INI like file with sections for the layout properties and the elements
+A layout file is a simple text file with sections for the layout properties and the elements
 ```none
-[layout]
-width = 2.5in
-height = 3.5in
+layout:
+    width: 2.5in
+    height: 3.5in
 
-[title]
-text = This is a [capitalize| [title] ] card!
-x = center
-y = 1in
+title:
+    text: This is a [capitalize| [title] ] card!
+    x: center
+    y: 1in
 
-[image]
-source = [image]
-x = center
-y = center
+image:
+    source: [image]
+    x: center
+    y: center
 ```
 Layout files can also have CSV style data at the bottom
 ```
-[data]
+data:
 image, title
 ./images/smile.png, smiley face
 ```
@@ -59,7 +59,6 @@ For more in depth information check out any of the pages in the nav bar. If you 
 ## Conventions used in this guide
 
 * Any text meant to be text the user enters in a layout file will have `code styling` this includes numbers like `0` and text like `this`
-* Section headers are always presented with their square brackets like `[layout]`
 * Briks are always presented with their square brackets, and functions with their first vertical bar like `[rowIndex]` and `[if| ]`
 * Property values and function brik arguments are presented in ALL CAPS when being defined like `[lower| STRING ]`
 

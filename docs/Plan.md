@@ -2,11 +2,12 @@
 
 *note* to build, run `python setup.py build`
 
-release
- - finish the example
+version 3
+ - element rework
+ - - defaults, templates, etc
+ - 
 
 long term 
- - better errors, pass along the original porperty name and value to parse for errors
  - vs code plugin
  - gui interface
  - fractions for inches
@@ -20,7 +21,6 @@ long term
  - `[=| NAME | VALUE ]` - change the value of the element's propery
  - `[assetName]` ???
  - `[print| STRING]` prints a string to the console
- - `[file| NAME ]` loads in the named file and returns the text
  - mm sizes
  - `[asset| prop]` inspect the current asset? maybe just get the unevaluated value
  
@@ -33,24 +33,18 @@ long term
  - look at different back ends, but it's hard to find one that supports both images in strings *and* selecting open type features
  - css style shortcut properties, like `radius = 5` to set both radii on rect
  - imagebox element type that allow the more accurate positioning of variably sized images
-
+ - texture element type that allows you yo specify a specific area of the images to draw
+ 
+ - make it possible to change the defalut properties, like
+ ```[defaults]
+ fontFamily = Grenze
+ ```
+ - - thinking about this I might just re-write the element class and systems to use a chain map? Put this element templates, and parents in one update
+ - parent elements, like a element template but the x and y get added to the parent
+ - - element class idea, get rid of dif element classes, just a single class with all the prop validators registered separate, and the drawing funcs stored in a dict
 
 1.0
-rewrite  config parsers for more control
-
-This brik needs to be re written 
-`[#| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed proper order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic
-Accepted operators are
-
- * `+` - addition
- * `-` - subtraction
- * `*` - multiplication
- * `/` - division
- * `%` - modulus, the remainder of division
-
-Division has a specific property. If the result features a decimal portion it will propagate to the other operators, but will be removed before the brik returns.
-```none
-[#| [assetIndex] / [assetCount]  * 100]
-```
-This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61"
+ - rewrite  config parsers for more control
+ - image magick element types, for pango and drop shadows
+ - plugin support?
+ - cache image files to reduce hits to the file system

@@ -2,7 +2,6 @@
 
 '''
 
-import sys
 from cx_Freeze import executable, setup, Executable
 
 build_options = dict(excludes=[
@@ -20,7 +19,7 @@ build_options = dict(excludes=[
 
 setup(
     name='brikWork',
-    version='0.1',
+    version='0.2',
     description='brikWork command line app',
     options = dict(build_exe=build_options),
     executables=[Executable("brikWork.py", icon="../logo.ico")]

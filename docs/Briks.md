@@ -7,7 +7,7 @@ Briks are the main programming utility in brikWork. They come in 3 main types
 
 ## Variable Briks
 
-The variable briks you'll most likely see are column briks, briks that are filled in by the engine based on the current data rows, and user briks, the briks defined in the `[names]` section. Here are some others
+The variable briks you'll most likely see are column briks, briks that are filled in by the engine based on the current data rows, and user briks, the briks defined in the `names` section. Here are some others
 
 `[]` - the empty brik
 This brik intentionally left blank. Use this brik when you don't want to fill in a value or argument and want to make it clear that the blank space is intentional
@@ -54,6 +54,8 @@ Select a sub string of `STRING`, starting at `START` for `LENGTH`. The first cha
 `[upper| STRING]`
 Convert the entirety of `STRING` to uppercase
 
+`[file| FILENAME]`
+Open the file `FILENAME` and return the text
 
 ### Comparison Functions
 
@@ -74,7 +76,7 @@ Test if `LEFT` and `RIGHT` are not equal. The arguments can be any type of value
 
 ## Macro Briks
 
-Macro briks do more processing on their argument. There are currently only 2
+Macro briks do more processing on their argument
 
 `[?| VALUE ]` - the comparison brik
 The comparison brik performs numeric comparison. `VALUE` is evaluated for a single comparison operator with either side being the operands, if either operand is not a number parsing will stop with an error. Inches will be converted to pixels before comparison
@@ -99,3 +101,19 @@ The expansion brik processes escapes and expands them. Normally this is the last
 [/| \[ [someBrik] \] ]
 ```
 Because values are evaluated until there are no more briks, this would end up evaluating a brik with the name of whatever is in `[someBrik]`
+
+`[#| VALUE ]` - the math brik
+The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic
+Accepted operators are
+
+ * `+` - addition
+ * `-` - subtraction
+ * `*` - multiplication
+ * `/` - division
+ * `%` - modulus, the remainder of division
+
+Division has a specific property. If the result features a decimal portion it will propagate to the other operators, but will be removed before the brik returns.
+```none
+[#| [assetIndex] / [assetTotal] * 100]
+```
+This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61"

@@ -118,3 +118,5 @@ dmypy.json
 # the below are prject specific
 release/
 src/test/
+src/test/test.bwl
+src\test

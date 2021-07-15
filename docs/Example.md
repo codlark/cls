@@ -5,84 +5,84 @@ In this file we'll walk thru the example layout provided with brikWork called `w
 ## The Layout File
 Let's look at the layout file one section at a time
 
-### `[layout]` section
+### `layout` section
 
-    [layout]
-    width = 2.5in
-    height = 3.5in
+    layout:
+        width: 2.5in
+        height: 3.5in
 The size of the asset, in this case the size of a standard US poker card
 
-    name = [role][repeatIndex].png
+        name: [role][repeatIndex].png
 The name of the asset, `[role]` is pulled from the data, and `[repeatIndex]` is a builtin brik the returns the number of times the current row has been repeated, starting with one
 
-    output = out/
+        output: out/
 The folder we want the assets put into. All file paths are relative to the layout file, so in this case a folder called "out" in the same place as the layout file
 
-### `[names]` section
+### `names` section
 
-    [names]
-    bloodRed = #a32b1d
-    #maybe a little dark, but readability is important
-A custom color name, as a hex code, we use this later as a brik. Also a comment ot remark on the color
+    names:
+        bloodRed: #a32b1d
+        #maybe a little dark, but readability is important
+A custom color name, as a hex code, we use this later as a brik. Also a comment to remark on the color
 
-### `[titleBorder]` element
+### `titleBorder` element
 
-    [titleBorder]
+    titleBorder:
 A unique name for the element
     
-    type = rect
+        type: rect
 The type of this element. This is the only required property for elements and it's recomended to put it first
 
-    x = center
-    y = .5in
+        x: center
+        y:  .5in
 The location of the element. This element is centerd left-to-right
 
-    width = 1.5in
-    height = .25in
+        width: 1.5in
+        height: .25in
 The size of the element
 
-    lineWidth = 6
+        lineWidth: 6
 The line to draw the shape with in pixels
 
-    xRadius = .125in
-    yRadius = .125in
+        xRadius: .125in
+        yRadius: .125in
 The rounding of the corners
 
-### `[title]` element
+### `title` element
 
-    [title]
-    type = label
-    x = center
-    y = .5in
-    width = 1.5in
-    height = .25in
+    title:
+        type: label
+        x: center
+        y: .5in
+        width: 1.5in
+        height: .25in
 There's nothing too different from the element above. Note that the size and location is the same as its border
 
-    text = [capitalize| [role] ]
+        text: [capitalize| [role] ]
 The text we want in the label. Here we want a capitalized version of whatever is in the role column of the data this row
 
-    color = [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
-The color of the text, if this is a werewolf row we want the color to be the color we defined in the `[names]` section defined earlier, otherwise we want black
+        color: [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
+The color of the text, if this is a werewolf row we want the color to be the color we defined in the `names` section defined earlier, otherwise we want black
 
-    alignment = center middle
+        alignment: center middle
 The text alignment. Because we made the label and border the same size, we put the text right in the center to give some room around the border
 
-    fontSize = 36
-    fontFamily = Palatino Lintotype
+        fontSize: 36
+        fontFamily: Palatino Lintotype
 Font settings, Palatino Linotype at 36 pt
 
-### `[icon]` element
+### `icon` element
 
-    [icon]
-    type = image
-    x = center
-    y = 1in
-    source = images/[role].png
+    icon:
+        type: image
+        x: center
+        y: 1in
+        source: images/[role].png
 The image file is specified with a brik, otherwise not much to see here
 
-### `[data]` section
+### `data` section
 
-    [data]
+    data:
     repeat, role
     2, werewolf
     4, villager
@@ -98,11 +98,7 @@ Alternatively, layout files can be dragged and dropped on to brikWork.exe.
 ## Output
 After running brikWork the generated assets will be in the location specified by the `output` property of the layout section with names as defined by the `name` property of the layout section. In this case the "out" folder with names like "werewolf2.png" and "seer1.png". Lets look at what these cards look like
 
-![Villager role card](img/villager1.png)
-___
-![Seer role card](img/seer1.png)
-___
-![Werewolf role card](img/werewolf1.png)
+<img src="../img/villager1.png" width=338 height=525 /><img src="../img/seer1.png" width=338 height=525 /><img src="../img/werewolf1.png" width=338 height=525 />
 ___
 
 Now you're ready to make your own layouts and generate your own assets, look at [Syntax](Syntax.md) for more about how the layout files are parsed, or [Layout and Elements](Layout-and-Elements.md) for more about what properties are available
