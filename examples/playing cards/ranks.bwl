@@ -1,9 +1,9 @@
-layout:
+layout {
     template: indexes.bwl
-
-names:
-    rank: [#| [repeatIndex] + 1]
-
+}
+briks {
+    rank = [#| [repeatIndex] + 1]
+}
 #pips are named for their position in a grid
 # .5  1.05 1.6
 # .83
@@ -13,135 +13,136 @@ names:
 #2.19
 #2.52
 
-pip11:
+pip11 {
     type: image
     x: .5in
     y:  .5in
     source: images/[suit].png
     draw: [in| [rank]| 8| 9| 10]
-
-pip31:
+}
+pip31 {
     type: image
     x: 1.6in
     y:  .5in
     source: images/[suit].png
     draw: [in| [rank]| 8| 9| 10]
-
-pip12:
+}
+pip12 {
     type: image
     x: .5in
     y:  .83in
     source: images/[suit].png
     draw: [in| [rank]| 4| 5| 6]
-
-pip22:
+}
+pip22 {
     type: image
     x: 1.05in
     y:  .83in
     source: images/[suit].png
     draw: [in| [rank]| 2| 3| 7| 10]
-
-pip32:
+}
+pip32 {
     type: image
     x: 1.6in
     y:  .83in
     source: images/[suit].png
     draw: [in| [rank]| 4| 5| 6]
-
-pip13:
+}
+pip13 {
     type: image
     x: .5in
     y: 1.17in
     source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
-
-pip33:
+}
+pip33 {
     type: image
     x: 1.6in
     y: 1.17in
     source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
-
-pip14:
+}
+pip14 {
     type: image
     x: .5in
     y: 1.51in
     source: images/[suit].png
     draw: [in| [rank]| 6]
-
-pip24:
+}
+pip24 {
     type: image
     x: 1.05in
     y: 1.51in
     source: images/[suit].png
     draw: [in| [rank]| 3| 5| 7| 9]
-
-pip34:
+}
+pip34 {
     type: image
     x: 1.6in
     y: 1.51in
     source: images/[suit].png
     draw: [in| [rank]| 6]
-
-pip15:
+}
+pip15 {
     type: image
     x: .5in
     y: 1.84in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
-
-pip35:
+}
+pip35 {
     type: image
     x: 1.6in
     y: 1.84in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
-
-pip16:
+}
+pip16 {
     type: image
     x: .5in
     y: 2.19in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 4| 5| 6]
-
-pip26:
+}
+pip26 {
     type: image
     x: 1.05in
     y: 2.19in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 2| 3| 7| 10]
-
-pip36:
+}
+pip36 {
     type: image
     x: 1.6in
     y: 2.19in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 4| 5| 6]
-
-pip17:
+}
+pip17 {
     type: image
     x: .5in
     y: 2.52in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 8| 9| 10]
-
-pip37:
+}
+pip37 {
     type: image
     x: 1.6in
     y: 2.52in
     rotation: 180
     source: images/[suit].png
     draw: [in| [rank]| 8| 9| 10]
-
-data:
+}
+data {
 repeat, suit
 9, spade
 9, heart
 9, club
 9, diamond
+}

@@ -26,8 +26,6 @@ class Validation():
         self.layout = layout
         self.store = BrikStore()
     
-
-    
     def validate(self, name, value, element=''):
         if name not in self.validators:
             if type(value) == str:
@@ -43,49 +41,9 @@ class Validation():
         else:
             return newValue
 
-
-prop = Validation.addValidator
-
-
-@dataclass
-class Element():
-    name:str = ''
-    draw:prop('draw', asBool) = 'true'
-    x:prop('x', asNum) = '0'
-    y:prop('y', asNum) = '0'
-    width:prop('width', asNum) = '50'
-    height:prop('height', asNum) = '50'
-    rotation:prop('rotation', asNum) = '0'
-
-    #the below are the result of implementation
-    type:str = ''
-
-
-    @staticmethod
-    def generate(template:'Element', validator:Validation):
-        elem =  Collection()
-        new_val = None
-        centerRe = r'center'
-        validator.store.add('elementName', template.name)
-        for prop, value in asdict(template).items():
-            if prop in ['x', 'y']:
-                if re.match(centerRe, value.lower()):
-                    continue
-            validator.store.add('propertyName', prop)
-            parsed = validator.store.parse(value)
-            new_val = validator.validate(prop, parsed, template.name)
-            elem._set(prop, new_val)
-        if hasattr(template, 'postGenerate'):
-            template.postGenerate(elem)
-        
-        #center is a special case here because it needs the width and height 
-        #to be fully validated.
-        if re.match(centerRe, template.x):
-            elem.x = (validator.layout.width-elem.width)//2
-        if re.match(centerRe, template.y):
-            elem.y = (validator.layout.height-elem.height)//2
-
-        return elem
+def prop(name, validator, default):
+    Validation.addValidator(name, validator)
+    return name, default
 
 def validateAlignment(string):
     horz = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
@@ -101,22 +59,54 @@ def validateAlignment(string):
     else:
         return None
 
-@dataclass
-class TextElement(Element):
-    '''future properties
-    font stuff (bold etc)
-    color'''
-    text:str = ''
-    fontFamily:str = 'Verdana'
-    fontSize:prop('fontSize', asNum) = '18'
-    color:str = 'black'
-    wordWrap:prop('wordWrap', asBool) = 'yes'
-    alignment:prop('alignment', validateAlignment) = 'center top'
-    italic:prop('italic', asBool) = 'no'
-    bold:prop('bold', asBool) = 'no'
-    overline:prop('overline', asBool) = 'no'
-    underline:prop('underline', asBool) = 'no'
-    lineThrough:prop('lineThrough', asBool) = 'no'
+imageCache = {}
+def validateImage(value):
+    if value not in imageCache:
+        imageCache[value] = QImage(value)
+    return imageCache[value]
+
+def validateLineJoin(value):
+    joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
+    if value.lower() not in joins:
+        return None
+    return joins[value.lower()]
+
+def validateLineCap(value):
+    caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
+    if value.lower() not in caps:
+        return None
+    return caps[value.lower()]
+
+
+class Element():
+    defaults = ChainMap(dict([
+        prop('type', str, ''),
+        prop('name', str, ''),
+        prop('draw', asBool, 'true'),
+        prop('x', asNum, '0'),
+        prop('y', asNum, '0'),
+        prop('width', asNum, '50'),
+        prop('height', asNum, '50'),
+        prop('rotation', asNum, '0'),
+    ]))
+    @staticmethod
+    def paint(elem, painter, upperLect, size):
+        pass
+
+class LabelElement():
+    defaults = Element.defaults.new_child(dict([
+        prop('text', str, ''),
+        prop('fontFamily', str, 'Verdana'),
+        prop('fontSize', asNum, '18'),
+        prop('color', str, 'black'),
+        prop('wordWrap', asBool, 'yes'),
+        prop('alignment', validateAlignment, 'center top'),
+        prop('italic', asBool, 'no'),
+        prop('bold', asBool, 'no'),
+        prop('overline', asBool, 'no'),
+        prop('underline', asBool, 'no'),
+        prop('lineThrough', asBool, 'no'),
+    ]))
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -141,27 +131,15 @@ class TextElement(Element):
         painter.drawPixmap(upperLeft, label.grab())
 
         # - should I allow pt and px? (extra validation)
-        
 
-imageCache = {}
-def validateImage(value):
-    if value not in imageCache:
-        imageCache[value] = QImage(value)
-    return imageCache[value]
-        
+class ImageElement():
+    defaults = Element.defaults.new_child(dict([
+        prop('width', asNum, '0'),
+        prop('height', asNum, '0'),
+        prop('source', validateImage, ''),
+        prop('keepAspectRatio', asBool, 'yes'),
+    ]))
 
-@dataclass
-class ImageElement(Element):
-    '''future properties
-    aspect ratio
-    resize
-    sub image?
-    '''
-    width:prop('width', asNum) = '0'
-    height:prop('height', asNum) = '0'
-    source:prop('source', validateImage) = ''
-    keepAspectRatio:prop('keepAspectRatio', asBool) = 'yes'
-   
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
         if elem.keepAspectRatio:
@@ -169,38 +147,23 @@ class ImageElement(Element):
         else:
             aspect = Qt.IgnoreAspectRatio
         painter.drawPixmap(upperLeft, QPixmap.fromImage(elem.source.scaled(size, aspectMode=aspect)))
-    
+
     @staticmethod
     def postGenerate(elem):
         if elem.width == 0:
             elem.width = elem.source.width()
         if elem.height == 0:
             elem.height = elem.source.height()
-    
 
+class ShapeElement():
+    defaults = Element.defaults.new_child(dict([
+        prop('lineColor', str, 'black'),
+        prop('lineWidth', asNum, '1'),
+        prop('lineJoin', validateLineJoin, 'miter'),
+        prop('lineCap', validateLineCap, 'flat'),
+        prop('fillColor', str, 'white'),
+    ]))
 
-def validateLineJoin(value):
-    joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
-    if value.lower() not in joins:
-        return None
-    return joins[value.lower()]
-
-def validateLineCap(value):
-    caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
-    if value.lower() not in caps:
-        return None
-    return caps[value.lower()]
-
-@dataclass
-class ShapeElement(Element):
-    '''not used directly, this class exists to handle features common to shape
-    elements such as line color'''
-    lineColor:str = 'black'
-    lineWidth:prop('lineWidth', asNum) = '1'
-    lineJoin:prop('lineJoin', validateLineJoin) = 'miter'
-    lineCap:prop('lineCap', validateLineCap) = 'flat'
-    fillColor:str = 'white'
-    
     @staticmethod
     def readyPainter(elem, painter:QPainter):
         pen = QPen(QColor(elem.lineColor))
@@ -213,27 +176,25 @@ class ShapeElement(Element):
         painter.setPen(pen)
         painter.setBrush(QBrush(QColor(elem.fillColor)))
 
-
-@dataclass
-class RectangleElement(ShapeElement):
-    ''' rectangles, with and without rounded corners
-    '''
-    xRadius:prop('xRadius', asNum) = '0'
-    yRadius:prop('yRadius', asNum) = '0'
+class RectangleElement():
+    defaults = ShapeElement.defaults.new_child(dict([
+        prop('xRadius', asNum, '0'),
+        prop('yRadius', asNum, '0'),
+    ]))
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
         ShapeElement.readyPainter(elem, painter)
         painter.drawRoundedRect(QRect(upperLeft, size), elem.xRadius, elem.yRadius)
 
-@dataclass
-class EllipseElement(ShapeElement):
-    ''''''
+class EllipseElement():
+    defaults = ShapeElement.defaults.new_child()
+
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
         ShapeElement.readyPainter(elem, painter)
         painter.drawEllipse(QRect(upperLeft, size))
-    
+
     @staticmethod
     def postGenerate(elem):
         if elem.width == 0 and elem.height != 0:
@@ -241,21 +202,54 @@ class EllipseElement(ShapeElement):
         elif elem.width != 0 and elem.height == 0:
             elem.height = elem.width
 
-@dataclass
-class LineElement(ShapeElement):
-    x2:prop('x2', asNum) = '50'
-    y2:prop('y2', asNum) = '50'
-    
+class LineElement():
+    defaults = ShapeElement.defaults.new_child(dict([
+        prop('x2', asNum, '50'),
+        prop('y2', asNum, '50'),
+    ]))
+
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
         ShapeElement.readyPainter(elem, painter)
         painter.resetTransform()
         painter.drawLine(elem.x, elem.y, elem.x2, elem.y2)
 
-    @staticmethod
-    def postGenerate(elem):
-        elem.rotation = 0
- 
+elemClasses = dict(
+    none = Element,
+    label = LabelElement,
+    image = ImageElement,
+    rect = RectangleElement,
+    ellipse = EllipseElement,
+    circle = EllipseElement,
+    line = LineElement
+)
+
+def generateElement(template, validator:Validation):
+    elem =  Collection()
+    new_val = None
+    centerRe = r'center'
+    validator.store.add('elementName', template['name'])
+    for prop, value in template.items():
+        if prop in ['x', 'y']:
+            if re.match(centerRe, value.lower()):
+                continue
+        validator.store.add('propertyName', prop)
+        parsed = validator.store.parse(value)
+        new_val = validator.validate(prop, parsed, template['name'])
+        elem._set(prop, new_val)
+    elemClass = elemClasses[template['type']]
+    if hasattr(elemClass, 'postGenerate'):
+        elemClass.postGenerate(elem)
+    
+    #center is a special case here because it needs the width and height 
+    #to be fully validated.
+    if re.match(centerRe, template['x']):
+        elem.x = (validator.layout.width-elem.width)//2
+    if re.match(centerRe, template['y']):
+        elem.y = (validator.layout.height-elem.height)//2
+
+    return elem
+        
 
 @dataclass
 class Layout():
@@ -266,11 +260,14 @@ class Layout():
     name:str = 'asset.png'
     output:str = ''
     data:str = None
-    elements:list = field(default_factory=list)
+    elements:list = field(default_factory=dict)
     template:str = ''
+    defaults:dict = field(default_factory=dict)
+    filename:str = ''
+    userBriks:dict = field(default_factory=dict)
 
-    def addElement(self, element:Element):
-        self.elements.append(element)
+    def addElement(self, element):
+        self.elements[element['name']] = element
 
 class AssetPainter():
     def __init__(self, layout:Layout):
@@ -279,8 +276,10 @@ class AssetPainter():
         if layout.data is not None:
             self.validator.store.add('assetTotal', str(len(layout.data)))
             self.validator.store.add('rowTotal', str(layout.data[-1]['rowIndex']))
-        if hasattr(self.layout, '_names'):
-            self.validator.store.briks.update(self.layout._names)
+       
+        self.validator.store.briks.update(self.layout.userBriks)
+        #if hasattr(self.layout, '_names'):
+        #    self.validator.store.briks.update(self.layout._names)
 
         self.images = []
 
@@ -293,15 +292,15 @@ class AssetPainter():
                 )
 
 
-    def paintElement(self, template:Element, painter:QPainter):
+    def paintElement(self, template, painter:QPainter):
         '''Paint a given element'''
-        elem = Element.generate(template, self.validator)
+        elem = generateElement(template, self.validator)
         if not elem.draw:
             return
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
-        template.paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        elemClasses[template['type']].paint(elem, painter, -mid, QSize(elem.width, elem.height))
 
     def paintAsset(self):
         '''paint the layout and the contained elements'''
@@ -311,7 +310,7 @@ class AssetPainter():
         painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
         
-        for element in self.layout.elements:
+        for element in self.layout.elements.values():
 
             painter.resetTransform()
             painter.setPen(Qt.black)
@@ -340,14 +339,17 @@ class AssetPainter():
 
     def save(self):
         '''save the generated images.'''
-        for image, name in self.images:
-            image.save(os.path.join(self.layout.output, name))
+        try:
+            for image, name in self.images:
+                image.save(os.path.join(self.layout.output, name))
+        except OSError:
+            raise bWError('failed to save images to {ouput}',
+            output=self.layout.output, layout=self.layout.filename)
 
 
-elemConstuctors = dict(label=TextElement, image=ImageElement, rect=RectangleElement,
-    circle=EllipseElement, ellipse=EllipseElement, line=LineElement)
 
 def parseData(rows:str):
+
     data = parseCSV(rows)
     if data is None:
         return None
@@ -399,146 +401,88 @@ def parseData(rows:str):
 
 
 
-def parseLayout(string:str, filename):
-
-    halves = re.split(r'\n\s*data\s*:\s*\n', string, maxsplit=1)
-    script = halves[0]
-    if len(halves) == 1:
-        rows = None
+def buildLayout(filename):
+    if not os.path.isfile(filename):
+        raise bWError("'{file}' is not a valid file",
+        file=filename
+        )
+    try:
+        with open(filename, encoding='utf-8') as file:
+            layoutText = file.read()
+    except OSError:
+        raise bWError("'{file}' could not be opened",
+        file=filename
+        )
+    
+    #layout may become a nonclass object
+    parsedLayout = parseLayoutFile(layoutText, filename)
+    if 'layout' in parsedLayout:
+        rawLayout = parsedLayout.pop('layout')
     else:
-        rows = halves[1]
+        rawLayout = {}
 
-    parser = configparser.ConfigParser(allow_no_value=False, delimiters=':', 
-        comment_prefixes='#', empty_lines_in_values=False, default_section="~~don't use~~",
-        interpolation=None)
-    #this prevents case folding on options
-    parser.optionxform = lambda option: option
-    #below re was copied from the docs
-    parser.SECTCRE = re.compile(r"^ *(?P<header>[^:]+?) *: *$")
-    #parser.SECTCRE = re.compile(r"\[ *(?P<header>[^]]+?) *\]")
-    layout = Layout()
-    try:
-        parser.read_string(script)
+
+    if 'template' in rawLayout:
+        layout = buildLayout(rawLayout.pop('template'))
+    else:
+        layout = Layout()
+    layout.filename = filename
     
-    except configparser.MissingSectionHeaderError as e:
-        raise bWError('layout is missing a section header', layout=filename)
-    except configparser.DuplicateSectionError as e:
-        raise bWError("element name '{name}' is used twice",
-        name=e.section, layout=filename
-        )
-    except configparser.DuplicateOptionError as e:
-        raise bWError("property '{prop}' is given twice",
-        prop=e.option, elem=e.section
-        )
-    except configparser.ParsingError as e:
-        err = e.errors[0]
-        #raise brikWorkError(f'Syntax error on line {err[0]}: {err[1]}')
-        #raise brikWorkError(f"'{err[1]}' contains a syntax error")
-        raise bWError("'{line}' contains a syntax error",
-        layout=filename, line=err[1][1:-1]
-        )
-    except configparser.Error as e:
-        raise bWError('An arbitrary error as occured while parsing your layout file, please alert the devs.')
-
-    #if 'template' in parser['layout']:
-    if parser.has_option('layout', 'template'):
+    if 'data' in rawLayout:
+        dataFilename = rawLayout.pop('data')
+        if 'data' in parsedLayout:
+            parsedLayout.pop('data')
+        if not os.path.isfile(dataFilename):
+            raise bWError("'{filename}' is not a valid file",
+            file=filename, filename=dataFilename
+            )
         try:
-            with open(parser['layout']['template'], encoding='utf-8') as file:
-                templateString = file.read()
+            with open(dataFilename, encoding='utf-8') as file:
+                userData = file.read()
         except OSError:
-            raise bWError("could not open template file '{filename}'",
-            file=filename, filename=parser['layout']['template'])
-        newParser, newRows = parseLayout(templateString, parser['layout']['template'])
-        
-        newParser.read_dict(parser)
-        parser = newParser
-        if rows is None:
-            print(rows)
-            rows = newRows
+            raise bWError("'{filename}' could not be opened",
+            file=filename, filename=dataFilename
+            )
+    elif 'data' in parsedLayout:
+        userData = parsedLayout.pop('data')
+    else:
+        userData = None
+    if userData != None:
+        layout.data = parseData(userData)
     
-    if parser.has_option('layout', 'data'):
-        dataFile = parser['layout']['data']
-        #we have to delete it to ensure proper precedence wrt templates
-        del parser['layout']['data']
-        if os.path.isfile(dataFile):
-            try:
-                with open(dataFile, encoding='utf-8') as file:
-                    rows = file.read()
-            except OSError:
-                raise bWError("could not open data file '{filename}'",
-                file=filename, filename=dataFile
-                )
-            dataFile = parseData(rows)
-        else:
-            raise bWError("'{file}' is not a usable data file",
-            layout=filename, file=dataFile)
+    for prop, value in rawLayout.items():
+        setattr(layout, prop, value)
 
-    return parser, rows
-
-def buildLayout(string:str, filename):
-
-    parser, rows = parseLayout(string, filename)
-
-    try:
-        layout = Layout(**parser['layout'])
-    except TypeError as e:
-        prop = e.args[0].split()[-1][1:-1]
-        raise bWError("{prop} is not a valid layout property", 
-        layout=filename, prop=prop
-        )
-
-    width = asNum(layout.width, err=bWError("'{value}' is not a valid width",
+    if type(layout.width) == str:
+        layout.width = asNum(layout.width, 
+        err=bWError("'{value}' is not a valid asset width",
         layout=filename, value=layout.width))
-    layout.width = width
-    
-    height = asNum(layout.height, err=bWError("'{value}' is not a valid height",
+    if type(layout.height) == str:
+        layout.height = asNum(layout.height, 
+        err=bWError("'{value}' is not a valid asset height",
         layout=filename, value=layout.height))
-    layout.height = height
 
-    for name, section in parser.items():
-        
-        if name == 'layout':
-            pass
-            #we already parsed layout earlier
-        
-        elif name == 'names':
-            names = {}
-            for n,v in section.items():
-                names[n] = v
-                #section proxies don't have a copy method so we do it the long way
-            layout._names = names
 
-        elif name == "~~don't use~~":
-            pass #literally ignore this section lol
+    if 'defaults' in parsedLayout:
+        deepUpdate(layout.defaults, parsedLayout.pop('defaults'))
 
+    if 'briks' in parsedLayout:
+        layout.userBriks.update(parsedLayout.pop('briks'))
+    
+    for name, props in parsedLayout.items():
+        if name in layout.elements:
+            layout.elements[name].maps.insert(0, props)
         else:
-            type = section.pop('type', None)
-            if type is None:
-                #I think after the rework this won't be an error
-                raise bWError("this element lacks a type", elem=name)
-
-            copy = {}
-            for prop,value in section.items():
-                copy[re.sub(' ', '_', prop)] = value
-
-            try:
-                element = elemConstuctors[type](**copy)
-            except KeyError as e:
-                raise bWError("'{type}' is not a valid type",
-                type=type, elem=name
-                )
-            except TypeError as e:
-                prop = e.args[0].split()[-1][1:-1]
-                raise InvalidPropError(name, prop)
-            element.name = name
-            layout.addElement(element)
+            if 'type' not in props:
+                props['type'] = 'none'
+            elif props['type'] not in elemClasses:
+                raise InvalidValueError(name, 'type', prop['type'])
+            elemType = elemClasses[props['type']]
+            elem = elemType.defaults.new_child(props)
+            elem.maps.insert(1, layout.defaults)
+            #its easier to just insert
+            elem['name'] = name
+            layout.addElement(elem)
     
-    
-    if rows is not None:
-        layout.data = parseData(rows)
-    
-    if '[' not in layout.name and layout.data is not None:
-        layout.name = '[assetIndex]'+layout.name
-
 
     return layout

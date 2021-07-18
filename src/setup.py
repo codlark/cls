@@ -2,6 +2,7 @@
 
 '''
 
+import sys
 from cx_Freeze import executable, setup, Executable
 
 build_options = dict(excludes=[
@@ -15,12 +16,19 @@ build_options = dict(excludes=[
 
 #], includes=[
 
-])
+], include_files=[
+    ('res/logo.ico', 'res/logo.ico')
+]
+)
+
+base = None
+if sys.platform == 'win32':
+    base = 'Win32GUI'
 
 setup(
     name='brikWork',
-    version='0.2',
-    description='brikWork command line app',
+    version='0.3',
+    description='brikWork spp',
     options = dict(build_exe=build_options),
-    executables=[Executable("brikWork.py", icon="../logo.ico")]
+    executables=[Executable("brikWork.py", icon="../logo.ico", base=base)]
     )

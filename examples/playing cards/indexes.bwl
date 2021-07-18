@@ -1,18 +1,18 @@
-layout:
+layout {
     width: 2.5in
     height: 3.5in
     output: cards/
     name: [suit][rank].png
-
-names:
-    red: #ff1547
+}
+briks {
+    red = #ff1547
     #a red with just a bit of pink
-    black: #1a1a3a
+    black = #1a1a3a
     #a slightly blueish grayish black
-    rank: 0
+    rank = 0
     #place holder
-
-upperLeftNumber:
+}
+upperLeftNumber {
     type: label
     x: .15in
     y: .15in
@@ -21,15 +21,15 @@ upperLeftNumber:
     text: [rank]
     color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
     fontFamily: Consolas
-    fontSize: 36
-
-upperLeftPip:
+    fontSize: 36 
+}
+upperLeftPip {
     type: image
     x: .185in
     y: .35in
     source: images/[suit]Small.png
-
-lowerRightNumber:
+}
+lowerRightNumber {
     type: label
     x: [#| 2.5in - .35in]
     y: [#| 3.5in - .35in]
@@ -41,18 +41,19 @@ lowerRightNumber:
     color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
     fontFamily: Consolas
     fontSize: 36
-
-lowerRightPip:
+}
+lowerRightPip {
     type: image
     x: [#| 2.5in - .185in - 38]
     y: [#| 3.5in - .35in - 45]
     rotation: 180
     source: images/[suit]Small.png
+}
 
-
-data:
+data{
 suit
 spade
 heart
 club
 diamond
+}

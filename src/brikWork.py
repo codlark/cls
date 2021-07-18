@@ -1,47 +1,208 @@
-'''This file is the brikwork command line app.'''
-
 import sys
 import os
 import argparse
+from types import prepare_class
+
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+
 from brikWorkEngine import *
 
-#???? Do I need argparse for this app?
-commandParser = argparse.ArgumentParser(description='brikwork command line app', add_help=True)
-commandParser.add_argument('file', metavar='FILE')
-commandParser.add_argument('-e', '--early-exit', action='store_true', dest='early', help="don't prompt for input after generation")
-# add a data override
+def getResource(filename):
+    if getattr(sys, "frozen", False):
+        # The application is frozen
+        datadir = os.path.dirname(sys.executable)
+    else:
+        # The application is not frozen
+        # Change this bit to match where you store your data files:
+        datadir = os.path.dirname(__file__)
+    return os.path.join(datadir, 'res', filename)
 
-args = commandParser.parse_args()
-directory, filename = os.path.split(os.path.realpath(args.file))
-os.chdir(directory)
 
-def openFile(filename):
+state = Collection()
+state.filename = ''
+state.layout = None
+state.painter = None
+state.asset = 0
 
-    if not os.path.isfile(filename):
-        raise bWError("filename '{filename}' is not a file",
-        origin='command line', filename=filename)
+def _openFile(filename):
     try:
         with open(filename, encoding='utf-8') as file:
             layoutText = file.read()
-        print(f'found {filename}')
     except OSError:
         raise bWError("Could not open layout '{filename}'",
-        origin='command line', filename=filename)
+        origin='file system error', filename=filename)
     return layoutText
 
+def openFile(filename):
+    dir = os.getcwd()
+    directory, filename = os.path.split(os.path.realpath(filename))
+    os.chdir(directory)
+    try:
+        #layoutText = _openFile(filename)
+        state.layout = buildLayout(filename)
+        state.painter = AssetPainter(state.layout)
+        state.painter.paint()
+        state.asset = 0
+        return True, f'generated {len(state.painter.images)} assets'
+
+    except bWError as e:
+        os.chdir(dir)
+        return False, e.message
+
+def setImage():
+    if state.painter is None:
+        return
+    pix = QPixmap.fromImage(state.painter.images[state.asset][0])
+    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10))
+
+@Slot()
+def openFunc():
+    if state.filename == '':
+        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
+    else:
+        filename = state.filename
+    if not os.path.isfile(filename):
+        return
+    state.filename = filename
+    window.textLog.append('\n-----------')
+    #print(filename)
+    window.setWindowTitle(f'{filename} - brikWork')
+    result, message = openFile(filename)
+    if result:
+        setImage()
+    window.textLog.append(message)
+
+@Slot()
+def reloadFunc():
+    result, message = openFile(state.filename)
+    if result:
+        setImage()
+    window.textLog.append(message)
+
+@Slot()
+def saveFunc():
+    if state.painter is not None:
+        try:
+            state.painter.save()
+        except bWError as e:
+            window.textLog.append(e.message)
+        else:
+            window.textLog.append(f"saved assets to {state.layout.output}")
+    else:
+        window.textLog.append('unable to save, no layout is presnt')
+
+@Slot()
+def nextFunc():
+    asset = state.asset + 1
+    if state.painter is None:
+        return
+    if asset == len(state.painter.images):
+        return
+    state.asset = asset
+    setImage()
+
+@Slot()
+def prevFunc():
+    if state.asset == 0:
+        return
+    state.asset -= 1
+    setImage()
+
+class MainWindow(QMainWindow):
+    
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle('brikWork')
+        iconPath = getResource('logo.ico')
+        icon = QIcon(iconPath)
+        self.setWindowIcon(icon)
+
+        center = QWidget(self)
+        self.setCentralWidget(center)
+
+        layout = QVBoxLayout(center)
+
+        self.assetHolder = QLabel(center)
+        layout.addWidget(self.assetHolder)
+        self.assetHolder.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        self.textLog = QTextEdit(center)
+        layout.addWidget(self.textLog)
+        self.textLog.setReadOnly(True)
+        self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+
+        self.toolbar = QToolBar(self)
+        self.addToolBar(self.toolbar)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextOnly)
+
+        openAct = QAction('Open Layout', parent=self)
+        self.toolbar.addAction(openAct)
+        openAct.triggered.connect(openFunc)
+
+        reloadAct = QAction('Reload Layout', parent=self)
+        self.toolbar.addAction(reloadAct)
+        reloadAct.triggered.connect(reloadFunc)
+
+        saveAct = QAction('Save Assets', parent=self)
+        self.toolbar.addAction(saveAct)
+        saveAct.triggered.connect(saveFunc)
+
+        prevAct = QAction('Previous Asset', parent=self)
+        self.toolbar.addAction(prevAct)
+        prevAct.triggered.connect(prevFunc)
+
+        nextAct = QAction('Next Asset', parent=self)
+        self.toolbar.addAction(nextAct)
+        nextAct.triggered.connect(nextFunc)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        setImage()
+
+
+commandParser = argparse.ArgumentParser(
+    description='brikwork command line app',
+    add_help=True,
+)
+commandParser.add_argument('file', 
+    metavar='FILE', 
+    nargs='?',
+    default=None,
+    help='optional, a layout file to open and generate at startup'
+)
+
+commandParser.add_argument('-w', '--windowless',
+    action='store_true',
+    dest='windowless',
+    help='generate and save assets without displaying a window, FILE must be provided'
+)
+
 app = QApplication()
+window = MainWindow()
+        
+args = commandParser.parse_args()
 
-try:
-    layoutText = openFile(filename)
-    layout = buildLayout(layoutText, filename)
-    painter = AssetPainter(layout)
-    painter.paint()
-    assetTotal = len(painter.images)
-    painter.save()
-    print(f'generated {assetTotal} assets in {layout.output}')
-except bWError as e:
-    print('an error occured while generating assets:')
-    print(e.message)
+if args.file is not None and args.windowless:
+    result, message = openFile(args.file)
+    print(message)
+    try:
+        state.painter.save()
+    except bWError as e:
+        print(e.message)
+    else:
+        print(f"saved assets to {state.layout.output}")
 
-if not args.early:
-    x = input('press enter to exit ')
+elif not args.windowless:
+    if args.file is not None:
+        state.filename = args.file
+        openFunc()
+    window.show()
+    window.resize(800, 600)
+    app.exec()
+
+elif args.windowless and args.file is None:
+    commandParser.print_help()
+

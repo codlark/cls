@@ -1,14 +1,14 @@
-layout:
+layout {
     width: 2.5in
     height: 3.5in
     name: [role][repeatIndex].png
     output: out/
-
-names:
-    bloodRed: #a32b1d
+}
+briks {
+    bloodRed = #a32b1d
     #maybe a little dark, but readability is important
-
-titleBorder:
+}
+titleBorder {
     type: rect
     x: center
     y: .5in
@@ -17,8 +17,8 @@ titleBorder:
     lineWidth: 6
     xRadius: .125in
     yRadius: .125in
-
-title:
+}
+title {
     type: label
     x: center
     y: .5in
@@ -29,15 +29,16 @@ title:
     alignment: center middle
     fontSize: 36
     fontFamily: Palatino Linotype
-
-icon:
+}
+icon {
     type: image
     x: center
     y: 1in
     source: images/[role].png
-
-data:
+}
+data {
 repeat, role
 2, werewolf
 4, villager
 1, seer
+}

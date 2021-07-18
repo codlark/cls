@@ -2,28 +2,31 @@
 
 *note* to build, run `python setup.py build`
 
+ - finish the playing card template and the docs page on it
+
 version 3
  - element rework
  - - defaults, templates, etc
- - 
+ - fix whatevers going on with image sizes
+
+
 
 long term 
+ - some sort of alt art mechanism for image elements. specify an image to load if the desired are desn't exist, like `src: path\art.png; noArt: path\noArt.png`
  - vs code plugin
- - gui interface
  - fractions for inches
  - point or pixel font size
  - finish annotating types (maybe? not sure if this gets me much)
  - json based data? (i'm not sure what the point of this was)
  - pdf export
  - printer support??
- - templates
  - custom true and false values?
  - `[=| NAME | VALUE ]` - change the value of the element's propery
  - `[assetName]` ???
  - `[print| STRING]` prints a string to the console
  - mm sizes
  - `[asset| prop]` inspect the current asset? maybe just get the unevaluated value
- 
+
  - color briks, like `[hsl| H| S| L]` that emit a color string
  - -  OR a distinct color type that generate QColors, asColor if you will
  - - something like `color = hsl|12|67|67` or `color = hsl(12,67,67)`?
@@ -44,7 +47,7 @@ long term
  - - element class idea, get rid of dif element classes, just a single class with all the prop validators registered separate, and the drawing funcs stored in a dict
 
 1.0
- - rewrite  config parsers for more control
+
+ - `include: LAYOUTFILE` strip the elements out of LAYOUTFILE and make them children of this element
  - image magick element types, for pango and drop shadows
  - plugin support?
- - cache image files to reduce hits to the file system

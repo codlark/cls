@@ -1,27 +1,27 @@
-layout:
+layout {
     width: 675
     height: 1050
     name: test[assetIndex].png
     output: out/
     #data: test.csv
-    #template: template.bwl
-
-title:
+    template: template.bwl
+}
+title {
     type: label
     x: center
     y: .25in
     width: 1.75in
     height: 2in
-    text: [title]
+    text: [title] [foo]
     fontSize: 30
-
-icon:
+}
+icon {
     type: image
     x: center
     y: 0.875in
     source: res/[img]
-
-bodyBorder:
+}
+bodyBorder {
     type: rect
     x: center
     y: 1.5in
@@ -29,8 +29,8 @@ bodyBorder:
     height: 1.75in
     xRadius: 40
     yRadius: 80
-
-body:
+}
+body {
     type: label
     x: center
     y: 1.625in
@@ -38,12 +38,13 @@ body:
     height: 1.25in
     text: [body]
     fontFamily: Cormorant
-
-#banjo:
-#    draw: off
-
-data:
-title, img, body
-Smile, smile.png, This face is smiling.
-Neutral, flat.png, This face is neither smiling nor frowning.
-Frown, frown.png, This face is frowning, [i|unfortunate].
+}
+banjo {
+    draw: off
+}
+#data {
+#title, img, body
+#Smile, smile.png, This face is smiling.
+#Neutral, flat.png, This face is neither smiling nor frowning.
+#Frown, frown.png, This face is frowning, [i|unfortunate].
+#}

@@ -1,5 +1,7 @@
 
 import re
+import collections.abc
+from collections import UserDict
 from types import SimpleNamespace
 from typing import *
 
@@ -58,9 +60,13 @@ class Collection(SimpleNamespace):
         self.__dict__[name] = value
     def _get(self, name:str) -> Any:
         return self.__dict__[name]
-    
 
-def asNum(string:str, *, err:Union[bool, bWError] = False) -> Union[int, Literal[None]]:
+
+class AttrDict(UserDict):
+    def __getattr__(self, attr):
+        return self[attr]
+
+def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
     if re.match(r'^-?\d+$', string):
         return int(string)
     elif re.match(r'^\d*(\.\d+)? *in$', string):
@@ -100,7 +106,18 @@ def evalEscapes(string:str) -> str:
         #return self.expansions[m.group(0)]
     return re.sub(r'\\(.)', repl, string)
 
-
+def deepUpdate(self, other):
+    '''like update, but if any mappings are found in other their match in self
+    is updated instead of overwritten'''
+    for k, v in other.items():
+        if isinstance(v, collections.abc.Mapping):
+            if k in self and isinstance(self[k], collections.abc.Mapping):
+                deepUpdate(self[k], other[k])
+            else:
+                self[k] = {}
+                deepUpdate(self[k], other[k])
+        else:
+            self[k] = other[k]
 
 def parseCSV(string:str):
     lines = string.strip().split('\n')
@@ -134,7 +151,6 @@ def parseCSV(string:str):
             if char == '\\':
                 cell.append(line[c:c+2])
                 c += 2
-            
 
             elif char == ',':
                 record.append(''.join(cell).strip())
@@ -154,3 +170,116 @@ def parseCSV(string:str):
         else:
             sheet.append({headers[0]: line.strip()})
     return sheet
+
+def parseProps(source:str, filename, elem):
+
+    lines=source.splitlines()
+    section = {}
+
+    for line in lines:
+        if ':' not in line:
+            raise bWError("line '{line}' is not a valid property",
+            line=line, layout=filename, elem=elem
+            )
+        name, value = line.split(':', maxsplit=1)
+        section[name.strip()] = value.strip()
+    
+    return section
+
+def parseUserBriks(source:str, filename:str):
+
+    lines = source.splitlines()
+    briks = {}
+
+    for line in lines:
+        if '=' not in line:
+            raise bWError("line '{line}' is not a valid brik definition",
+            line=line, layout=filename)
+        name, value = line.split('=', maxsplit=1)
+        #down the line this is where parametized user briks would be defined as well
+        briks[name.strip()] = value.strip()
+
+    return briks
+
+
+def parseLayoutFile(source:str, filename:str) -> dict:
+    lines = source.splitlines()
+    newLines = []
+    for line in lines:
+        if (not re.match(r'\s*#', line)) and line != '':
+            newLines.append(line)
+    source = '\n'.join(newLines)
+
+    #section: name "{" lines "}"
+    #layout: section+
+
+    pos = 0 #pos in string
+    char = '' #current char
+    name = '' #section name
+    inSection = False #if we're in a section
+    accum = [] #the string currently being built
+    storage = {} # where we stick sections after they're built
+    braceStack = [] #used to keep track of curly brace pairs found in sections
+
+    while pos < len(source):
+        char = source[pos]
+
+        if inSection:
+            if char == '\\':
+                #escape
+                accum.append(source[pos:pos+2])
+                pos += 1
+            elif char == '{':
+                #keep track of braces to make sure they're balanced
+                braceStack.append(pos)
+                accum.append(char)
+            elif char == '}':
+                if len(braceStack) == 0:
+                    #end of section
+                    storage[name] = ''.join(accum).strip()
+                    accum = []
+                    name = ''
+                    inSection = False
+                else:
+                    braceStack.pop()
+                    accum.append(char)
+
+            else:
+                accum.append(char)
+        
+        else:
+            if char == '\\':
+                #escape
+                accum.append(source[pos:pos+2])
+                pos += 1
+            elif char == '{':
+                #begin section
+                name = ''.join(accum).strip()
+                accum = []
+                inSection = True
+            else:
+                #anything else
+                accum.append(char)
+        
+        pos += 1
+    if len(braceStack) != 0 or name != '':
+        raise bWError("section '{name}' is not closed",
+        layout=filename, name=name)
+    elif len(storage) == 0:
+        raise bWError("could not find a layout in this file",
+        file=filename)
+
+    layout = {}
+
+    for name, data in storage.items():
+        if name == 'layout':
+            layout[name] = parseProps(data, filename, name)
+        elif name == 'briks':
+            layout[name] = parseUserBriks(data, filename)
+        elif name == 'data':
+            layout[name] = data
+        else:
+            layout[name] = parseProps(data, filename, name)
+    
+    return layout
+

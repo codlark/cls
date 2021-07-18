@@ -1,26 +1,25 @@
-layout:
+layout {
     template: indexes.bwl
-
-names:
-    rank: [substring| [royal]| 1| 1]
+}
+briks {
+    rank = [substring| [royal]| 1| 1]
     #grab the first character of [royal]
-
-upperArt:
+}
+upperArt {
     type: image
     x: .5in
     y: .5in
     source: images/[color][royal].png
-
+}
 #okay, these are chess pieces, and the jack is the knight, but I already had these
-
-lowerArt:
+lowerArt {
     type: image
     x: 1.5in
     y: 2in
     source: images/[color][royal].png
     rotation: 180
-
-data:
+}
+data {
 suit, color, royal
 spade, black, Jack
 spade, black, Queen
@@ -34,3 +33,4 @@ club, black, King
 diamond, red, Jack
 diamond, red, Queen
 diamond, red, King
+}
