@@ -20,7 +20,6 @@ Future features
  * printer or pdf output
  * millimeter sizes
  * vs code plugin for syntax highlighting
- * better way to run brikWork
 
 ## brikWork layouts in brief
 
@@ -30,25 +29,27 @@ A layout file is a simple text file with an optional section of CSV data at the 
 
 A layout file is a simple text file with sections for the layout properties and the elements
 ```none
-layout:
+layout {
     width: 2.5in
     height: 3.5in
-
-title:
+}
+title {
     text: This is a [capitalize| [title] ] card!
     x: center
     y: 1in
-
-image:
+}
+image {
     source: [image]
     x: center
     y: center
+}
 ```
-Layout files can also have CSV style data at the bottom
+Layout files can also have CSV formatted data
 ```
-data:
+data {
 image, title
 ./images/smile.png, smiley face
+}
 ```
 For each row in the data, a new asset will be generated with the data from that row available as a brik with the name of the corresponding header.
 Briks are the programing utility within values. Briks can be variables like `[title]`, or they can be functions like `[capitalize| ]` 

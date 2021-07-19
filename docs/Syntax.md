@@ -1,79 +1,54 @@
 # Syntax
-brikWork technically uses 3 different parsers at different points of generating assets, each with it's own quirks. For reference, we'll be looking at the werewolf.bwl example included with brikWork
-
-```
-layout:
-    width: 2.5in
-    height: 3.5in
-    name: [role][repeatIndex].png
-    output: out/
-
-names:
-    bloodRed: #a32b1d
-    #maybe a little dark, but readability is important
-
-titleBorder:
-    type: rect
-    x: center
-    y: .5in
-    width: 1.5in
-    height: .25in
-    lineWidth: 6
-    xRadius: .125in
-    yRadius: .125in
-
-title:
-    type: label
-    x: center
-    y: .5in
-    width: 1.5in
-    height: .25in
-    text: [capitalize| [role] ]
-    color: [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
-    alignment: center middle
-    fontSize: 36
-    fontFamily: Palatino Linotype
-
-icon:
-    type: image
-    x: center
-    y: 1in
-    source: images/[role].png
-
-data:
-repeat, role
-2, werewolf
-4, villager
-1, seer
-```
+brikWork technically uses 3 different parsers at different points of generating assets, each with it's own quirks
 
 ## Layout File Parser
 
-The basic structure of the layout file is of a series of sections, each started by a header. Sections include `layout`, `names`, `data` and element sections. Headers are a name followed by a colon and a newline. Element sections must have unique names. The `layout`, `names`, and `data` names are reserved for those sections
+The basic structure of the layout file is of a series of sections. Sections consist of a name followed by contents enclosed in curly braces, for example
+```
+layout {
+    width: 2.5in
+}
+```
+Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by either a semi colon or the end of the line
+```
+    italic: yes; bold: yes;
+```
+The indentation is not required but reccomended for readibility. There are two kinds of sections, special sections that control the operation of the engine and element sections that describe elements that become the asset
 
-Inside `layout` and element sections are property definitions. Properties configure the layout when in `layout` or an element when in an element section. A property definition consists of a property and a value separated by a colon. Property definitions must be indented. For a full list of properties see [Layout and Elements](../Layout-and-Elements/) and for a look at values see [Values](../Values/)
+## Special Sections
 
-### `names` section
+There are 4 special sections
 
-The `names` section allows you to define user [briks](#brik-syntax). Note how the name in the example looks like a property definition. These are useful for values that will be seen repeatedly such as colors or icons for labels. Names for user briks should not include special characters, spaces are okay, as here is no guarantee that some other part of brikWork won't see a special character as something else
+The `layout` section specifies the size of the final asset as well as interactions with the file system. This section uses property definitions. A full list of properties available to the `layout` section are listed in [Layout and Elements](../Layout-and-Elements/)
 
-### `data` section
+The `data` section specifies data used in generating assets. This section uses the CSV syntax described [below](CSV-Syntax)
 
-The `data` section holds the rows of data that end up in your assets. Data is in the form of comma separated values, or CSV. The first row is the header, which is used as a [brik](#brik-syntax) to insert it into your asset. The `data` section must be the last section in the file
+The `briks` section specifies briks available to the user. The contents of this section use a syntax similar to variable definition in other languages. A description of briks is [below](Brik-Syntax)
+```
+briks {
+    Heliotrope = #DF73FF
+}
+```
+
+The `defaults` section specifies defaults for element properties. This section uses property definitions
+
+## Element Sections
+
+Element sections describe the text, images, and shapes that make the final asset. Element sections must have unique names and those names can't be the names of the special sections, nor can they conain any special character like colon or curly braces, spaces are okay
 
 ### Whitespace
 
-In layout definition files newlines separate property definitions, making it an error to put two property definitions on a single line. Otherwise, spaces and tabs are largely ignored, and are removed when they touch the begining of a line, the end of a line, or the equals sign
+Whitespace is largly ignored. The rule of thumb is that whitespace on boundries is removed. In a property definition such as `text: NOW that's what I call tokens     ;` the property name is "text" and the value is "NOW that's what I call tokens". When whitespace is meaningful it is called out in the description of that syntax
 
 ### Comments
 
-A comment is a line that has a pound sign, `#`, for its first character after any indent. Everything after the pound sign is ignored, including property definitions. Comments are also available in data
+A comment is a line that has a pound sign, `#`, for its first character after any indent. Everything after the pound sign is ignored until the end of the line
 
 ## Brik Syntax
 
-Briks are the programming utility of brikWork, as well as its namesake. Briks exist in values and are marked by square brackets, much like section headers. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks like `[name]` which pull values from the data, and user briks like `[res]` which are defined in the `[names]` section. Like properties and values, spaces and tabs surrounding brik names are ignored. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/)
+Briks are the programming utility of brikWork, as well as its namesake. Briks are used in values and are surrounded by square brackets. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks` which pull values from the data, and user briks  which are defined in the `briks` section. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/)
 
-Function briks have extra syntax over other briks in the form of arguments. Arguments are values that are seen by the underlying code of a brik in order to generate the final returned value. The brik name and arguments are separated by vertical bars, and while brik names are not evaluated the arguments are, thus `[capitalize| [name] ]` will give us the capitalized forms Moderator, Werewolf, and Villager in the final asset
+Function briks have extra syntax over other briks in the form of arguments. Arguments are values that are seen by the underlying code of a brik in order to generate the final returned value. The brik name and arguments are separated by vertical bars. Brik arguments are evalutated as part of evalutating the brik, and if the birk returns a value that contains briks they too will be evaluated.
 
 ### Escapes
 
