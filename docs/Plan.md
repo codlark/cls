@@ -5,14 +5,15 @@
  - finish the playing card template and the docs page on it
 
 version 3
- - element rework
- - - defaults, templates, etc
- - fix whatevers going on with image sizes
 
+ - fix whatevers going on with image sizes
+ - fix brikWork.py open not always working
+ - 
 
 
 long term 
  - some sort of alt art mechanism for image elements. specify an image to load if the desired are desn't exist, like `src: path\art.png; noArt: path\noArt.png`
+ - a working directory folder property, like `folder: ` that specifies a folder that contains the resources and output folder
  - vs code plugin
  - fractions for inches
  - point or pixel font size
@@ -44,7 +45,6 @@ long term
  ```
  - - thinking about this I might just re-write the element class and systems to use a chain map? Put this element templates, and parents in one update
  - parent elements, like a element template but the x and y get added to the parent
- - - element class idea, get rid of dif element classes, just a single class with all the prop validators registered separate, and the drawing funcs stored in a dict
 
 1.0
 

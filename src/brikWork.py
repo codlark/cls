@@ -26,15 +26,6 @@ state.layout = None
 state.painter = None
 state.asset = 0
 
-def _openFile(filename):
-    try:
-        with open(filename, encoding='utf-8') as file:
-            layoutText = file.read()
-    except OSError:
-        raise bWError("Could not open layout '{filename}'",
-        origin='file system error', filename=filename)
-    return layoutText
-
 def openFile(filename):
     dir = os.getcwd()
     directory, filename = os.path.split(os.path.realpath(filename))
@@ -58,18 +49,23 @@ def setImage():
     window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10))
 
 @Slot()
-def openFunc():
-    if state.filename == '':
-        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
-    else:
+def openFunc(earlyOpen):
+    if earlyOpen:
         filename = state.filename
+    else:
+        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
+
     if not os.path.isfile(filename):
         return
+    
     state.filename = filename
     window.textLog.append('\n-----------')
-    #print(filename)
-    window.setWindowTitle(f'{filename} - brikWork')
+    
+    shortFilename = os.path.split(state.filename)[1]
+    window.setWindowTitle(f'{shortFilename} - brikWork')
+    
     result, message = openFile(filename)
+    
     if result:
         setImage()
     window.textLog.append(message)
@@ -171,6 +167,7 @@ commandParser.add_argument('file',
     metavar='FILE', 
     nargs='?',
     default=None,
+    type=os.path.realpath,
     help='optional, a layout file to open and generate at startup'
 )
 
@@ -198,9 +195,9 @@ if args.file is not None and args.windowless:
 elif not args.windowless:
     if args.file is not None:
         state.filename = args.file
-        openFunc()
+        openFunc(True)
     window.show()
-    window.resize(800, 600)
+    window.resize(600, 600)
     app.exec()
 
 elif args.windowless and args.file is None:
