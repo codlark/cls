@@ -77,6 +77,13 @@ def validateLineCap(value):
         return None
     return caps[value.lower()]
 
+class ElementScope(ChainMap):
+    '''A subclass of ChainMap that also has attributes for parent and child relationships'''
+    def __init__(self, *maps: Mapping) -> None:
+        super().__init__(*maps)
+        self.children = []
+        self.parent = None
+
 
 class Element():
     defaults = ChainMap(dict([
@@ -414,11 +421,11 @@ def buildLayout(filename):
         file=filename
         )
     
-    #layout may become a nonclass object
     parsedLayout = parseLayoutFile(layoutText, filename)
     if 'layout' in parsedLayout:
         rawLayout = parsedLayout.pop('layout')
     else:
+        #templates may not have a layout
         rawLayout = {}
 
 
@@ -429,6 +436,7 @@ def buildLayout(filename):
     layout.filename = filename
     
     if 'data' in rawLayout:
+        #prefer the data property over section
         dataFilename = rawLayout.pop('data')
         if 'data' in parsedLayout:
             parsedLayout.pop('data')
@@ -450,6 +458,7 @@ def buildLayout(filename):
     if userData != None:
         layout.data = parseData(userData)
     
+    #update layout with the rest of the 
     for prop, value in rawLayout.items():
         setattr(layout, prop, value)
 
@@ -469,20 +478,25 @@ def buildLayout(filename):
     if 'briks' in parsedLayout:
         layout.userBriks.update(parsedLayout.pop('briks'))
     
+    def makeElement(name, props):
+        if 'type' not in props:
+            props['type'] = 'none'
+        elif prop['type'] not in elemClasses:
+            raise InvalidValueError(name, 'type', prop['type'])
+        elemType = elemClasses[props['type']]
+        elem = elemType.defaults.new_child(props)
+        elem.maps.insert(1, layout.defaults)
+        elem['name'] = name
+        return elem
+
+
     for name, props in parsedLayout.items():
         if name in layout.elements:
+            #if the template includes this element usurp it
             layout.elements[name].maps.insert(0, props)
+
         else:
-            if 'type' not in props:
-                props['type'] = 'none'
-            elif props['type'] not in elemClasses:
-                raise InvalidValueError(name, 'type', prop['type'])
-            elemType = elemClasses[props['type']]
-            elem = elemType.defaults.new_child(props)
-            elem.maps.insert(1, layout.defaults)
-            #its easier to just insert
-            elem['name'] = name
-            layout.addElement(elem)
+            layout.addElement(makeElement(name, props))
     
 
     return layout

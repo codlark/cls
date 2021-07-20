@@ -119,7 +119,12 @@ def deepUpdate(self, other):
         else:
             self[k] = other[k]
 
-def parseCSV(string:str):
+def build(accum:list) -> str:
+    '''collapse a string builder'''
+    return ''.join(accum).strip()
+
+def parseCSV(string:str) -> list:
+    '''parses csv data according to the csv flavor used by brikWork'''
     lines = string.strip().split('\n')
 
     cleanLines = []
@@ -171,10 +176,10 @@ def parseCSV(string:str):
             sheet.append({headers[0]: line.strip()})
     return sheet
 
-def parseValue(ps):
+def parseValue(ps, prop):
+    '''parses a single value and returns when it's ended'''
     #takes over after a :
     accum = []
-
     char = ''
 
     while ps.pos < len(ps.string):
@@ -185,35 +190,32 @@ def parseValue(ps):
             ps.pos += 1
         
         elif char in '\n;':
-            value = ''.join(accum).strip()
+            value = build(accum)
+            return value
+        
+        if char == '}':
+            value = build(accum)
+            ps.pos -= 1 #OH NO
             return value
         
         else:
             accum.append(char)
 
         ps.pos += 1
+    
+    raise bWError("syntax error, unexpected EOF while reading value '{value}' for '{name}'",
+    file=ps.filename, value=build(accum), name=prop)
 
-def parseSection(ps):
-    #takes over after a {
+def parseSection(ps, elem, top=False):
+    '''parses the contents of a section
+    if top is True the section is ended at end of string
+    if Flase, the default, the section is ended on }
+    parsing includes both properties and sub sections
+    don't call directly'''
     accum = []
     char = ''
-    braceStack = []
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-        
-
-def parseComplex(source:str, filename, elem=None):
-    ps = Collection()
-    ps.string = source
-    ps.file = filename
-    ps.elem = elem
-    ps.pos = 0
-    accum = []
-    section = dict(children = {})
+    section = dict(children={})
     name = ''
-
-    char = ''
 
     while ps.pos < len(ps.string):
         char = ps.string[ps.pos]
@@ -221,84 +223,136 @@ def parseComplex(source:str, filename, elem=None):
         if char == '\\':
             accum.append(ps.string[ps.pos:ps.pos+2])
             ps.pos += 1
-
+        
         elif char == ':':
-            name = ''.join(accum).strip()
-            ps.pos += 1
-            section[name] = parseValue(ps)
+            name = build(accum)
             accum = []
+            ps.pos += 1
+            section[name] = parseValue(ps, name)
+
+        elif char == '{':
+            name = build(accum)
+            ps.pos += 1
+            section['children'][name] = parseSection(ps, name)
+            accum = []
+
+        elif char == '}':
+            name = build(accum)
+            if name != '':
+                raise bWError("syntax error parsing '{elem}', '{name}' has no value or section",
+                file=ps.filename, elem=elem, name=name)
+            return section
+    
+        else:
+            accum.append(char)
+
+        ps.pos += 1
+    if not top:
+        raise bWError("syntax error parsing '{name}', unexpected EOF",
+        file=ps.filename, name=elem)
+
+def parseProps(ps, elem):
+    '''parses property only sections'''
+    
+    section = {}
+    accum = []
+    name = ''
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+
+        if char == '\\':
+            accum.append(ps.string[ps.pos:ps.pos+2])
+            ps.pos += 1
+        
+        elif char == ':':
+            name = build(accum)
+            accum = []
+            ps.pos += 1
+            section[name] = parseValue(ps, name)
         
         elif char == '{':
-            name = ''.join(accum).strip()
-            ps.pos += 1
-            section['children'][name] = parseSection(ps)
-            accum = []
+            name = build(accum)
+            if len(name) > 0:
+                raise bWError("syntax error parsing '{elem}', '{name}' has no value",
+                file=ps.filename, elem=elem, name=name)
+            raise bWError("syntax error, '{elem}' cannot contain subsections",
+            file=ps.filename, elem=elem)
+        
+        elif char == '}':
+            name = build(accum)
+            if name != '':
+                raise bWError("syntax error parsing '{elem}', '{name}' has no value",
+                file=ps.filename, elem=elem, name=name)
+            return section
         
         else:
             accum.append(char)
         
         ps.pos += 1
-    return section
+    
+    raise bWError("syntax error parsing '{name}', unexpected EOF",
+    file=ps.filename, name=elem)
+      
 
+def parseUserBriks(ps):
 
-def parseProps(source:str, filename, elem):
-    pos = 0
-    char = ''
+    names = {}
     accum = []
-    lines = []
-    section = {}
+    name = ''
 
-    #print(source)
-    while pos < len(source):
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
 
-        char = source[pos]
         if char == '\\':
-             accum.append(source[pos:pos+2])
-             pos += 1
+            accum.append(ps.string[ps.pos:ps.pos+2])
+            ps.pos += 1
         
-        elif char in '\n;':
-            line = ''.join(accum)
-            if line.strip() != '':
-                lines.append(line)
+        elif char == '=':
+            name = build(accum)
             accum = []
+            ps.pos += 1
+            names[name] = parseValue(ps, name)
+        
+        elif char == '}':
+            name = build(accum)
+            if name != '':
+                raise bWError("syntax error parsing 'briks', '{name}' has no value",
+                file=ps.filename, name=name)
+            return names
+
+        else:
+            accum.append(char)
+        
+        ps.pos += 1
+    
+    raise bWError("syntax error parsing 'briks', unexpected EOF",
+    file=ps.filename)
+
+def parseNil(ps, elem):
+    '''parse nothing, return a string'''
+
+    accum = []
+    name = ''
+
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+
+        if char == '\\':
+            accum.append(ps.string[ps.pos:ps.pos[1]])
+            ps.pos += 1
+        
+        elif char == '}':
+            return build(accum)
         
         else:
             accum.append(char)
-        pos += 1
-
-    if len(accum) > 0:
-        line = ''.join(accum)
-        if line.strip != '':
-            lines.append(line)
-
-    for line in lines:
-        if ':' not in line:
-            raise bWError("line '{line}' is not a valid property",
-            line=line, elem=elem
-            )
-        name, value = line.split(':', maxsplit=1)
-        section[name.strip()] = value.strip()
+        
+        ps.pos += 1
+    raise bWError("syntax error parsing '{elem}', unexpected EOF",
+    file=ps.filename, elem=elem)
 
 
-    return section
-
-def parseUserBriks(source:str, filename:str):
-
-    lines = source.splitlines()
-    briks = {}
-
-    for line in lines:
-        if '=' not in line:
-            raise bWError("line '{line}' is not a valid brik definition",
-            line=line, layout=filename)
-        name, value = line.split('=', maxsplit=1)
-        #down the line this is where parametized user briks would be defined as well
-        briks[name.strip()] = value.strip()
-
-    return briks
-
-
-def parseLayoutFile(source:str, filename:str) -> dict:
+def parseLayoutFile(source, filename):
     lines = source.splitlines()
     newLines = []
     for line in lines:
@@ -306,76 +360,79 @@ def parseLayoutFile(source:str, filename:str) -> dict:
             newLines.append(line)
     source = '\n'.join(newLines)
 
-    #section: name "{" lines "}"
-    #layout: section+
+    ps = Collection(
+        pos = 0,
+        string = source,
+        filename = filename,
+    )
 
-    pos = 0 #pos in string
-    char = '' #current char
-    name = '' #section name
-    inSection = False #if we're in a section
-    accum = [] #the string currently being built
-    storage = {} # where we stick sections after they're built
-    braceStack = [] #used to keep track of curly brace pairs found in sections
-
-    while pos < len(source):
-        char = source[pos]
-
-        if inSection:
-            if char == '\\':
-                #escape
-                accum.append(source[pos:pos+2])
-                pos += 1
-            elif char == '{':
-                #keep track of braces to make sure they're balanced
-                braceStack.append(pos)
-                accum.append(char)
-            elif char == '}':
-                if len(braceStack) == 0:
-                    #end of section
-                    storage[name] = ''.join(accum).strip()
-                    accum = []
-                    name = ''
-                    inSection = False
-                else:
-                    braceStack.pop()
-                    accum.append(char)
-
-            else:
-                accum.append(char)
-        
-        else:
-            if char == '\\':
-                #escape
-                accum.append(source[pos:pos+2])
-                pos += 1
-            elif char == '{':
-                #begin section
-                name = ''.join(accum).strip()
-                accum = []
-                inSection = True
-            else:
-                #anything else
-                accum.append(char)
-        
-        pos += 1
-    if len(braceStack) != 0 or name != '':
-        raise bWError("section '{name}' is not closed",
-        layout=filename, name=name)
-    elif len(storage) == 0:
-        raise bWError("could not find a layout in this file",
-        file=filename)
-
+    accum = []
     layout = {}
+    name = ''
 
-    for name, data in storage.items():
-        if name == 'layout':
-            layout[name] = parseProps(data, filename, name)
-        elif name == 'briks':
-            layout[name] = parseUserBriks(data, filename)
-        elif name == 'data':
-            layout[name] = data
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+
+        if char == '\\':
+            accum.append(ps.string[ps.pos:ps.pos+2])
+            ps.pos += 1
+        
+        elif char == '{':
+            name = build(accum)
+            ps.pos += 1
+            accum = []
+            if name in ('layout', 'defaults'):
+                layout[name] = parseProps(ps, name)
+            elif name == 'briks':
+                layout[name] = parseUserBriks(ps)
+            elif name == 'data':
+                layout[name] = parseNil(ps, name)
+            else:
+                layout[name] = parseProps(ps, name)
+
+        elif char == ':':
+            raise bWError("syntax error near '{name}', properties not allow at the top level of a layout file",
+            file=ps.filename, name=build(accum))
+        
+        elif char == '}':
+            raise bWError("syntax error near '{name}', unexpected }}",
+            file=ps.filename, name=build(accum))
+        
         else:
-            layout[name] = parseProps(data, filename, name)
+            accum.append(char)
+
+        ps.pos += 1
+    
+    if len(build(accum)) > 0:
+        raise bWError("syntax error, '{name}' has no section",
+        file=ps.filename, name=build(accum))
     
     return layout
 
+
+if __name__ == '__main__':
+    test = '''
+layout {
+    width: 5
+}
+briks {
+    foo = but
+}
+foo {
+    x:2
+}
+data {
+yes, no
+yellow, everything else
+}
+'''
+    test2 = '''{
+    x: 1
+    y:2
+}
+'''
+
+    try:
+        print(parseLayoutFile(test, '<test>'))
+    except bWError as e:
+        print(e.message)
