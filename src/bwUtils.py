@@ -171,19 +171,60 @@ def parseCSV(string:str):
             sheet.append({headers[0]: line.strip()})
     return sheet
 
-def parseProps(source:str, filename, elem):
+#def parseProps(source:str, filename, elem):
 
-    lines=source.splitlines()
+#    lines=source.splitlines()
+#    section = {}
+
+#    for line in lines:
+#        if ':' not in line:
+#            raise bWError("line '{line}' is not a valid property",
+#            line=line, elem=elem
+#            )
+#        name, value = line.split(':', maxsplit=1)
+#        section[name.strip()] = value.strip()
+    
+#    return section
+
+def parseProps(source:str, filename, elem):
+    pos = 0
+    char = ''
+    accum = []
+    lines = []
     section = {}
+
+    #print(source)
+    while pos < len(source):
+
+        char = source[pos]
+        if char == '\\':
+             accum.append(source[pos:pos+2])
+             pos += 1
+        
+        elif char in '\n;':
+            line = ''.join(accum)
+            if line.strip() != '':
+                lines.append(line)
+            accum = []
+        
+        else:
+            accum.append(char)
+        pos += 1
+
+    if len(accum) > 0:
+        line = ''.join(accum)
+        if line.strip != '':
+            lines.append(line)
 
     for line in lines:
         if ':' not in line:
             raise bWError("line '{line}' is not a valid property",
-            line=line, layout=filename, elem=elem
+            line=line, elem=elem
             )
         name, value = line.split(':', maxsplit=1)
         section[name.strip()] = value.strip()
-    
+
+
     return section
 
 def parseUserBriks(source:str, filename:str):
