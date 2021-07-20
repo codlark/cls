@@ -171,20 +171,75 @@ def parseCSV(string:str):
             sheet.append({headers[0]: line.strip()})
     return sheet
 
-#def parseProps(source:str, filename, elem):
+def parseValue(ps):
+    #takes over after a :
+    accum = []
 
-#    lines=source.splitlines()
-#    section = {}
+    char = ''
 
-#    for line in lines:
-#        if ':' not in line:
-#            raise bWError("line '{line}' is not a valid property",
-#            line=line, elem=elem
-#            )
-#        name, value = line.split(':', maxsplit=1)
-#        section[name.strip()] = value.strip()
-    
-#    return section
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+
+        if char == '\\':
+            accum.append(ps.string[ps.pos:ps.pos+2])
+            ps.pos += 1
+        
+        elif char in '\n;':
+            value = ''.join(accum).strip()
+            return value
+        
+        else:
+            accum.append(char)
+
+        ps.pos += 1
+
+def parseSection(ps):
+    #takes over after a {
+    accum = []
+    char = ''
+    braceStack = []
+
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+        
+
+def parseComplex(source:str, filename, elem=None):
+    ps = Collection()
+    ps.string = source
+    ps.file = filename
+    ps.elem = elem
+    ps.pos = 0
+    accum = []
+    section = dict(children = {})
+    name = ''
+
+    char = ''
+
+    while ps.pos < len(ps.string):
+        char = ps.string[ps.pos]
+
+        if char == '\\':
+            accum.append(ps.string[ps.pos:ps.pos+2])
+            ps.pos += 1
+
+        elif char == ':':
+            name = ''.join(accum).strip()
+            ps.pos += 1
+            section[name] = parseValue(ps)
+            accum = []
+        
+        elif char == '{':
+            name = ''.join(accum).strip()
+            ps.pos += 1
+            section['children'][name] = parseSection(ps)
+            accum = []
+        
+        else:
+            accum.append(char)
+        
+        ps.pos += 1
+    return section
+
 
 def parseProps(source:str, filename, elem):
     pos = 0
