@@ -36,17 +36,22 @@ def openFile(filename):
         state.painter = AssetPainter(state.layout)
         state.painter.paint()
         state.asset = 0
+        
         return True, f'generated {len(state.painter.images)} assets'
 
     except bWError as e:
         os.chdir(dir)
+        state.layout = None
+        state.painter = None
         return False, e.message
 
 def setImage():
     if state.painter is None:
         return
+    if len(state.painter.images) == 0:
+        return
     pix = QPixmap.fromImage(state.painter.images[state.asset][0])
-    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10))
+    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10, mode=Qt.FastTransformation))
 
 @Slot()
 def openFunc(earlyOpen):
@@ -65,7 +70,6 @@ def openFunc(earlyOpen):
     window.setWindowTitle(f'{shortFilename} - brikWork')
     
     result, message = openFile(filename)
-    
     if result:
         setImage()
     window.textLog.append(message)
@@ -185,12 +189,13 @@ args = commandParser.parse_args()
 if args.file is not None and args.windowless:
     result, message = openFile(args.file)
     print(message)
-    try:
-        state.painter.save()
-    except bWError as e:
-        print(e.message)
-    else:
-        print(f"saved assets to {state.layout.output}")
+    if result:
+        try:
+            state.painter.save()
+        except bWError as e:
+            print(e.message)
+        else:
+            print(f"saved assets to {state.layout.output}")
 
 elif not args.windowless:
     if args.file is not None:

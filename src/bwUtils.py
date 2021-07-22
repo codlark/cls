@@ -190,12 +190,14 @@ def parseValue(ps, prop):
             ps.pos += 1
         
         elif char in '\n;':
+            if len(accum) == 0:
+                return ''
             value = build(accum)
             return value
         
         if char == '}':
             value = build(accum)
-            ps.pos -= 1 #OH NO
+            ps.pos -= 1 #OH NO A BCKTRACK
             return value
         
         else:
@@ -388,7 +390,7 @@ def parseLayoutFile(source, filename):
             elif name == 'data':
                 layout[name] = parseNil(ps, name)
             else:
-                layout[name] = parseProps(ps, name)
+                layout[name] = parseSection(ps, name)
 
         elif char == ':':
             raise bWError("syntax error near '{name}', properties not allow at the top level of a layout file",

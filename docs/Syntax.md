@@ -9,7 +9,7 @@ layout {
     width: 2.5in
 }
 ```
-Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by either a semi colon or the end of the line.
+Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by a semi colon, the end of the line, or the end of the section.
 ```
     italic: yes; bold: yes;
 ```
@@ -23,32 +23,56 @@ The `layout` section specifies the size of the final asset as well as interactio
 
 The `data` section specifies data used in generating assets. This section uses the CSV syntax described [below](#csv-syntax).
 
-The `briks` section specifies briks available to the user. The contents of this section use a syntax similar to variable definition in other languages. A description of briks is [below](#brik-syntax).
+The `briks` section specifies briks available to the user. The contents of this section use a syntax similar to variable definition in other languages. A description of briks is [below](#brik-syntax). Like property definitions, brik definitions end with a semicolon, a new line, the or end of the section just like property definitions.
 ```
 briks {
-    Heliotrope = #DF73FF
+    heliotrope = #DF73FF
 }
+...
+    fillColor: [heliotrope]
 ```
 
 The `defaults` section specifies defaults for element properties. This section uses property definitions.
 
 ## Element Sections
 
-Element sections describe the text, images, and shapes that make the final asset. Element sections must have unique names and those names can't be the names of the special sections, nor can they contain any special characters like colon or curly braces, spaces are okay.
+Element sections describe the text, images, and shapes that make the final asset. Element sections must have unique names and those names can't be the names of the special sections, nor can they contain any special characters like colon or curly braces, spaces are okay. Elements can also conain other elements, which are positioned realative to their container.
+```
+#some properties omitted for clarity
+infoBox {
+    type: rect
+    width: 1in
+    height: .5in
+    ...
+
+    attackBG {
+        type: circle
+        width: .5in
+        ...
+    }
+    defenceBG {
+        type: circle
+        x: .5in
+        width: .5in
+        ...
+    }
+}
+```
+![Container Example](img/containerExScreenshot.png)
 
 ### Whitespace
 
-Whitespace is largly ignored. The rule of thumb is that whitespace on boundries is removed. In a property definition such as `text: NOW that's what I call tokens     ;` the property name is "text" and the value is "NOW that's what I call tokens". When whitespace is meaningful it is called out in the description of that syntax.
+Whitespace is largly ignored, the rule of thumb being whitespace on boundries is removed. In a property definition such as `text: NOW that's what I call tokens     ;` the property name is "text" and the value is "NOW that's what I call tokens". When whitespace is meaningful it is called out in the description of that syntax.
 
 ### Comments
 
-A comment is a line that has a pound sign, `#`, for its first character after any indent. Everything after the pound sign is ignored until the end of the line.
+A comment is a line that starts with a pound sign after any indent. Everything after the pound sign is ignored until the end of the line.
 
 ## Brik Syntax
 
-Briks are the programming utility of brikWork, as well as its namesake. Briks are used in values and are surrounded by square brackets. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks` which pull values from the data, and user briks  which are defined in the `briks` section. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/).
+Briks are the programming utility of brikWork, as well as its namesake. Briks are used in values and are surrounded by square brackets. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks which pull values from the data, and user briks  which are defined in the `briks` section. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/).
 
-Function briks have extra syntax over other briks in the form of arguments. Arguments are values that are seen by the underlying code of a brik in order to generate the final returned value. The brik name and arguments are separated by vertical bars. Brik arguments are evalutated as part of evalutating the brik, and if the birk returns a value that contains briks they too will be evaluated.
+Function briks have extra syntax over variable briks in the form of arguments. Arguments are values that are used by the brik in order to create the final returned value. The brik name and arguments are separated by vertical bars. Brik arguments are evalutated as part of evalutating the brik, and if the birk returns a value that contains briks they too will be evaluated.
 
 ### Escapes
 

@@ -7,14 +7,14 @@ brikWork uses a text file to define a layout and the elements on that layout. Th
 
 These properties affect the layout and how assets are generated. These are mandatory.
 
- * `width: NUM` width of the asset
- * `height: NUM` height of the asset
- * `name: FILENAME` - pattern to use for generating names of assets. If no briks are featured `[assetIndex]` will be added to the beginning of the name. This is the only layout property that evaluates briks
+ * `width: NUM` width of the asset.
+ * `height: NUM` height of the asset.
+ * `name: FILENAME` - pattern to use for generating names of assets. If no briks are featured `[assetIndex]` will be added to the beginning of the name. This is the only layout property that evaluates briks.
 
 These properties are optional.
 
- * `output: FOLDER` - folder to save the assets in. The default behavior is to save the assets in same folder as the layout file
- * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated
+ * `output: FOLDER` - folder to save the assets in. The default behavior is to save the assets in same folder as the layout file.
+ * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated.
  * `template: FILENAME` - Specify a layout file to act as a template. For a full description of templates see [Templates](Templates/).
 
 ## Element Properties
@@ -28,7 +28,7 @@ These properties are common to all elements. With the exception of the `type` pr
  * * `ellipse` - an ellipse or circle
  * * `circ` - an easier to spell alias for `ellipse`
  * * `line` - a line
- * `x: NUM` - this and `y` determine the upper left corner location of the element. If `center` is used instead of a number, the element will be centered in that dimension. The origin point (the 0,0 point) is at the upper left of the asset. The default value is `0`
+ * `x: NUM` - this and `y` determine the upper left corner location of the element. If `center` is used instead of a number, the element will be centered in that dimension. The origin point (the 0,0 point) is at the upper left of the asset. The default value is `0`. If the element these properties belong to is contained in another element, the element will be positioned relative to the cotainer, this also affects `center`.
  * `y: NUM` - this and `x` are in either pixels or inches, see [Numbers](../Values/#Numbers) . The default value is `0`
  * `width: NUM` - this and `height` determine the size of the element. Like `x` and `y` these can be in pixels or inches. The default value is `50`
  * `height: NUM` - the default value is `50`
@@ -66,10 +66,17 @@ These are only some of the tags available, for a fuller explanation of these and
 
 ### `image`
 
-An `image` element displas an image. If either of an image's `width` or `height` is `0` (the default for images) then that dimension is set to the image size, while the other dimension is left alone. Thus when `width` and `height` are both `0` the image will be draw at full size. THIS NEEDS TO BE EDITED WHEN IMAGE SIZE GETS CHANGED
+An `image` element displas an image.
  
  * `source: FILENAME` - the image file to load, several filetypes are recognized but png is recommended. The default value is no value
- * `keepAspectRatio: TOGGLE` - whether to keep the aspect ratio when resizing the image. If `true` the image will be scaled the same amount in both directions to a size that will fit within the size defined by `width` and `height`, if `false` the image will be whatever size is specified by `width` and `height` regardless of aspect ratio. The default value is `true`
+ * `keepAspectRatio: TOGGLE` - whether to keep the aspect ratio when resizing the image. The default value is `true`
+
+The final size to render an images uses the below algorithm. In all these cases the final size of the element will affect any contained elements that are positioned with `center`.
+
+ - If both `width` and `height` are `0` the image is draw at full size, reguardless of `keepAspectRatio`. This is the default behavior.
+ - If `keepAspectRatio` is `true` and either `width` or `height` is `0` the image will be scaled evenly according to the other.
+ - If `keepAspectRatio` is `true` the image will be scaled evenly according to the smaller of `width` and `height`.
+ - If `keepAspectRatio` is `false` the image will be scaled to exactly what `width` and `height` specify.
 
 ### Shapes
 

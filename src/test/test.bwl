@@ -18,9 +18,17 @@ title {
 }
 icon {
     type: image
-    x: center
+    x: .5in
     y: 0.875in
     source: res/[img]
+
+    caption {
+        type: label
+        text: a face
+        x: center
+        y: .25in
+    }
+
 }
 bodyBorder {
     type: rect

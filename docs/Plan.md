@@ -7,7 +7,6 @@
 version 3
 
  - fix whatevers going on with image sizes
- - fix brikWork.py open not always working
  - 
 
 
