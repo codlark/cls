@@ -13,7 +13,7 @@ Let's look at the layout file one section at a time
 The size of the asset, in this case the size of a standard US poker card.
 
         name: [role][repeatIndex].png
-The name of the asset, `[role]` is pulled from the data, and `[repeatIndex]` is a builtin brik the returns the number of times the current row has been repeated, starting with one.
+The name of the asset, `[role]` is pulled from the data, and `[repeatIndex]` is a builtin brik that returns the number of times the current row has been repeated, starting with one.
 
         output: out/
     }

@@ -9,9 +9,8 @@ brikWork is still early in development and may contain bugs or change substantia
 Current features
 
  * combine text, images, and shapes
- * styled, unicode compliant text with HTML markup
+ * unicode compliant text with HTML markup and styling
  * stronger-than-it-needs-to-be scripting functionality
- * command line interface
  * define sizes and location in pixels or inches
 
 Future features
@@ -51,7 +50,7 @@ image, title
 ./images/smile.png, smiley face
 }
 ```
-For each row in the data, a new asset will be generated with the data from that row available as a brik with the name of the corresponding header.
+For each row in the data a new asset will be generated, with the data from that row available as a brik with the name of the corresponding header.
 Briks are the programing utility within values. Briks can be variables like `[title]`, or they can be functions like `[capitalize| ]` .
 
 For more in depth information check out any of the pages in the nav bar. If you have questions post them to the forum on the itch.io page at [codlark.itch.io/brikwork](codlark.itch.io/brikwork).

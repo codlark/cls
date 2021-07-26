@@ -51,7 +51,7 @@ def setImage():
     if len(state.painter.images) == 0:
         return
     pix = QPixmap.fromImage(state.painter.images[state.asset][0])
-    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10, mode=Qt.FastTransformation))
+    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10, mode=Qt.SmoothTransformation))
 
 @Slot()
 def openFunc(earlyOpen):
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         center = QWidget(self)
         self.setCentralWidget(center)
 
-        layout = QVBoxLayout(center)
+        layout = QHBoxLayout(center)
 
         self.assetHolder = QLabel(center)
         layout.addWidget(self.assetHolder)
@@ -131,8 +131,10 @@ class MainWindow(QMainWindow):
         
         self.textLog = QTextEdit(center)
         layout.addWidget(self.textLog)
+        self.textLog.setTabStopDistance(40.0)
+        self.textLog.setWordWrapMode(QTextOption.NoWrap)
         self.textLog.setReadOnly(True)
-        self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        #self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.toolbar = QToolBar(self)
         self.addToolBar(self.toolbar)
@@ -202,7 +204,7 @@ elif not args.windowless:
         state.filename = args.file
         openFunc(True)
     window.show()
-    window.resize(600, 600)
+    window.resize(800, 600)
     app.exec()
 
 elif args.windowless and args.file is None:

@@ -252,6 +252,14 @@ class ElementGenerator ():
 
     def __init__(self):
         self.elements = {}
+    
+    def getDraw(self, elem):
+
+        while elem.parent is not None:
+            if not elem.draw:
+                return False
+            elem = self.elements[elem.parent]
+        return elem.draw
 
     def generate(self, template, validator:Validation):
         elem =  Collection()
@@ -266,6 +274,10 @@ class ElementGenerator ():
             parsed = validator.store.parse(value)
             new_val = validator.validate(prop, parsed, template['name'])
             elem._set(prop, new_val)
+        
+        elem.parent = template.parent
+        elem.draw = self.getDraw(elem)
+        
         elemClass = elemClasses[template['type']]
         if hasattr(elemClass, 'postGenerate'):
             elemClass.postGenerate(elem)
@@ -341,8 +353,10 @@ class AssetPainter():
     def paintElement(self, elem, painter:QPainter, generator):
         '''Paint a given element'''
         #elem = generator.generate(template, self.validator)
-        if not elem.draw:
-            return
+        #if not generator.elements[elem.parent].draw:
+        #    return
+        #if not elem.draw:
+        #    return
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
@@ -354,7 +368,9 @@ class AssetPainter():
         generator = ElementGenerator()
         elements = []
         for template in self.layout.elements.values():
-            elements.append(generator.generate(template, self.validator))
+            elem = generator.generate(template, self.validator)
+            if elem.draw:
+                elements.append(elem)
 
         image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.white)
@@ -405,7 +421,9 @@ class AssetPainter():
 
 def parseData(rows:str):
 
-    data = parseCSV(rows)
+    #data = parseCSV(rows)
+    parser = CSVParser(rows)
+    data = parser.parseCSV()
     if data is None:
         return None
         
@@ -454,8 +472,6 @@ def parseData(rows:str):
 
     return newData
 
-
-
 def buildLayout(filename):
     if not os.path.isfile(filename):
         raise bWError("'{file}' is not a valid file",
@@ -469,7 +485,8 @@ def buildLayout(filename):
         file=filename
         )
     
-    parsedLayout = parseLayoutFile(layoutText, filename)
+    layoutParser = LayoutParser(layoutText, filename)
+    parsedLayout = layoutParser.parseLayoutFile()
     if 'layout' in parsedLayout:
         rawLayout = parsedLayout.pop('layout')
     else:
@@ -537,6 +554,8 @@ def buildLayout(filename):
                     makeElements(children.items(), layout.elements[name]['name'])
 
             else:
+                if parent is not None:
+                    name = f'{parent}->{name}'
                 if 'type' not in props:
                     props['type'] = 'none'
                 elif props['type'] not in elemClasses:
@@ -544,8 +563,8 @@ def buildLayout(filename):
                 elemType = elemClasses[props['type']]
                 elem = elemType.defaults.new_child(props)
                 elem.maps.insert(1, layout.defaults)
-                elem['name'] = name
                 elem.parent = parent
+                elem['name'] = name
                 
                 layout.addElement(elem)
                 children = props.pop('children')

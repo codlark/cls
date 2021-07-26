@@ -87,9 +87,22 @@ Anything else has it's back slash removed and put into the final value. Because 
 
 ## CSV Syntax
 
-brikWork uses comma seperated values for data. Like with colons seperating properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. The parser keeps track of how many names are seen in the first row as well as how many columns it's seen on the current row, if the parser knows it's on the last column of a row it will ignore any more commas.
+brikWork uses comma seperated values for data. Like with colons seperating properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. Blank headers are not allowed, but blank values are. If a row doesn't provide values for all the columns those columns will be assigned a blank value.
 
-A layout file does not need any data. If both the `data` property in hte `layout` section is blank and the `data` section is not used, only one asset will be generated, and no column blocks will be available. Data is also considered blank if there are fewer than two lines.
+    colorLeft, colorCenter,, colorRight
+    red, blue, yellow
+    black, , white
+    , purple
+    orange, green
+This example creates three briks, `[colorLeft]`, `[colorCenter]`, and `[colorRight]`, and four assets out of the values
+
+ - "red", "blue", and "yellow"
+ - "black",  "", and "white"
+ - "",  "purple", and ""
+ - "orange",  "green", and ""
+
+
+A layout file does not need any data. If both the `data` property in the `layout` section and the `data` section are not used, only one asset will be generated, and no column blocks will be available. Data is also considered blank if there are fewer than two lines.
 
 A column with the name `repeat` acts as a special column. When a row's repeat value is more than one, multiple assets are generated from that row, each evaluated on their own, each counted as their own asset. A repeat column is not required.
 

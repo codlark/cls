@@ -27,6 +27,7 @@ icon {
         text: a face
         x: center
         y: .25in
+        #alignment: no
     }
 
 }
@@ -53,5 +54,5 @@ data {
 title, img, body
 Smile, smile.png, This face is smiling.
 Neutral, flat.png, This face is neither smiling nor frowning.
-Frown, frown.png, This face is frowning, [i|unfortunate].
+Frown, frown.png, This face is frowning\, [i|unfortunate].
 }

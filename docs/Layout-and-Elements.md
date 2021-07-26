@@ -21,7 +21,7 @@ These properties are optional.
 
 These properties are common to all elements. With the exception of the `type` property, these are all optional. Below the value name is in `ALL CAPS`.
 
- * `type: TYPE` - the type of the element. This is the only element property that does not evaluate briks. `TYPE` can be one of
+ * `type: TYPE` - the type of the element. This is the only element property that is not evaluated for briks. `TYPE` can be one of
  * * `label` - a text label or box
  * * `image` - an external image
  * * `rect` - a rectangle with optional corner rounding
@@ -33,7 +33,7 @@ These properties are common to all elements. With the exception of the `type` pr
  * `width: NUM` - this and `height` determine the size of the element. Like `x` and `y` these can be in pixels or inches. The default value is `50`
  * `height: NUM` - the default value is `50`
  * `rotation: ANGLE` - the rotation of the element in degrees. The default value is `0`
- * `draw: TOGGLE` - whether to draw the object. If `false` the element is not drawn.
+ * `draw: TOGGLE` - whether to draw the object. If `false` the element, and any contained elements, will not be drawn.
 
 ### `label`
 

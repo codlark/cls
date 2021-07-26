@@ -5,10 +5,10 @@ layout {
     name: [suit][rank].png
 }
 briks {
-    red = #ff1547
-    #a red with just a bit of pink
-    black = #1a1a3a
-    #a slightly blueish grayish black
+    red = #ff1569
+    #could pass for magenta in a pinch
+    black = #1a1a5e
+    #more of a midnight blue really
     rank = 0
     #place holder
 }

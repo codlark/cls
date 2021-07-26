@@ -10,17 +10,17 @@ class bWError(Exception):
 
     def __init__(self, msg, /, **kwargs):
         if 'origin' in kwargs:
-            self.msg = "{origin}:\n\t"+msg
+            self.msg = "error in {origin}:\n\t"+msg
         elif 'layout' in kwargs:
-            self.msg = "layout '{layout}':\n\t"+msg
+            self.msg = "error in layout '{layout}':\n\t"+msg
         elif 'file' in kwargs:
-            self.msg = "file '{file}':\n\t"+msg
+            self.msg = "error in file '{file}':\n\t"+msg
         elif 'prop' in kwargs:
-            self.msg = "property '{prop}' in element '{elem}:'\n\t"+msg
+            self.msg = "error in property '{prop}' of element '{elem}:'\n\t"+msg
         elif 'elem' in kwargs:
-            self.msg = "element '{elem}':\n\t"+msg
+            self.msg = "error in element '{elem}':\n\t"+msg
         else:
-            self.msg = "unknown error source:\n\t"+msg
+            self.msg = "error from unknown source:\n\t"+msg
         self.kwargs = kwargs
 
 
@@ -46,13 +46,34 @@ class InvalidArgError(bWError):
         super().__init__("'{value}' is not a valid {arg} argument for brik [{brik}| ]",
         elem=elem, prop=prop, brik=brik, arg=arg, value=value
         )
+        
+class bWSyntaxError(bWError):
+    def __init__(self, msg, /, **kwargs):
+        if 'origin' in kwargs:
+            self.msg = "syntax error in {origin}:\n\t"+msg
+        elif 'elem' in kwargs:
+            self.msg = "syntax error in element '{elem}' from file '{file}':\n\t"+msg
+        elif 'file' in kwargs:
+            self.msg = "syntax error in file '{file}':\n\t"+msg
+        else:
+            self.msg = "syntax error from unknown source:\n\t"+msg
+        self.kwargs = kwargs
 
-class UnclosedBrikError(bWError):
+class NoValueError(bWSyntaxError):
+    def __init__(self, file, elem, name):
+        super().__init__("'{name}' has no value or section",
+        file=file, elem=elem, name=name)
+
+class UnexpectedEOFError(bWSyntaxError):
+    def __init__(self, file, name):
+        super.__init__("unexpected EOF in '{name}'",
+        file=file, name=name)
+
+class UnclosedBrikError(bWSyntaxError):
     def __init__(self, elem, prop, source):
         super().__init__("'{source}' has an unclosed brik",
         elem=elem, prop=prop, source=source
         )
-        
 
 class Collection(SimpleNamespace):
     '''Used to hold generated elements'''
@@ -123,318 +144,344 @@ def build(accum:list) -> str:
     '''collapse a string builder'''
     return ''.join(accum).strip()
 
-def parseCSV(string:str) -> list:
-    '''parses csv data according to the csv flavor used by brikWork'''
-    lines = string.strip().split('\n')
+class CSVParser():
+    def __init__(self, source):
+        self.pos = 0
+        self.source = source
 
-    cleanLines = []
-    for line in lines:
-        if (not re.match(r'\s*#', line)) and line != '':
-            cleanLines.append(line)
+    def processEscape(self, line, pos):
+        char = line[pos+1]
+        if char == ',':
+            return char
+        else:
+            return line[pos:pos+2]
 
-    if len(cleanLines) < 2:
-        return None
-
-    headerLine, *lines = cleanLines
-
-    headers = [h.strip() for h in headerLine.split(',') if h != '']
-    numHeaders = len(headers)
-    sheet = []
-    
-    for line in lines:
+    def parseRow(self, line):
         record = []
-        c = 0
-        char = ''
-        cell = []
-        
-        if line == '':
-            continue
+        pos = 0
+        accum = []
 
-        while c < len(line):
-            char = line[c]
-            
+        while pos < len(line):
+            char = line[pos]
+
             if char == '\\':
-                cell.append(line[c:c+2])
-                c += 2
-
+                accum.append(self.processEscape(line,pos))
+                pos += 1
+            
             elif char == ',':
-                record.append(''.join(cell).strip())
-                cell = []
-                if len(record)+1 == numHeaders:
-                    #we break early so thre rest of the text can become the final cell
-                    break
-                c += 1
+                record.append(build(accum))
+                accum = []
             
             else:
-                cell.append(char)
-                c += 1
-
-        record.append(line[c+1:].strip())
-        if numHeaders > 1:
-            sheet.append(dict(zip(headers, record)))
-        else:
-            sheet.append({headers[0]: line.strip()})
-    return sheet
-
-def parseValue(ps, prop):
-    '''parses a single value and returns when it's ended'''
-    #takes over after a :
-    accum = []
-    char = ''
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos+2])
-            ps.pos += 1
+                accum.append(char)
+            
+            pos += 1
         
-        elif char in '\n;':
-            if len(accum) == 0:
-                return ''
-            value = build(accum)
-            return value
-        
-        if char == '}':
-            value = build(accum)
-            ps.pos -= 1 #OH NO A BCKTRACK
-            return value
-        
-        else:
-            accum.append(char)
+        record.append(build(accum))
 
-        ps.pos += 1
+        return record
     
-    raise bWError("syntax error, unexpected EOF while reading value '{value}' for '{name}'",
-    file=ps.filename, value=build(accum), name=prop)
+    def parseHeaders(self, line):
+        headers = []
+        char = ''
+        accum = []
+        pos = 0
+        while pos < len(line):
+            char = line[pos]
 
-def parseSection(ps, elem, top=False):
-    '''parses the contents of a section
-    if top is True the section is ended at end of string
-    if Flase, the default, the section is ended on }
-    parsing includes both properties and sub sections
-    don't call directly'''
-    accum = []
-    char = ''
-    section = dict(children={})
-    name = ''
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos+2])
-            ps.pos += 1
-        
-        elif char == ':':
-            name = build(accum)
-            accum = []
-            ps.pos += 1
-            section[name] = parseValue(ps, name)
-
-        elif char == '{':
-            name = build(accum)
-            ps.pos += 1
-            section['children'][name] = parseSection(ps, name)
-            accum = []
-
-        elif char == '}':
-            name = build(accum)
-            if name != '':
-                raise bWError("syntax error parsing '{elem}', '{name}' has no value or section",
-                file=ps.filename, elem=elem, name=name)
-            return section
-    
-        else:
-            accum.append(char)
-
-        ps.pos += 1
-    if not top:
-        raise bWError("syntax error parsing '{name}', unexpected EOF",
-        file=ps.filename, name=elem)
-
-def parseProps(ps, elem):
-    '''parses property only sections'''
-    
-    section = {}
-    accum = []
-    name = ''
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos+2])
-            ps.pos += 1
-        
-        elif char == ':':
-            name = build(accum)
-            accum = []
-            ps.pos += 1
-            section[name] = parseValue(ps, name)
-        
-        elif char == '{':
-            name = build(accum)
-            if len(name) > 0:
-                raise bWError("syntax error parsing '{elem}', '{name}' has no value",
-                file=ps.filename, elem=elem, name=name)
-            raise bWError("syntax error, '{elem}' cannot contain subsections",
-            file=ps.filename, elem=elem)
-        
-        elif char == '}':
-            name = build(accum)
-            if name != '':
-                raise bWError("syntax error parsing '{elem}', '{name}' has no value",
-                file=ps.filename, elem=elem, name=name)
-            return section
-        
-        else:
-            accum.append(char)
-        
-        ps.pos += 1
-    
-    raise bWError("syntax error parsing '{name}', unexpected EOF",
-    file=ps.filename, name=elem)
-      
-
-def parseUserBriks(ps):
-
-    names = {}
-    accum = []
-    name = ''
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos+2])
-            ps.pos += 1
-        
-        elif char == '=':
-            name = build(accum)
-            accum = []
-            ps.pos += 1
-            names[name] = parseValue(ps, name)
-        
-        elif char == '}':
-            name = build(accum)
-            if name != '':
-                raise bWError("syntax error parsing 'briks', '{name}' has no value",
-                file=ps.filename, name=name)
-            return names
-
-        else:
-            accum.append(char)
-        
-        ps.pos += 1
-    
-    raise bWError("syntax error parsing 'briks', unexpected EOF",
-    file=ps.filename)
-
-def parseNil(ps, elem):
-    '''parse nothing, return a string'''
-
-    accum = []
-    name = ''
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos[1]])
-            ps.pos += 1
-        
-        elif char == '}':
-            return build(accum)
-        
-        else:
-            accum.append(char)
-        
-        ps.pos += 1
-    raise bWError("syntax error parsing '{elem}', unexpected EOF",
-    file=ps.filename, elem=elem)
-
-
-def parseLayoutFile(source, filename):
-    lines = source.splitlines()
-    newLines = []
-    for line in lines:
-        if (not re.match(r'\s*#', line)) and line != '':
-            newLines.append(line)
-    source = '\n'.join(newLines)
-
-    ps = Collection(
-        pos = 0,
-        string = source,
-        filename = filename,
-    )
-
-    accum = []
-    layout = {}
-    name = ''
-
-    while ps.pos < len(ps.string):
-        char = ps.string[ps.pos]
-
-        if char == '\\':
-            accum.append(ps.string[ps.pos:ps.pos+2])
-            ps.pos += 1
-        
-        elif char == '{':
-            name = build(accum)
-            ps.pos += 1
-            accum = []
-            if name in ('layout', 'defaults'):
-                layout[name] = parseProps(ps, name)
-            elif name == 'briks':
-                layout[name] = parseUserBriks(ps)
-            elif name == 'data':
-                layout[name] = parseNil(ps, name)
+            if char == '\\':
+                accum.append(self.processEscape(line,pos))
+                pos += 1
+            
+            elif char == ',':
+                name = build(accum)
+                if name != '':
+                    headers.append(name)
+                accum = []
+            
             else:
-                layout[name] = parseSection(ps, name)
-
-        elif char == ':':
-            raise bWError("syntax error near '{name}', properties not allow at the top level of a layout file",
-            file=ps.filename, name=build(accum))
+                accum.append(char)
+            
+            pos += 1
         
-        elif char == '}':
-            raise bWError("syntax error near '{name}', unexpected }}",
-            file=ps.filename, name=build(accum))
-        
-        else:
-            accum.append(char)
+        name = build(accum)
+        if name != '':
+            headers.append(name)
 
-        ps.pos += 1
+        return headers
+
     
-    if len(build(accum)) > 0:
-        raise bWError("syntax error, '{name}' has no section",
-        file=ps.filename, name=build(accum))
-    
-    return layout
+    def parseCSV(self):
+
+        lines = self.source.splitlines()
+        headers = None
+        rows = []
+
+        for line in lines:
+            if re.match(r'\s*#', line):
+                continue
+            elif re.match(r'^\s*$', line):
+                continue
+
+            elif headers is None:
+                headers = self.parseHeaders(line)
+            
+            else:
+                row = self.parseRow(line)
+                while len(row) < len(headers):
+                    row.append('')
+                rows.append(row)
+        
+        if len(rows) == 0:
+            return None
+        
+        sheet = []
+        for row in rows:
+            sheet.append(dict(zip(headers, row)))
+        return sheet
+
+        #return self.sheet
+
+class LayoutParser():
+
+    def __init__(self, source, filename):
+
+        lines = source.splitlines()
+        newLines = []
+        for line in lines:
+            if (not re.match(r'\s*#', line)) and line != '':
+                newLines.append(line)
+        source = '\n'.join(newLines)
+
+        self.pos = 0
+        self.string = source
+        self.filename = filename
+
+
+
+    def parseValue(self, prop):
+        '''parses a single value and returns when it's ended'''
+        #takes over after a :
+        accum = []
+        char = ''
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char in '\n;':
+                if len(accum) == 0:
+                    return ''
+                value = build(accum)
+                return value
+            
+            if char == '}':
+                value = build(accum)
+                self.pos -= 1 #OH NO A BCKTRACK
+                return value
+            
+            else:
+                accum.append(char)
+
+            self.pos += 1
+        
+        raise UnexpectedEOFError(self.filename, prop)
+
+    def parseSection(self, elem):
+        '''parses the contents of a section
+        if top is True the section is ended at end of string
+        if Flase, the default, the section is ended on }
+        parsing includes both properties and sub sections
+        don't call directly'''
+        accum = []
+        char = ''
+        section = dict(children={})
+        name = ''
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char == ':':
+                name = build(accum)
+                accum = []
+                self.pos += 1
+                section[name] = self.parseValue(name)
+
+            elif char == '{':
+                name = build(accum)
+                self.pos += 1
+                section['children'][name] = self.parseSection(name)
+                accum = []
+
+            elif char == '}':
+                name = build(accum)
+                if name != '':
+                    raise NoValueError(self.filename, elem, name)
+                return section
+        
+            else:
+                accum.append(char)
+
+            self.pos += 1
+        raise UnexpectedEOFError(self.filename, elem)
+
+    def parseProps(self, elem):
+        '''parses property only sections'''
+        
+        section = {}
+        accum = []
+        name = ''
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char == ':':
+                name = build(accum)
+                accum = []
+                self.pos += 1
+                section[name] = self.parseValue(name)
+            
+            elif char == '{':
+                raise bWSyntaxError("'{elem}' cannot contain subsections",
+                file=self.filename, elem=elem)
+            
+            elif char == '}':
+                name = build(accum)
+                if name != '':
+                    raise NoValueError(self.filename, elem, name)
+                return section
+            
+            else:
+                accum.append(char)
+            
+            self.pos += 1
+        
+        raise UnexpectedEOFError(self.filename, elem)
+        
+
+    def parseUserBriks(self):
+
+        names = {}
+        accum = []
+        name = ''
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char == '=':
+                name = build(accum)
+                accum = []
+                self.pos += 1
+                names[name] = self.parseValue(name)
+            
+            elif char == '}':
+                name = build(accum)
+                if name != '':
+                    raise NoValueError(self.filename, 'briks', name)
+                return names
+            
+            elif char == ':':
+                raise bWSyntaxError("'{elem}' cannot conaint properties",
+                file=self.filename, elem='briks')
+            
+            elif char == '{':
+                raise bWSyntaxError("'{elem}' cannot contain subsections",
+                file=self.filename, elem='briks')
+
+            else:
+                accum.append(char)
+            
+            self.pos += 1
+        
+        raise UnexpectedEOFError(self.filename, 'briks')
+
+    def parseNil(self, elem):
+        '''parse nothing, return a string'''
+
+        accum = []
+        name = ''
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char == '}':
+                return build(accum)
+            
+            else:
+                accum.append(char)
+            
+            self.pos += 1
+        raise UnexpectedEOFError(self.filename, elem)
+
+
+    def parseLayoutFile(self):
+
+        accum = []
+        layout = {}
+        name = ''
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+            
+            elif char == '{':
+                name = build(accum)
+                self.pos += 1
+                accum = []
+                if name in ('layout', 'defaults'):
+                    layout[name] = self.parseProps(name)
+                elif name == 'briks':
+                    layout[name] = self.parseUserBriks()
+                elif name == 'data':
+                    layout[name] = self.parseNil(name)
+                else:
+                    layout[name] = self.parseSection(name)
+
+            elif char == ':':
+                raise bWSyntaxError("properties not allow at the top level of a layout file",
+                file=self.filename, name=build(accum))
+            
+            elif char == '}':
+                raise bWSyntaxError("unexpected }} near '{name}'",
+                file=self.filename, name=build(accum))
+            
+            else:
+                accum.append(char)
+
+            self.pos += 1
+        
+        if len(build(accum)) > 0:
+            raise bWSyntaxError("'{elem}' has no section",
+            file=self.filename, elem=build(accum))
+        
+        return layout
 
 
 if __name__ == '__main__':
-    test = '''
-layout {
-    width: 5
-}
-briks {
-    foo = but
-}
-foo {
-    x:2
-}
-data {
-yes, no
-yellow, everything else
-}
-'''
-    test2 = '''{
-    x: 1
-    y:2
-}
+    test = '''lol
+    yes
 '''
 
-    try:
-        print(parseLayoutFile(test, '<test>'))
-    except bWError as e:
-        print(e.message)
+    parser = CSVParser(test)
+    print(parser.parseCSV())
