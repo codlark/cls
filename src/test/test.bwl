@@ -4,6 +4,7 @@ layout {
     name: test[assetIndex].png
     output: out/
     #data: test.csv
+
     template: template.bwl
 }
 title {
@@ -12,14 +13,23 @@ title {
     y: .25in
     width: 1.75in
     height: 2in
-    text: [title] [foo]
+    text: [title]
     fontSize: 30
 }
 icon {
     type: image
-    x: center
+    x: .5in
     y: 0.875in
     source: res/[img]
+
+    caption {
+        type: label
+        text: a face
+        x: center
+        y: .25in
+        #alignment: no
+    }
+
 }
 bodyBorder {
     type: rect
@@ -27,8 +37,7 @@ bodyBorder {
     y: 1.5in
     width: 1.75in
     height: 1.75in
-    xRadius: 40
-    yRadius: 80
+    xRadius: 40; yRadius: 80;
 }
 body {
     type: label
@@ -39,12 +48,11 @@ body {
     text: [body]
     fontFamily: Cormorant
 }
-banjo {
-    draw: off
+banjo {draw: no; lineColor: blue}
+
+data {
+title, img, body
+Smile, smile.png, This face is smiling.
+Neutral, flat.png, This face is neither smiling nor frowning.
+Frown, frown.png, This face is frowning\, [i|unfortunate].
 }
-#data {
-#title, img, body
-#Smile, smile.png, This face is smiling.
-#Neutral, flat.png, This face is neither smiling nor frowning.
-#Frown, frown.png, This face is frowning, [i|unfortunate].
-#}

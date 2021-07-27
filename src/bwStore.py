@@ -29,7 +29,7 @@ class BrikStore():
         new.briks = self.briks.new_child()
         return new
 
-    def add(self, name:str, value:Union[int, str]):
+    def add(self, name:str, value:Union[list[int], str]):
         def inner(func:Callable):
             if type(func) == str:
                 self.briks[name] = func
@@ -41,24 +41,33 @@ class BrikStore():
             inner(value)
         else:
             return inner
-    
-    def formatArgs(self, **kwargs):
-        kwargs['prop'] = self.briks['propertyName']
-        kwargs['element'] = self.briks['elementName']
-        return kwargs
 
     def call(self, name:str, context:Collection, args:str) -> str:
         #print(f'{name!r} : {args!r}')
         if name in self.briks:
             brik = self.briks[name]
             if type(brik) == str:
-                return brik.format(args=args)
+                return brik
             else:
-                if len(args) < brik[1]:
-                    raise bWError('not enough arguments for [{brik}| ]',
-                    elem=context.elem, prop=context.prop, brik=name
-                    )
-                return brik[0](context, *args)
+                func, signature = brik
+                if type(signature) is int:
+                    if len(args) != signature:
+                        raise bWError('wrong number of arguments for [{brik}| ], expected {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, brik=name, num=signature, badnum=len(args)
+                        )
+                    return func(context, *args)
+
+                else:
+                    min, max = signature
+                    if len(args) < min:
+                        raise bWError('too few arguments for [{brik}| ], expected at least {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, brik=name, num=min, badnum=len(args)
+                        )
+                    elif len(args) > max:
+                        raise bWError('too many arguments for [{brik}| ], expected at most {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, brik=name, num=max, badnum=len(args)
+                        )
+                    return func(context, *args)
         else:
             return ''
         
@@ -182,8 +191,8 @@ class BrikStore():
 
 #Most things don't neeed *args, I should make the arg definition more exact
 
-@BrikStore.addStdlib('if', 2)
-def ifBrik(context, test, true, false='', *args):
+@BrikStore.addStdlib('if', (2,3))
+def ifBrik(context, test, true, false=''):
 
     if test[0] == '?' :
         b = asBool(comparisonMacro(context, test[1:]))
@@ -197,20 +206,20 @@ def ifBrik(context, test, true, false='', *args):
         return false
 
 @BrikStore.addStdlib('eq', 2)
-def eqBrik(context, left, right, *args):
+def eqBrik(context, left, right):
     if context.parse(left) == context.parse(right):
         return 'true'
     else:
         return 'false'
 
 @BrikStore.addStdlib('ne', 2)
-def neBrik(context, left, right, *args):
+def neBrik(context, left, right):
     if context.parse(left) != context.parse(right):
         return 'true'
     else:
         return 'false'
 
-@BrikStore.addStdlib('in', 2)
+@BrikStore.addStdlib('in', (2, 99))
 def inBrik(context, value, *args):
     parsed = context.parse(value)
     for arg in args:
@@ -220,15 +229,24 @@ def inBrik(context, value, *args):
 
 
 @BrikStore.addStdlib('i', 1)
-def italicBrik(context, string, *args):
+def italicBrik(context, string):
     return f'<i>{string}</i>'
 
 @BrikStore.addStdlib('b', 1)
-def boldBrik(context, string, *args):
+def boldBrik(context, string):
     return f'<b>{string}</b>'
 
+@BrikStore.addStdlib('s', 1)
+def strikedBrik(context, string):
+    return f'<s>{string}</s>'
+
+@BrikStore.addStdlib('u', 1)
+def underlineBrik(context, string):
+    return f'<u>{string}</u>'
+
+
 @BrikStore.addStdlib('dup', 2)
-def repeatBrik(context, times, value, *args):
+def repeatBrik(context, times, value):
     nTimes = context.parse(times)
     times = asNum(times, err=InvalidArgError(
         context.elem, context.prop, 'dup', 'TIMES', nTimes
@@ -241,7 +259,7 @@ def repeatBrik(context, times, value, *args):
     return ''.join(result)
     
 @BrikStore.addStdlib('capitalize', 1)
-def capitalizeBrik(context, value, *args):
+def capitalizeBrik(context, value):
     value = context.parse(value)
     value = value[0].upper()+value[1:]
     def repl(m):
@@ -249,21 +267,21 @@ def capitalizeBrik(context, value, *args):
     return re.sub(r'\b([a-z])(\w{3,})\b', repl, value)
 
 @BrikStore.addStdlib('upper', 1)
-def upperBrik(context, value, *args):
+def upperBrik(context, value):
     value = context.parse(value)
     def repl(m):
         return m.group(1).upper()
     return re.sub(r'(?<!\\)([a-z])', repl, value)
     
 @BrikStore.addStdlib('lower', 1)
-def upperBrik(context, value, *args):
+def upperBrik(context, value):
     value = context.parse(value)
     def repl(m):
         return m.group(1).lower()
     return re.sub(r'(?<!\\)([A-Z])', repl, value)
 
 @BrikStore.addStdlib('substring', 3)
-def subBrik(context, value, start, length, *args):
+def subBrik(context, value, start, length):
     value = context.parse(value)
     start = asNum(context.parse(start), err=InvalidArgError(
         context.elem, context.prop, 'substring', 'START', start
@@ -274,12 +292,12 @@ def subBrik(context, value, start, length, *args):
     return value[start:start+length]
 
 @BrikStore.addStdlib('/', 1)
-def expansionMacro(context, value, *args):
+def expansionMacro(context, value):
     value = context.parse(value)
     return evalEscapes(value)
 
 @BrikStore.addStdlib('?', 1)
-def comparisonMacro(context, value, *args):
+def comparisonMacro(context, value):
     prop = context.store.briks['']
     nValue = context.parse(value)
     try:
@@ -317,7 +335,7 @@ def comparisonMacro(context, value, *args):
         return 'false'
 
 @BrikStore.addStdlib('#', 1)
-def mathMacro(context, value, *args):
+def mathMacro(context, value):
     
     value = context.parse(value)
     ops = '+-*/%'
@@ -402,7 +420,8 @@ def mathMacro(context, value, *args):
 
     return str(int(accum))
 
-def fileBrik(context, filename, *args):
+@BrikStore.addStdlib('file', 1)
+def fileBrik(context, filename):
     name = context.parse(filename)
     if not os.path.isfile(name):
         raise InvalidArgError(context.elem, context.prop, 'file', 'FILENAME', filename)
@@ -415,43 +434,3 @@ def fileBrik(context, filename, *args):
 
     
     
-
-
-#def brik(context, arg, *args):
-#    '''
-#    context is a namespace holding
-#     - elem : a copy of the element
-#     - evalBriks() : a function to parse a value
-#     - evalEscapes() : a function to turn escapes into their escaped value
-
-#    '''
-#    pass
-
-
-
-##this all would work to bind the propery name to the attr name
-## right at the definition sight, but I'd prolly need to flesh out
-## the bas element class a little to make it work pretty
-#props = {}
-
-#def prop(name):
-#    return name
-
-#def thing(func:Callable):
-#    if func.__annotations__:
-#        for a,p in func.__annotations__.items():
-#            props[p] = a
-#    return func
-
-#class Parent():
-#    @thing
-#    def __init__(self, x:prop('x')=5, y:prop('y')=6, **kwargs):
-#        self.x = x
-#        self.y = y
-#        self._extra = kwargs
-    
-#class Child(Parent):
-#    @thing
-#    def __init__(self, contents:prop('text')='', **kwargs):
-#        self.contents = contents
-#        super().__init__(**kwargs)

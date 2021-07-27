@@ -1,0 +1,30 @@
+layout {
+    width: 3in
+    height: 3in
+}
+
+#some properties omitted for clarity
+infoBox {
+    type: rect
+    x: .5in
+    y: .5in
+    width: 1in
+    height: .5in
+    lineWidth: 4
+
+    attackBG {
+        type: circle
+        width: .5in
+        height: 0
+        lineWidth: 0
+        fillColor: orange
+    }
+    defenceBG {
+        type: circle
+        x: .5in
+        width: .5in
+        height: 0
+        lineWidth: 0
+        fillColor: blue
+    }
+}

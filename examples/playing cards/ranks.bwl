@@ -12,132 +12,120 @@ briks {
 #1.84
 #2.19
 #2.52
+defaults {
+    source: images/[suit].png
+}
 
-pip11 {
-    type: image
+#pips are contained by a row element, which specifies the location of the left most pip
+
+row1 {
     x: .5in
-    y:  .5in
-    source: images/[suit].png
+    y: .5in
     draw: [in| [rank]| 8| 9| 10]
+    col1 {
+        type: image
+    }
+    col3 {
+        type: image
+        x: 1.1in
+    }
 }
-pip31 {
-    type: image
-    x: 1.6in
-    y:  .5in
-    source: images/[suit].png
-    draw: [in| [rank]| 8| 9| 10]
-}
-pip12 {
-    type: image
+row2 {
     x: .5in
-    y:  .83in
-    source: images/[suit].png
-    draw: [in| [rank]| 4| 5| 6]
+    y: .83in
+    col1 {
+        type: image
+        draw: [in| [rank]| 4| 5| 6]
+    }
+    col2 {
+        type: image
+        x: .55in
+        draw: [in| [rank]| 2| 3| 7| 10]
+    }
+    col3 {
+        type: image
+        x: 1.1in
+        draw: [in| [rank]| 4| 5| 6]
+    }
 }
-pip22 {
-    type: image
-    x: 1.05in
-    y:  .83in
-    source: images/[suit].png
-    draw: [in| [rank]| 2| 3| 7| 10]
-}
-pip32 {
-    type: image
-    x: 1.6in
-    y:  .83in
-    source: images/[suit].png
-    draw: [in| [rank]| 4| 5| 6]
-}
-pip13 {
-    type: image
+row3 {
     x: .5in
     y: 1.17in
-    source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
+    pip13 {
+        type: image
+    }
+    pip33 {
+        type: image
+        x: 1.1in
+        }
 }
-pip33 {
-    type: image
-    x: 1.6in
-    y: 1.17in
-    source: images/[suit].png
-    draw: [in| [rank]| 7| 8| 9| 10]
-}
-pip14 {
-    type: image
+row4 {
     x: .5in
     y: 1.51in
-    source: images/[suit].png
-    draw: [in| [rank]| 6]
+    col1 {
+        type: image
+        draw: [in| [rank]| 6]
+    }
+    col2 {
+        type: image
+        x: .55in
+        draw: [in| [rank]| 3| 5| 7| 9]
+    }
+    col3 {
+        type: image
+        x: 1.1in
+        draw: [in| [rank]| 6]
+    }
 }
-pip24 {
-    type: image
-    x: 1.05in
-    y: 1.51in
-    source: images/[suit].png
-    draw: [in| [rank]| 3| 5| 7| 9]
-}
-pip34 {
-    type: image
-    x: 1.6in
-    y: 1.51in
-    source: images/[suit].png
-    draw: [in| [rank]| 6]
-}
-pip15 {
-    type: image
+row5 {
     x: .5in
     y: 1.84in
-    rotation: 180
-    source: images/[suit].png
     draw: [in| [rank]| 7| 8| 9| 10]
+    col1 {
+        type: image
+        rotation: 180
+    }
+    col3 {
+        type: image
+        x: 1.1in
+        rotation: 180
+    }
 }
-pip35 {
-    type: image
-    x: 1.6in
-    y: 1.84in
-    rotation: 180
-    source: images/[suit].png
-    draw: [in| [rank]| 7| 8| 9| 10]
-}
-pip16 {
-    type: image
+row6 {
     x: .5in
     y: 2.19in
-    rotation: 180
-    source: images/[suit].png
-    draw: [in| [rank]| 4| 5| 6]
+    col1 {
+        type: image
+        rotation: 180
+        draw: [in| [rank]| 4| 5| 6]
+    }
+    col2 {
+        type: image
+        x: .55in
+        rotation: 180
+        draw: [in| [rank]| 2| 3| 7| 10]
+    }
+    col3 {
+        type: image
+        x: 1.1in
+        rotation: 180
+        draw: [in| [rank]| 4| 5| 6]
+    }
 }
-pip26 {
-    type: image
-    x: 1.05in
-    y: 2.19in
-    rotation: 180
-    source: images/[suit].png
-    draw: [in| [rank]| 2| 3| 7| 10]
-}
-pip36 {
-    type: image
-    x: 1.6in
-    y: 2.19in
-    rotation: 180
-    source: images/[suit].png
-    draw: [in| [rank]| 4| 5| 6]
-}
-pip17 {
-    type: image
-    x: .5in
+row7 {
+    x: 0.5in
     y: 2.52in
-    rotation: 180
-    source: images/[suit].png
     draw: [in| [rank]| 8| 9| 10]
-}
-pip37 {
-    type: image
-    x: 1.6in
-    y: 2.52in
-    rotation: 180
-    source: images/[suit].png
-    draw: [in| [rank]| 8| 9| 10]
+    col1 {
+        type: image
+        rotation: 180
+    }
+    col3 {
+        type: image
+        x: 1.1in
+        rotation: 180
+    }
 }
 data {
 repeat, suit

@@ -59,11 +59,6 @@ def validateAlignment(string):
     else:
         return None
 
-imageCache = {}
-def validateImage(value):
-    if value not in imageCache:
-        imageCache[value] = QImage(value)
-    return imageCache[value]
 
 def validateLineJoin(value):
     joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
@@ -77,9 +72,16 @@ def validateLineCap(value):
         return None
     return caps[value.lower()]
 
+class ElementScope(ChainMap):
+    '''A subclass of ChainMap that also has attributes for parent and child relationships'''
+    def __init__(self, *maps: Mapping) -> None:
+        super().__init__(*maps)
+        self.children = []
+        self.parent = None
+
 
 class Element():
-    defaults = ChainMap(dict([
+    defaults = ElementScope(dict([
         prop('type', str, ''),
         prop('name', str, ''),
         prop('draw', asBool, 'true'),
@@ -132,6 +134,12 @@ class LabelElement():
 
         # - should I allow pt and px? (extra validation)
 
+imageCache = {}
+def validateImage(value):
+    if value not in imageCache:
+        imageCache[value] = QImage(value)
+    return imageCache[value]
+
 class ImageElement():
     defaults = Element.defaults.new_child(dict([
         prop('width', asNum, '0'),
@@ -142,18 +150,35 @@ class ImageElement():
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
+        painter.drawPixmap(upperLeft, elem.source)
+
+    @staticmethod
+    def postGenerate(elem):
+        scaleMode = Qt.SmoothTransformation
         if elem.keepAspectRatio:
             aspect = Qt.KeepAspectRatio
         else:
             aspect = Qt.IgnoreAspectRatio
-        painter.drawPixmap(upperLeft, QPixmap.fromImage(elem.source.scaled(size, aspectMode=aspect)))
 
-    @staticmethod
-    def postGenerate(elem):
-        if elem.width == 0:
+        if elem.width == 0 and elem.height == 0:
             elem.width = elem.source.width()
-        if elem.height == 0:
             elem.height = elem.source.height()
+        elif elem.keepAspectRatio:
+            if elem.width == 0:
+                elem.source = elem.source.scaledToHeight(elem.height, scaleMode)
+                elem.width = elem.source.width()
+            elif elem.height == 0:
+                elem.source = elem.source.scaledToWidth(elem.width, scaleMode)
+                elem.height = elem.source.height()
+            else:
+                elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
+                elem.width = elem.source.width()
+                elem.height = elem.source.height()
+        else:
+            elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
+        
+        elem.source = QPixmap.fromImage(elem.source)
+            
 
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
@@ -223,32 +248,66 @@ elemClasses = dict(
     circle = EllipseElement,
     line = LineElement
 )
+class ElementGenerator ():
 
-def generateElement(template, validator:Validation):
-    elem =  Collection()
-    new_val = None
-    centerRe = r'center'
-    validator.store.add('elementName', template['name'])
-    for prop, value in template.items():
-        if prop in ['x', 'y']:
-            if re.match(centerRe, value.lower()):
-                continue
-        validator.store.add('propertyName', prop)
-        parsed = validator.store.parse(value)
-        new_val = validator.validate(prop, parsed, template['name'])
-        elem._set(prop, new_val)
-    elemClass = elemClasses[template['type']]
-    if hasattr(elemClass, 'postGenerate'):
-        elemClass.postGenerate(elem)
+    def __init__(self):
+        self.elements = {}
     
-    #center is a special case here because it needs the width and height 
-    #to be fully validated.
-    if re.match(centerRe, template['x']):
-        elem.x = (validator.layout.width-elem.width)//2
-    if re.match(centerRe, template['y']):
-        elem.y = (validator.layout.height-elem.height)//2
+    def getDraw(self, elem):
 
-    return elem
+        while elem.parent is not None:
+            if not elem.draw:
+                return False
+            elem = self.elements[elem.parent]
+        return elem.draw
+
+    def generate(self, template, validator:Validation):
+        elem =  Collection()
+        new_val = None
+        centerRe = r'center'
+        validator.store.add('elementName', template['name'])
+        for prop, value in template.items():
+            if prop in ['x', 'y']:
+                if re.match(centerRe, value.lower()):
+                    continue
+            validator.store.add('propertyName', prop)
+            parsed = validator.store.parse(value)
+            new_val = validator.validate(prop, parsed, template['name'])
+            elem._set(prop, new_val)
+        
+        elem.parent = template.parent
+        elem.draw = self.getDraw(elem)
+        
+        elemClass = elemClasses[template['type']]
+        if hasattr(elemClass, 'postGenerate'):
+            elemClass.postGenerate(elem)
+    
+
+        #center is a special case here because it needs the width and height 
+        #to be fully validated.
+        if template.parent in self.elements:
+            parent = self.elements[template.parent]
+        else:
+            parent = None
+        
+        if parent:
+            if re.match(centerRe, template['x']):
+                elem.x = (parent.width-elem.width)//2+parent.x
+            else:
+                elem.x = parent.x + elem.x
+        elif re.match(centerRe, template['x']):
+            elem.x = (validator.layout.width-elem.width)//2
+        
+        if parent:
+            if re.match(centerRe, template['y']):
+                elem.y = (parent.height-elem.height)//2+parent.y
+            else:
+                elem.y = parent.y + elem.y
+        elif re.match(centerRe, template['y']):
+            elem.y = (validator.layout.height-elem.height)//2
+
+        self.elements[elem.name] = elem
+        return elem
         
 
 @dataclass
@@ -291,33 +350,45 @@ class AssetPainter():
                 origin="output in section layout", dir=self.layout.output
                 )
 
-
-    def paintElement(self, template, painter:QPainter):
+    def paintElement(self, elem, painter:QPainter, generator):
         '''Paint a given element'''
-        elem = generateElement(template, self.validator)
-        if not elem.draw:
-            return
+        #elem = generator.generate(template, self.validator)
+        #if not generator.elements[elem.parent].draw:
+        #    return
+        #if not elem.draw:
+        #    return
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
-        elemClasses[template['type']].paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        elemClasses[elem.type].paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        #elemClasses[template['type']].paint(elem, painter, -mid, QSize(elem.width, elem.height))
 
     def paintAsset(self):
         '''paint the layout and the contained elements'''
+        generator = ElementGenerator()
+        elements = []
+        for template in self.layout.elements.values():
+            elem = generator.generate(template, self.validator)
+            if elem.draw:
+                elements.append(elem)
+
         image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.white)
+        generator = ElementGenerator()
         painter = QPainter(image)
         painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
         
-        for element in self.layout.elements.values():
+        for element in elements:
 
             painter.resetTransform()
             painter.setPen(Qt.black)
             painter.setBrush(Qt.white)
-            self.paintElement(element, painter)
-        
+            self.paintElement(element, painter, generator)
+
         return image
+
+    
 
     def paint(self):
         '''paint a set of assets based on the current layout and data file.'''
@@ -350,7 +421,9 @@ class AssetPainter():
 
 def parseData(rows:str):
 
-    data = parseCSV(rows)
+    #data = parseCSV(rows)
+    parser = CSVParser(rows)
+    data = parser.parseCSV()
     if data is None:
         return None
         
@@ -399,8 +472,6 @@ def parseData(rows:str):
 
     return newData
 
-
-
 def buildLayout(filename):
     if not os.path.isfile(filename):
         raise bWError("'{file}' is not a valid file",
@@ -414,11 +485,12 @@ def buildLayout(filename):
         file=filename
         )
     
-    #layout may become a nonclass object
-    parsedLayout = parseLayoutFile(layoutText, filename)
+    layoutParser = LayoutParser(layoutText, filename)
+    parsedLayout = layoutParser.parseLayoutFile()
     if 'layout' in parsedLayout:
         rawLayout = parsedLayout.pop('layout')
     else:
+        #templates may not have a layout
         rawLayout = {}
 
 
@@ -429,6 +501,7 @@ def buildLayout(filename):
     layout.filename = filename
     
     if 'data' in rawLayout:
+        #prefer the data property over section
         dataFilename = rawLayout.pop('data')
         if 'data' in parsedLayout:
             parsedLayout.pop('data')
@@ -450,6 +523,7 @@ def buildLayout(filename):
     if userData != None:
         layout.data = parseData(userData)
     
+    #update layout with the rest of the 
     for prop, value in rawLayout.items():
         setattr(layout, prop, value)
 
@@ -469,20 +543,35 @@ def buildLayout(filename):
     if 'briks' in parsedLayout:
         layout.userBriks.update(parsedLayout.pop('briks'))
     
-    for name, props in parsedLayout.items():
-        if name in layout.elements:
-            layout.elements[name].maps.insert(0, props)
-        else:
-            if 'type' not in props:
-                props['type'] = 'none'
-            elif props['type'] not in elemClasses:
-                raise InvalidValueError(name, 'type', prop['type'])
-            elemType = elemClasses[props['type']]
-            elem = elemType.defaults.new_child(props)
-            elem.maps.insert(1, layout.defaults)
-            #its easier to just insert
-            elem['name'] = name
-            layout.addElement(elem)
+    def makeElements(items, parent=None):
+        for name, props in items:
+            #props.pop('children')
+            if name in layout.elements:
+                #if the template includes this element usurp it
+                layout.elements[name].maps.insert(0, props)
+                children = props.pop('children')
+                if len(children) > 0:
+                    makeElements(children.items(), layout.elements[name]['name'])
+
+            else:
+                if parent is not None:
+                    name = f'{parent}->{name}'
+                if 'type' not in props:
+                    props['type'] = 'none'
+                elif props['type'] not in elemClasses:
+                    raise InvalidValueError(name, 'type', prop['type'])
+                elemType = elemClasses[props['type']]
+                elem = elemType.defaults.new_child(props)
+                elem.maps.insert(1, layout.defaults)
+                elem.parent = parent
+                elem['name'] = name
+                
+                layout.addElement(elem)
+                children = props.pop('children')
+                if len(children) > 0:
+                    makeElements(children.items(), layout.elements[name]['name'])
+        
+    makeElements(parsedLayout.items())
     
 
     return layout

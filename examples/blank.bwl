@@ -1,0 +1,15 @@
+layout {
+    width: 2.2in
+    height: 3.4in
+    #This is the common size used for cards included in board games
+}
+briks {
+
+}
+defaults {
+
+}
+#Elements go here
+data {
+    
+}

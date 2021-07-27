@@ -3,7 +3,16 @@ This page collects the changes made to brikWork over time
 
 ## v 0.3
  - added: A graphical interface
+ - added: elements can now contain other elements
+ - added: `defaults` section
+ - added: `[s| ]` and `[u| ]` for strike thru and underline respectively
+ - changed: `names` section now called `briks`
+ - changed: new css style syntax
+ - changed: image resizing ruels have been tweaked
+ - changed: completed the playing card example and corresponding help page
+ - changed: tweaks to the csv dialect
  - fixed: layouts without a `layout` section now emit a helpful error
+ - fixed: somehow the `[file| ]` brik wasn't registered properly, it's fixed now
 
 ## v 0.2
  - added: templates for layouts

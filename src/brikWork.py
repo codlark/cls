@@ -26,15 +26,6 @@ state.layout = None
 state.painter = None
 state.asset = 0
 
-def _openFile(filename):
-    try:
-        with open(filename, encoding='utf-8') as file:
-            layoutText = file.read()
-    except OSError:
-        raise bWError("Could not open layout '{filename}'",
-        origin='file system error', filename=filename)
-    return layoutText
-
 def openFile(filename):
     dir = os.getcwd()
     directory, filename = os.path.split(os.path.realpath(filename))
@@ -45,30 +36,39 @@ def openFile(filename):
         state.painter = AssetPainter(state.layout)
         state.painter.paint()
         state.asset = 0
+        
         return True, f'generated {len(state.painter.images)} assets'
 
     except bWError as e:
         os.chdir(dir)
+        state.layout = None
+        state.painter = None
         return False, e.message
 
 def setImage():
     if state.painter is None:
         return
+    if len(state.painter.images) == 0:
+        return
     pix = QPixmap.fromImage(state.painter.images[state.asset][0])
-    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10))
+    window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10, mode=Qt.SmoothTransformation))
 
 @Slot()
-def openFunc():
-    if state.filename == '':
-        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
-    else:
+def openFunc(earlyOpen):
+    if earlyOpen:
         filename = state.filename
+    else:
+        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
+
     if not os.path.isfile(filename):
         return
+    
     state.filename = filename
     window.textLog.append('\n-----------')
-    #print(filename)
-    window.setWindowTitle(f'{filename} - brikWork')
+    
+    shortFilename = os.path.split(state.filename)[1]
+    window.setWindowTitle(f'{shortFilename} - brikWork')
+    
     result, message = openFile(filename)
     if result:
         setImage()
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         center = QWidget(self)
         self.setCentralWidget(center)
 
-        layout = QVBoxLayout(center)
+        layout = QHBoxLayout(center)
 
         self.assetHolder = QLabel(center)
         layout.addWidget(self.assetHolder)
@@ -131,8 +131,10 @@ class MainWindow(QMainWindow):
         
         self.textLog = QTextEdit(center)
         layout.addWidget(self.textLog)
+        self.textLog.setTabStopDistance(40.0)
+        self.textLog.setWordWrapMode(QTextOption.NoWrap)
         self.textLog.setReadOnly(True)
-        self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        #self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.toolbar = QToolBar(self)
         self.addToolBar(self.toolbar)
@@ -171,6 +173,7 @@ commandParser.add_argument('file',
     metavar='FILE', 
     nargs='?',
     default=None,
+    type=os.path.realpath,
     help='optional, a layout file to open and generate at startup'
 )
 
@@ -188,17 +191,18 @@ args = commandParser.parse_args()
 if args.file is not None and args.windowless:
     result, message = openFile(args.file)
     print(message)
-    try:
-        state.painter.save()
-    except bWError as e:
-        print(e.message)
-    else:
-        print(f"saved assets to {state.layout.output}")
+    if result:
+        try:
+            state.painter.save()
+        except bWError as e:
+            print(e.message)
+        else:
+            print(f"saved assets to {state.layout.output}")
 
 elif not args.windowless:
     if args.file is not None:
         state.filename = args.file
-        openFunc()
+        openFunc(True)
     window.show()
     window.resize(800, 600)
     app.exec()
