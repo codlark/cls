@@ -1,14 +1,15 @@
 
 import re
-import collections.abc
+from collections.abc import Mapping
 from collections import UserDict
 from types import SimpleNamespace
 from typing import *
 
 
 class bWError(Exception):
-
-    def __init__(self, msg, /, **kwargs):
+    '''base class for errors raised by brikWork'''
+    def __init__(self, msg:str, /, **kwargs):
+        '''msg will be formated with kwargs'''
         if 'origin' in kwargs:
             self.msg = "error in {origin}:\n\t"+msg
         elif 'layout' in kwargs:
@@ -84,10 +85,13 @@ class Collection(SimpleNamespace):
 
 
 class AttrDict(UserDict):
+    '''a subclass of dict, remaps unknown attrs to indexes'''
     def __getattr__(self, attr):
         return self[attr]
 
 def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
+    '''tries to convert a number string to an int
+    if a number isn't found raise an error if present else return None'''
     if re.match(r'^-?\d+$', string):
         return int(string)
     elif re.match(r'^\d*(\.\d+)? *in$', string):
@@ -103,8 +107,9 @@ def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
 trues = 'yes on true'.split()
 falses = 'no off false 0'.split()
 falses.extend((0, ''))
-def asBool(string:str, err:Union[bool, bWError] = False) -> Union[bool, Literal[None]]:
-    '''returns either a bool or None'''
+def asBool(string:str, err:bWError = False) -> Union[bool, Literal[None]]:
+    '''tries to turn a toggle into a bool
+    if a toggle isn't found raise an error if present else return None'''
     folded = string.lower()
     if folded in trues:
         return True
@@ -121,18 +126,18 @@ expansions = {
     't': '\t', 's': ' ',
 }
 def evalEscapes(string:str) -> str:
+    '''replace escapes with their corresponding values'''
     def repl(m):
         c = m.group(1)
         return expansions.get(c, c)
         #return self.expansions[m.group(0)]
     return re.sub(r'\\(.)', repl, string)
 
-def deepUpdate(self, other):
-    '''like update, but if any mappings are found in other their match in self
-    is updated instead of overwritten'''
+def deepUpdate(self:Mapping, other:Mapping):
+    '''like update, but if a given index is a mapping in both self and other we recurse'''
     for k, v in other.items():
-        if isinstance(v, collections.abc.Mapping):
-            if k in self and isinstance(self[k], collections.abc.Mapping):
+        if isinstance(v, Mapping):
+            if k in self and isinstance(self[k], Mapping):
                 deepUpdate(self[k], other[k])
             else:
                 self[k] = {}
@@ -145,7 +150,9 @@ def build(accum:list) -> str:
     return ''.join(accum).strip()
 
 class CSVParser():
-    def __init__(self, source):
+    '''Parse a csv file'''
+    def __init__(self, source:str):
+        '''source is the source text of a csv file to parse'''
         self.pos = 0
         self.source = source
 
@@ -243,7 +250,7 @@ class CSVParser():
         #return self.sheet
 
 class LayoutParser():
-
+    '''parse a layout file'''
     def __init__(self, source, filename):
 
         lines = source.splitlines()

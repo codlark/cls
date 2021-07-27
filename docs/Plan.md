@@ -11,6 +11,7 @@ units and dpi update
  - point or pixel font size
  - mm sizes
  - custom DPI
+ - specify a location as being relative to the other end, eg `x: ^1in;` would put something at 1 inch in from the right side, as oppesed to `x: -1in;` which puts things one inch to the left of the asset
 
  - polygons and polylines
  - imagebox element type that allow the more accurate positioning of variably sized images

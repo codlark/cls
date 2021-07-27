@@ -9,7 +9,7 @@ layout {
     width: 2.5in
 }
 ```
-Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by a semi colon, the end of the line, or the end of the section.
+Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by a semicolon, the end of the line, or the end of the section.
 ```
     italic: yes; bold: yes;
 ```
@@ -23,7 +23,7 @@ The `layout` section specifies the size of the final asset as well as interactio
 
 The `data` section specifies data used in generating assets. This section uses the CSV syntax described [below](#csv-syntax).
 
-The `briks` section specifies briks available to the user. The contents of this section use a syntax similar to variable definition in other languages. A description of briks is [below](#brik-syntax). Like property definitions, brik definitions end with a semicolon, a new line, the or end of the section just like property definitions.
+The `briks` section specifies briks available to the user. The contents of this section use a syntax similar to variable definitions in other languages. A description of briks is [below](#brik-syntax). Like property definitions, brik definitions end with a semicolon, a new line, or the end of the section just like property definitions.
 ```
 briks {
     heliotrope = #DF73FF
@@ -32,11 +32,11 @@ briks {
     fillColor: [heliotrope]
 ```
 
-The `defaults` section specifies defaults for element properties. This section uses property definitions.
+The `defaults` section specifies defaults for element properties, and uses the same property definition syntax.
 
 ## Element Sections
 
-Element sections describe the text, images, and shapes that make the final asset. Element sections must have unique names and those names can't be the names of the special sections, nor can they contain any special characters like colon or curly braces, spaces are okay. Elements can also conain other elements, which are positioned realative to their container.
+Element sections describe the text, images, and shapes that make the final asset. Element sections must have unique names and those names can't be the names of the special sections, nor can they contain any special characters, like a colon or curly braces, spaces are okay. Elements can also conain other elements, which are positioned realative to their container.
 ```
 #some properties omitted for clarity
 infoBox {
@@ -66,13 +66,13 @@ Whitespace is largly ignored, the rule of thumb being whitespace on boundries is
 
 ### Comments
 
-A comment is a line that starts with a pound sign after any indent. Everything after the pound sign is ignored until the end of the line.
+A comment is a line that starts with a pound sign after any indent. Everything after the pound sign `#` is ignored until the end of the line.
 
 ## Brik Syntax
 
-Briks are the programming utility of brikWork, as well as its namesake. Briks are used in values and are surrounded by square brackets. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks which pull values from the data, and user briks  which are defined in the `briks` section. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/).
+Briks are the programming utility of brikWork, as well as its namesake. Briks are used in values and are surrounded by square brackets `[ ]`. A brik returns a value, either as a variable brik like `[repeatIndex]` or as a function brik like `[capitalize| ]`. Variable briks include column briks which pull values from the data, and user briks  which are defined in the `briks` section. The act of turning a brik into a value is called evaluation. For a full list of briks provided by brikWork see [Briks](../Briks/).
 
-Function briks have extra syntax over variable briks in the form of arguments. Arguments are values that are used by the brik in order to create the final returned value. The brik name and arguments are separated by vertical bars. Brik arguments are evalutated as part of evalutating the brik, and if the birk returns a value that contains briks they too will be evaluated.
+Function briks have extra syntax over variable briks in the form of arguments. Arguments are values that are used by the brik in order to create the final returned value. The brik name and arguments are separated by vertical bars `|`. Brik arguments are evalutated as part of evalutating the brik, and if the birk returns a value that contains briks they too will be evaluated.
 
 ### Escapes
 
@@ -106,4 +106,4 @@ A layout file does not need any data. If both the `data` property in the `layout
 
 A column with the name `repeat` acts as a special column. When a row's repeat value is more than one, multiple assets are generated from that row, each evaluated on their own, each counted as their own asset. A repeat column is not required.
 
-The way brikWork works is to build the layout from the above sections, then for each row in the data, a new asset is generated by evaluating all the properties of all the elements, with the column briks set to the values in the same column of the current row.
+brikWork builds the layout from the above sections, then for each row in the data, a new asset is generated by evaluating all the properties of all the elements, with the column briks set to the values in the same column of the current row.

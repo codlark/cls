@@ -1,5 +1,5 @@
 # Templates and Defaults
-A template is a layout file that is read before another, and are useful when making multiple layouts that feature the same elements or other properties. A template can feature anything a normal layout can, such as `layout` properties, user briks, elements, even data. Anything a layout does provide overrides the template. Defaults are values assigned to properties when an element doesn't assign one, and can be changed with the `defaults` section. In this document we'll be looking at templates first.
+A template is a layout file the provides elements that can be reused in multiple layout files. A template can feature anything a normal layout can, such as `layout` properties, user briks, elements, even data. Anything a layout provides overrides the template. Defaults are values assigned to properties when an element doesn't assign one, and can be changed with the `defaults` section. In this document we'll be looking at templates first.
 
 As an example, let's look at a set of playing cards. For the sake of brevity, we won't look at every single element and property in each file. We'll start with a template that'll draw the indexes, the rank and pip in the corner, as well as define a few things important to every card.
 
@@ -71,7 +71,7 @@ For everything else we don't need any other properties in the `layout` section, 
     }
 This all gets us
 <img src='../img/diamondJ.png' width=338> <hr>
-So this is a knight from chess not a jack, but I already had this laying around from another project that never went anywhere and have you ever tried drawing one of those protraits?
+So this is a knight from chess not a jack, but I already had this laying around from another project that never went anywhere and have you ever tried drawing one of those portraits?
 
 ### Aces
 
@@ -128,8 +128,9 @@ This sets the default `source` property so if an image doesn't supply one a pip 
             x: 1.1in
         }
     }
-The element `row1` is a container for the elements `col1` and `col3`, and sets it's position. The contained elements are then positioned relative to that so `col1`, instead of being at the upper left corner of the asset, is positioned to the upper left corner of the container. Likewise, `col3` is positioned 1.1 inch to the right of that. Also worth pointing out is the using of the `draw` property to control when each pip is drawn. A `false` value in a `draw` property will propagate, so if a container element is not being drawn, neither will any of the elements in that container. We can use that here becuase those two pips will always be drawn for the same ranks.
+The element `row1` is a container for the elements `col1` and `col3`, and sets it's position. The contained elements are then positioned relative to that so `col1`, instead of being at the upper left corner of the asset, is positioned to the upper left corner of the container. Likewise, `col3` is positioned 1.1 inch to the right of that. Also worth pointing out is the using of the `draw` property to control when each pip is drawn. A `false` value in a `draw` property will propagate, so if a container element is not being drawn, neither will any of the elements in that container. We can use that here because those two pips will always be drawn for the same ranks.
 
+Here's the next row of pips. There are a couple things to point out here.
 
     row2 {
         x: .5in
@@ -149,10 +150,10 @@ The element `row1` is a container for the elements `col1` and `col3`, and sets i
             draw: [in| [rank]| 4| 5| 6]
         }
     }
-Here's the next row of pips, there are a couple things to point out here
 
 - the names `col1` and `col3` are repeated, this is allowed because they have different containers.
-- each pip has it's own `draw` because they're not all drawn for the same ranks
+- each pip has it's own `draw` because they're not all drawn for the same ranks.
+
 Otherwise this looks like `row1` above. Now how about some more cards?
 <img src='../img/club10.png' width=338><img src='../img/diamond3.png' width=338><hr>
 

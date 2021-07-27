@@ -88,7 +88,7 @@ Macro briks do more processing on their argument.
 
 `[?| VALUE ]` - the comparison brik
 The comparison brik performs numeric comparison. `VALUE` is evaluated for a single comparison operator with either side being the operands, if either operand is not a number parsing will stop with an error. Inches will be converted to pixels before comparison.
-Valid comparison operators are 
+Valid comparison operators are:
 
  * `==` - equal to
  * `!=` - not equal to
@@ -104,15 +104,15 @@ When the first character of `TEST` of an `[if| ]` is `?` the rest of the argumen
 This would evaluate to "Last asset!" on the last asset and "Still waiting..." on every other asset.
 
 `[/| VALUE ]` - the expansion brik
-The expansion brik processes escapes and expands them. Normally this is the last step of evaluating a value but this brik lets you do it early. As an example, you can use the expansion brik to dynamically generate brik names.
+The expansion brik processes and expands escapes. Normally this is the last step of evaluating a value but this brik lets you do it early. As an example, you can use the expansion brik to dynamically generate brik names.
 ```none
 [/| \[ [someBrik] \] ]
 ```
 Because values are evaluated until there are no more briks, this would end up evaluating a brik with the name of whatever is in `[someBrik]`.
 
 `[#| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic.
-Accepted operators are
+The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic. Parentheses `( )` are currently not allowed.
+Accepted operators are:
 
  * `+` - addition
  * `-` - subtraction
