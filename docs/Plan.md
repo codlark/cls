@@ -8,6 +8,7 @@ version 3
 
 units and dpi update
  - fractions for inches
+ - percents
  - point or pixel font size
  - mm sizes
  - custom DPI

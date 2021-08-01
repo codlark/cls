@@ -110,6 +110,15 @@ def prevFunc():
     state.asset -= 1
     setImage()
 
+@Slot()
+def makePDF():
+    state.pdf = QPdfWriter("output.pdf")
+    state.pdf.setResolution(300)
+    state.pdf.setPageSize(QPageSize(QPageSize.Letter))
+    painter = QPainter(state.pdf)
+    painter.drawPixmap(QPoint(20,20), QPixmap.fromImage(state.painter.images[0][0]))
+    
+
 class MainWindow(QMainWindow):
     
     def __init__(self):
@@ -159,6 +168,10 @@ class MainWindow(QMainWindow):
         nextAct = QAction('Next Asset', parent=self)
         self.toolbar.addAction(nextAct)
         nextAct.triggered.connect(nextFunc)
+
+        printAct = QAction('print', parent=self)
+        self.toolbar.addAction(printAct)
+        printAct.triggered.connect(makePDF)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)

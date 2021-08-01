@@ -83,11 +83,24 @@ class Collection(SimpleNamespace):
     def _get(self, name:str) -> Any:
         return self.__dict__[name]
 
+class AttrDict():
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def __repr__(self):
+        return repr(self.__dict__)
+    def __getitem__(self, key):
+        return self.__dict__[key]
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+    def __contains__(self, key):
+        return key in self.__dict__
+    def items(self):
+        return self.__dict__.items()
+    def copy(self):
+        copy = AttrDict()
+        copy.__dict__.update(self.__dict__)
+        return copy
 
-class AttrDict(UserDict):
-    '''a subclass of dict, remaps unknown attrs to indexes'''
-    def __getattr__(self, attr):
-        return self[attr]
 
 def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
     '''tries to convert a number string to an int
@@ -486,9 +499,9 @@ class LayoutParser():
 
 
 if __name__ == '__main__':
-    test = '''lol
-    yes
-'''
-
-    parser = CSVParser(test)
-    print(parser.parseCSV())
+    ad = AttrDict()
+    ad.foo = 5
+    print(ad['foo'])
+    ad['bar'] = 6
+    print(ad.bar)
+    print(ad)

@@ -1,6 +1,5 @@
 import os
 import re
-import configparser
 from bwStore import BrikStore
 from dataclasses import dataclass, asdict, field
 from typing import *
@@ -11,9 +10,7 @@ from bwUtils import *
 
 
 class Validation():
-    '''This object holds all the property validators and runs them
-    at a future date it may also store the mapping between user property
-    and Element attrs'''
+    '''This object holds all the property validators and runs them'''
     
     validators = {}
 
@@ -25,52 +22,112 @@ class Validation():
     def __init__(self, layout:'Layout'):
         self.layout = layout
         self.store = BrikStore()
-    
-    def validate(self, name, value, element=''):
-        if name not in self.validators:
-            if type(value) == str:
-                return evalEscapes(value)
-            #not actually sure what to do here?
-        func = self.validators[name]
-        newValue = func(value)
-        if newValue is None:
-            raise InvalidValueError(element, name, value)
-        elif type(newValue) == str:
-            #do I want this here or generate?
-            return evalEscapes(newValue)
+
+    def validate(self, frame:AttrDict):
+        func = self.validators[frame.prop]
+        result = func(frame, frame.elem)
+        if not result:
+            raise InvalidValueError(frame.elem.name, frame.prop, frame.value)
         else:
-            return newValue
+            return
+
+def validateString(frame, elem):
+    elem[frame.prop] = evalEscapes(frame.value)
+    return True
+
+def validateNumber(frame, elem):
+    value = asNum(frame.value)
+    if value is None:
+        return False
+    elem[frame.prop] = value
+    return True
+
+def validateToggle(frame, elem):
+    value = asBool(frame.value)
+    if value is None:
+        return False
+    elem[frame.prop] = value
+    return True
 
 def prop(name, validator, default):
+    if validator == 'number': 
+        validator = validateNumber
+    elif validator == 'string':
+        validator = validateString
+    elif validator == 'toggle':
+        validator = validateToggle
     Validation.addValidator(name, validator)
     return name, default
 
-def validateAlignment(string):
+def validateXY(frame, elem):
+    if frame.value == 'center':
+        if frame.prop == 'x':
+            dim = 'width'
+        else:
+            dim = 'height'
+        
+        if frame.container == 'layout':
+            parentDim = frame.layout[dim]
+            parentLoc = 0
+        else:
+            parentDim = frame.container[dim]
+            parentLoc = frame.containerValue
+
+        elem[frame.prop] = (parentDim-elem[dim])//2 + parentLoc
+        return True
+    else:
+        value = asNum(frame.value)
+        if value is None:
+            return False
+        if frame.container == 'layout':
+            elem[frame.prop] = value
+        else:
+            elem[frame.prop] = value + frame.containerValue
+        return True
+
+
+def validateDraw(frame, elem):
+    value = asBool(frame.value)
+    if value is None:
+        return False
+    elif frame.container == 'layout':
+        elem[frame.prop] = value
+    elif frame.containerValue == True:
+        elem.draw = value
+    else:
+        elem.draw = frame.containerValue
+    return True
+
+def validateAlignment(frame, elem):
     horz = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
         'justify':Qt.AlignJustify}
     vert = {'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter,}
-    terms = string.lower().split()
+    terms = frame.value.lower().split()
     if terms[0] in horz:
         result = horz[terms[0]]
     else:
-        return None
+        return False
     if terms[1] in vert:
-        return result|vert[terms[1]]
+         result |= vert[terms[1]]
     else:
-        return None
+        return False
+    elem[frame.prop] = result
+    return True
+    
 
-
-def validateLineJoin(value):
+def validateLineJoin(frame, elem):
     joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
-    if value.lower() not in joins:
-        return None
-    return joins[value.lower()]
+    if frame.value.lower() not in joins:
+        return False
+    elem[frame.prop] = joins[frame.value.lower()]
+    return True
 
-def validateLineCap(value):
+def validateLineCap(frame, elem):
     caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
-    if value.lower() not in caps:
-        return None
-    return caps[value.lower()]
+    if frame.value.lower() not in caps:
+        return False
+    elem[frame.prop] = caps[frame.value.lower()]
+    return True
 
 class ElementScope(ChainMap):
     '''A subclass of ChainMap that also has attributes for parent and child relationships'''
@@ -82,14 +139,14 @@ class ElementScope(ChainMap):
 
 class Element():
     defaults = ElementScope(dict([
-        prop('type', str, ''),
-        prop('name', str, ''),
-        prop('draw', asBool, 'true'),
-        prop('x', asNum, '0'),
-        prop('y', asNum, '0'),
-        prop('width', asNum, '50'),
-        prop('height', asNum, '50'),
-        prop('rotation', asNum, '0'),
+        prop('type', 'string', ''),
+        prop('name', 'string', ''),
+        prop('draw', validateDraw, 'true'),
+        prop('x', validateXY, '0'),
+        prop('y', validateXY, '0'),
+        prop('width', 'number', '50'),
+        prop('height', 'number', '50'),
+        prop('rotation', 'number', '0'),
     ]))
     @staticmethod
     def paint(elem, painter, upperLect, size):
@@ -97,17 +154,17 @@ class Element():
 
 class LabelElement():
     defaults = Element.defaults.new_child(dict([
-        prop('text', str, ''),
-        prop('fontFamily', str, 'Verdana'),
-        prop('fontSize', asNum, '18'),
-        prop('color', str, 'black'),
-        prop('wordWrap', asBool, 'yes'),
+        prop('text', 'string', ''),
+        prop('fontFamily', 'string', 'Verdana'),
+        prop('fontSize', 'number', '18'),
+        prop('color', 'string', 'black'),
+        prop('wordWrap', 'toggle', 'yes'),
         prop('alignment', validateAlignment, 'center top'),
-        prop('italic', asBool, 'no'),
-        prop('bold', asBool, 'no'),
-        prop('overline', asBool, 'no'),
-        prop('underline', asBool, 'no'),
-        prop('lineThrough', asBool, 'no'),
+        prop('italic', 'toggle', 'no'),
+        prop('bold', 'toggle', 'no'),
+        prop('overline', 'toggle', 'no'),
+        prop('underline', 'toggle', 'no'),
+        prop('lineThrough', 'toggle', 'no'),
     ]))
 
     @staticmethod
@@ -135,17 +192,18 @@ class LabelElement():
         # - should I allow pt and px? (extra validation)
 
 imageCache = {}
-def validateImage(value):
-    if value not in imageCache:
-        imageCache[value] = QImage(value)
-    return imageCache[value]
+def validateImage(frame, elem):
+    if frame.value not in imageCache:
+        imageCache[frame.value] = QImage(frame.value)
+    elem[frame.prop] = imageCache[frame.value]
+    return True
 
 class ImageElement():
     defaults = Element.defaults.new_child(dict([
-        prop('width', asNum, '0'),
-        prop('height', asNum, '0'),
+        prop('width', 'number', '0'),
+        prop('height', 'number', '0'),
         prop('source', validateImage, ''),
-        prop('keepAspectRatio', asBool, 'yes'),
+        prop('keepAspectRatio', 'toggle', 'yes'),
     ]))
 
     @staticmethod
@@ -182,11 +240,11 @@ class ImageElement():
 
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
-        prop('lineColor', str, 'black'),
-        prop('lineWidth', asNum, '1'),
+        prop('lineColor', 'string', 'black'),
+        prop('lineWidth', 'number', '1'),
         prop('lineJoin', validateLineJoin, 'miter'),
         prop('lineCap', validateLineCap, 'flat'),
-        prop('fillColor', str, 'white'),
+        prop('fillColor', 'string', 'white'),
     ]))
 
     @staticmethod
@@ -203,8 +261,8 @@ class ShapeElement():
 
 class RectangleElement():
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('xRadius', asNum, '0'),
-        prop('yRadius', asNum, '0'),
+        prop('xRadius', 'number', '0'),
+        prop('yRadius', 'number', '0'),
     ]))
 
     @staticmethod
@@ -229,8 +287,8 @@ class EllipseElement():
 
 class LineElement():
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('x2', asNum, '50'),
-        prop('y2', asNum, '50'),
+        prop('x2', 'number', '50'),
+        prop('y2', 'number', '50'),
     ]))
 
     @staticmethod
@@ -254,61 +312,59 @@ class ElementGenerator ():
         self.elements = {}
     
     def getDraw(self, elem):
-
+        #this will become the drawValidator func
         while elem.parent is not None:
             if not elem.draw:
                 return False
             elem = self.elements[elem.parent]
         return elem.draw
 
-    def generate(self, template, validator:Validation):
-        elem =  Collection()
-        new_val = None
-        centerRe = r'center'
-        validator.store.add('elementName', template['name'])
-        for prop, value in template.items():
-            if prop in ['x', 'y']:
-                if re.match(centerRe, value.lower()):
-                    continue
-            validator.store.add('propertyName', prop)
-            parsed = validator.store.parse(value)
-            new_val = validator.validate(prop, parsed, template['name'])
-            elem._set(prop, new_val)
+    def generate(self, template:Element, validator:Validation):
+        #TODO rename parent everywhere to container
+        frame = AttrDict(name=template['name'])
+        validator.store.add('elementName', frame.name)
         
-        elem.parent = template.parent
-        elem.draw = self.getDraw(elem)
+        frame.layout = AttrDict(**asdict(validator.layout))
+
+        if template.parent is None:
+            frame.container = 'layout'
+            frame.containerValue = None
+        else:
+            frame.container = self.elements[template.parent].copy()
+         
+        elem = AttrDict(name=template['name'], container=template.parent,
+        type=template['type'])
+        self.elements[elem.name] = elem
+        frame.elem = elem
+        
+        for prop, value in template.items():
+            if prop in ['name', 'x', 'y', 'type']:
+                continue
+            print(frame.name, prop, value)
+            if frame.container != 'layout' and prop in frame.container:
+                frame.containerValue = frame.container[prop]
+            validator.store.add('propertyName', prop)
+            frame.prop = prop
+            frame.value = validator.store.parse(value)
+            validator.validate(frame)
+            print(elem[prop])
         
         elemClass = elemClasses[template['type']]
         if hasattr(elemClass, 'postGenerate'):
             elemClass.postGenerate(elem)
-    
-
-        #center is a special case here because it needs the width and height 
-        #to be fully validated.
-        if template.parent in self.elements:
-            parent = self.elements[template.parent]
-        else:
-            parent = None
         
-        if parent:
-            if re.match(centerRe, template['x']):
-                elem.x = (parent.width-elem.width)//2+parent.x
-            else:
-                elem.x = parent.x + elem.x
-        elif re.match(centerRe, template['x']):
-            elem.x = (validator.layout.width-elem.width)//2
-        
-        if parent:
-            if re.match(centerRe, template['y']):
-                elem.y = (parent.height-elem.height)//2+parent.y
-            else:
-                elem.y = parent.y + elem.y
-        elif re.match(centerRe, template['y']):
-            elem.y = (validator.layout.height-elem.height)//2
-
-        self.elements[elem.name] = elem
+        prop = 'gloop'
+        for prop in ['x', 'y']:
+            value = template[prop]
+            print(frame.name, prop, value)
+            if template.parent is not None and prop in frame.container:
+                frame.containerValue = frame.container[prop]
+            validator.store.add('propertyName', prop)
+            frame.prop = prop
+            frame.value = validator.store.parse(value)
+            validator.validate(frame)
+            print(elem[prop])
         return elem
-        
 
 @dataclass
 class Layout():
@@ -324,6 +380,7 @@ class Layout():
     defaults:dict = field(default_factory=dict)
     filename:str = ''
     userBriks:dict = field(default_factory=dict)
+    dpi:int = 300
 
     def addElement(self, element):
         self.elements[element['name']] = element

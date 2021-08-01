@@ -1,6 +1,7 @@
 layout {
     width: 675
     height: 1050
+    wiggle: foo
     name: test[assetIndex].png
     output: out/
     #data: test.csv
@@ -28,6 +29,7 @@ icon {
         x: center
         y: .25in
         #alignment: no
+        width: 1in
     }
 
 }
