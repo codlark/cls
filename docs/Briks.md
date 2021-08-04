@@ -55,7 +55,10 @@ Convert the entirety of `STRING` to lowercase.
 `[s| STRING ]`
 This brik is a shortcut for striking thru text with `<s>STRING</s>` in labels.
 
-`[substring| STRING | START | LENGTH ]`
+`[slice| STRING | START ]`
+`[slice| STRING | START | END ]`
+
+`[substr| STRING | START | LENGTH ]`
 Select a sub string of `STRING`, starting at `START` for `LENGTH`. The first character of `STRING` is `1`, eg `[substring| abcdefg | 2 | 2 ]` will return "bc".
 
 `[u| STRING ]`

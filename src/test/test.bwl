@@ -1,10 +1,11 @@
 layout {
-    width: 675
-    height: 1050
+    width: 2.25in
+    height: 3 1/2in
     wiggle: foo
     name: test[assetIndex].png
     output: out/
     #data: test.csv
+    dpi: 300
 
     template: template.bwl
 }
@@ -15,12 +16,12 @@ title {
     width: 1.75in
     height: 2in
     text: [title]
-    fontSize: 30
+    fontSize: 30pt
 }
 icon {
     type: image
     x: .5in
-    y: 0.875in
+    y: 7/8in
     source: res/[img]
 
     caption {
@@ -29,7 +30,7 @@ icon {
         x: center
         y: .25in
         #alignment: no
-        width: 1in
+        #width: 1/4in
     }
 
 }
@@ -39,7 +40,7 @@ bodyBorder {
     y: 1.5in
     width: 1.75in
     height: 1.75in
-    xRadius: 40; yRadius: 80;
+    xRadius: 1/8in; yRadius: 1/4in;
 }
 body {
     type: label
@@ -51,6 +52,25 @@ body {
     fontFamily: Cormorant
 }
 banjo {draw: no; lineColor: blue}
+
+lineHolder {
+    type: rect
+    x:0
+    y:0in
+    width:1in
+    height: 1in
+    draw: no
+    line {
+        type: rect
+        x: 0
+        y: 150%
+        width: 50%
+        height:50%
+        x2: center
+        y2: 100
+    }
+}
+
 
 data {
 title, img, body

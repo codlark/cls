@@ -3,12 +3,15 @@ brikWork uses a text file to define a layout and the elements on that layout. Th
 
 [TOC]
 
+!!! note
+    Properties on this page that take numbers use the format `(s)NUM(un|it)`, where `(s)` are symbols allowed before the number, `NUM` is a descriptive name of the property value, and `(un|it)` are the units this property can use. See [Numbers](../Values/) for more information.
+
 ## Layout Properties
 
 These properties affect the layout and how assets are generated. These are mandatory:
 
- * `width: NUM` width of the asset.
- * `height: NUM` height of the asset.
+ * `width: WIDTH(px|in|mm)` width of the asset.
+ * `height: HEIGHT(px|in|mm)` height of the asset.
  * `name: FILENAME` - pattern to use for generating names of assets. If no briks are featured `[assetIndex]` will be added to the beginning of the name. This is the only layout property that evaluates briks.
 
 These properties are optional:
@@ -28,12 +31,13 @@ These properties are common to all elements. With the exception of the `type` pr
     * `ellipse` - an ellipse or circle
     * `circ` - an easier to spell alias for `ellipse`
     * `line` - a line
- * `x: NUM` - this and `y` determine the upper left corner location of the element. If `center` is used instead of a number, the element will be centered in that dimension. The origin point (the 0,0 point) is at the upper left of the asset. The default value is `0`. If the element these properties belong to is contained in another element, the element will be positioned relative to the cotainer, this also affects `center`.
- * `y: NUM` - this and `x` are in either pixels or inches, see [Numbers](../Values/#Numbers) . The default value is `0`.
- * `width: NUM` - this and `height` determine the size of the element. Like `x` and `y` these can be in pixels or inches. The default value is `50`.
- * `height: NUM` - the default value is `50`.
+ * `x: (+-)X(px|in|mm|%)` - this and `y` determine the upper left corner location of the element. If `center` is used instead of a number, the element will be centered in that dimension. The origin point (the 0,0 point) is at the upper left of the asset. The default value is `0`. If the element these properties belong to is contained in another element, the element will be positioned relative to the cotainer, this also affects `center`. 
+ * `y: (+-)Y(px|in|mm|%)` - the default value is `0`.
+ * `width: WIDTH(px|in|mm|%)` - this and `height` determine the size of the element. The default value is `50`.
+ * `height: HEIGHT(px|in|mm|%)` - the default value is `50`. 
  * `rotation: ANGLE` - the rotation of the element in degrees. The default value is `0`.
  * `draw: TOGGLE` - whether to draw the object. If `false` the element, and any contained elements, will not be drawn.
+ * `dpi: DOTS` - the dots per inch, how many pixels go into an inch, of the layout. Used when dawing with `in` and `mm` units. Must be positive. The only allowed unit is `px`.
 
 ### `label`
 
@@ -41,7 +45,7 @@ Labels place text on an asset and have the most properties, which are used to cu
 
  * `text: TEXT` - text to display. The default value is no text.
  * `fontFamily: FONT` - the font family to use to render the text. The default value is `Verdana`.
- * `fontSize: POINTSIZE` - the point size of the text. The default value is `18`.
+ * `fontSize: SIZE(pt|px|in|mm)` - the point size of the text. The default value is `18pt`.
  * `color: COLOR` - color to render the font with, see "Colors"../Values#Colors for accepted colors. The default value is `black`.
  * `wordWrap: TOGGLE` - whether to wrap the text, if false, the. text will spill over and be unreadable. The default value is `true`
  * `alignment: HORZ VERT` - how to align the text. Both `HORZ` and `VERT` must be specified. The default value is `center top`.

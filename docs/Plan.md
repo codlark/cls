@@ -3,15 +3,7 @@
 *note* to build, run `python setup.py build`
 
 
-version 3
-
-
 units and dpi update
- - fractions for inches
- - percents
- - point or pixel font size
- - mm sizes
- - custom DPI
  - specify a location as being relative to the other end, eg `x: ^1in;` would put something at 1 inch in from the right side, as oppesed to `x: -1in;` which puts things one inch to the left of the asset
 
  - polygons and polylines
@@ -41,9 +33,14 @@ long term
  - look at different back ends, but it's hard to find one that supports both images in strings *and* selecting open type features
  - css style shortcut properties, like `radius = 5` to set both radii on rect
 
+deeper integration of macro briks, like 
+    
+    x: # 1/8in + 1/4in
+    text: [dup| #4+5| asdf]
+the idea being they act like ? in [if| ], so when they get seen the value immediately gets dispatched to the macro. Make them first class. 
+maybe also give macro briks `frame` made in generate
+
 
 1.0
-
- - `include: LAYOUTFILE` strip the elements out of LAYOUTFILE and make them children of this element
  - image magick element types, for pango and drop shadows
  - plugin support?

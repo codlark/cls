@@ -24,6 +24,8 @@ class Validation():
         self.store = BrikStore()
 
     def validate(self, frame:AttrDict):
+        if frame.prop not in self.validators:
+            raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.elem.name)
         func = self.validators[frame.prop]
         result = func(frame, frame.elem)
         if not result:
@@ -36,10 +38,10 @@ def validateString(frame, elem):
     return True
 
 def validateNumber(frame, elem):
-    value = asNum(frame.value)
+    value = Unit.fromStr(frame.value)
     if value is None:
         return False
-    elem[frame.prop] = value
+    elem[frame.prop] = value.toInt(dpi=frame.layout.dpi)
     return True
 
 def validateToggle(frame, elem):
@@ -60,31 +62,48 @@ def prop(name, validator, default):
     return name, default
 
 def validateXY(frame, elem):
-    if frame.value == 'center':
-        if frame.prop == 'x':
-            dim = 'width'
-        else:
-            dim = 'height'
-        
-        if frame.container == 'layout':
-            parentDim = frame.layout[dim]
-            parentLoc = 0
-        else:
-            parentDim = frame.container[dim]
-            parentLoc = frame.containerValue
+    #also handles x2 and y2
+    if frame.prop[0] == 'x':
+        dim = 'width'
+    else:
+        dim = 'height'
+    if frame.container == 'layout':
+        parentDim = frame.layout[dim]
+        parentLoc = 0
+    else:
+        parentDim = frame.container[dim]
+        parentLoc = frame.container[frame.prop[0]]
+        # on x2 and y2 use the container's x and y
 
+    if frame.value == 'center':
         elem[frame.prop] = (parentDim-elem[dim])//2 + parentLoc
         return True
     else:
-        value = asNum(frame.value)
+        value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
         if value is None:
             return False
-        if frame.container == 'layout':
-            elem[frame.prop] = value
+        if value.unit == '%':
+            value = value.toInt(whole=parentDim)
         else:
-            elem[frame.prop] = value + frame.containerValue
+            value = value.toInt(dpi=frame.layout.dpi)
+        elem[frame.prop] = value + parentLoc
         return True
 
+def validateHeightWidth(frame, elem):
+    if frame.container == 'layout':
+        parentDim = frame.layout[frame.prop]
+    else:
+        parentDim = frame.container[frame.prop]
+    value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
+    if value is None:
+        return False
+    if value.unit == '%':
+        value = value.toInt(whole=parentDim)
+    else:
+        value = value.toInt(dpi=frame.layout.dpi)
+    elem[frame.prop] = value
+    return True
+    
 
 def validateDraw(frame, elem):
     value = asBool(frame.value)
@@ -96,6 +115,13 @@ def validateDraw(frame, elem):
         elem.draw = value
     else:
         elem.draw = frame.containerValue
+    return True
+
+def validateFontSize(frame, elem):
+    value = Unit.fromStr(frame.value, units=('pt', 'px', 'in', 'mm'))
+    if value is None:
+        return False
+    elem[frame.prop] = value, frame.layout.dpi
     return True
 
 def validateAlignment(frame, elem):
@@ -113,7 +139,6 @@ def validateAlignment(frame, elem):
         return False
     elem[frame.prop] = result
     return True
-    
 
 def validateLineJoin(frame, elem):
     joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
@@ -144,8 +169,8 @@ class Element():
         prop('draw', validateDraw, 'true'),
         prop('x', validateXY, '0'),
         prop('y', validateXY, '0'),
-        prop('width', 'number', '50'),
-        prop('height', 'number', '50'),
+        prop('width', validateHeightWidth, '50'),
+        prop('height', validateHeightWidth, '50'),
         prop('rotation', 'number', '0'),
     ]))
     @staticmethod
@@ -156,7 +181,7 @@ class LabelElement():
     defaults = Element.defaults.new_child(dict([
         prop('text', 'string', ''),
         prop('fontFamily', 'string', 'Verdana'),
-        prop('fontSize', 'number', '18'),
+        prop('fontSize', validateFontSize, '18'),
         prop('color', 'string', 'black'),
         prop('wordWrap', 'toggle', 'yes'),
         prop('alignment', validateAlignment, 'center top'),
@@ -177,7 +202,14 @@ class LabelElement():
         label.setWordWrap(elem.wordWrap)
         style = 'QLabel {\n'
         style += f'font-family: {elem.fontFamily};\n'
-        style += f'font-size: {elem.fontSize}pt;\n'
+        fontSize, dpi = elem.fontSize
+        if fontSize.unit == 'pt':
+            fontUnit = fontSize.unit
+            fontSize = fontSize.num
+        else:
+            fontUnit = fontSize.unit
+            fontSize = fontSize.toInt(dpi=dpi)
+        style += f'font-size: {fontSize}{fontUnit};\n'
         style += f'color: {elem.color};\n'
         if elem.italic: style += 'font-style: italic;\n'
         if elem.bold: style += 'font-weight: bold;\n'
@@ -200,8 +232,8 @@ def validateImage(frame, elem):
 
 class ImageElement():
     defaults = Element.defaults.new_child(dict([
-        prop('width', 'number', '0'),
-        prop('height', 'number', '0'),
+        prop('width', validateHeightWidth, '0'),
+        prop('height', validateHeightWidth, '0'),
         prop('source', validateImage, ''),
         prop('keepAspectRatio', 'toggle', 'yes'),
     ]))
@@ -286,9 +318,10 @@ class EllipseElement():
             elem.height = elem.width
 
 class LineElement():
+    #AAAAAAAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('x2', 'number', '50'),
-        prop('y2', 'number', '50'),
+        prop('x2', validateXY, '50'),
+        prop('y2', validateXY, '50'),
     ]))
 
     @staticmethod
@@ -310,20 +343,27 @@ class ElementGenerator ():
 
     def __init__(self):
         self.elements = {}
-    
-    def getDraw(self, elem):
-        #this will become the drawValidator func
-        while elem.parent is not None:
-            if not elem.draw:
-                return False
-            elem = self.elements[elem.parent]
-        return elem.draw
 
     def generate(self, template:Element, validator:Validation):
         #TODO rename parent everywhere to container
+        
         frame = AttrDict(name=template['name'])
         validator.store.add('elementName', frame.name)
         
+        @validator.store.add('$', 1)
+        def stripBrik(context, value):
+            #parse vlaue and flatten to int    
+            value = context.parse(value)
+            valueUnit = Unit.fromStr(value, units='all')
+            if valueUnit is None:
+                raise InvalidArgError(context.elem, context.prop, '$', 'NUM', value)
+            if frame.containerValue is not None:
+                if type(frame.containerValue) not in (int, float):
+                    return str(valueUnit.toInt(dpi=frame.layout.dpi))
+                return str(valueUnit.toInt(dpi=frame.layout.dpi, whole=frame.containerValue))
+            else:
+                return str(valueUnit.toInt(dpi=frame.layout.dpi))
+
         frame.layout = AttrDict(**asdict(validator.layout))
 
         if template.parent is None:
@@ -340,30 +380,27 @@ class ElementGenerator ():
         for prop, value in template.items():
             if prop in ['name', 'x', 'y', 'type']:
                 continue
-            print(frame.name, prop, value)
             if frame.container != 'layout' and prop in frame.container:
                 frame.containerValue = frame.container[prop]
+            else:
+                frame.containerValue = None
             validator.store.add('propertyName', prop)
             frame.prop = prop
             frame.value = validator.store.parse(value)
             validator.validate(frame)
-            print(elem[prop])
         
         elemClass = elemClasses[template['type']]
         if hasattr(elemClass, 'postGenerate'):
             elemClass.postGenerate(elem)
-        
-        prop = 'gloop'
+
         for prop in ['x', 'y']:
             value = template[prop]
-            print(frame.name, prop, value)
             if template.parent is not None and prop in frame.container:
                 frame.containerValue = frame.container[prop]
             validator.store.add('propertyName', prop)
             frame.prop = prop
             frame.value = validator.store.parse(value)
             validator.validate(frame)
-            print(elem[prop])
         return elem
 
 @dataclass
@@ -582,16 +619,21 @@ def buildLayout(filename):
     
     #update layout with the rest of the 
     for prop, value in rawLayout.items():
+        if prop == 'dpi':
+            unit = Unit.fromStr(value, signs='+', units=('px',))
+            if unit is None:
+                raise InvalidValueError('layout', prop, value)
+            value = unit.toInt()
         setattr(layout, prop, value)
 
-    if type(layout.width) == str:
-        layout.width = asNum(layout.width, 
-        err=bWError("'{value}' is not a valid asset width",
-        layout=filename, value=layout.width))
-    if type(layout.height) == str:
-        layout.height = asNum(layout.height, 
-        err=bWError("'{value}' is not a valid asset height",
-        layout=filename, value=layout.height))
+    for prop in ('width', 'height'):
+        value = getattr(layout, prop)
+        if type(value) == str:
+            unit = Unit.fromStr(value, signs='+')
+            if unit is None:
+                raise InvalidValueError('layout', prop, value)
+            setattr(layout, prop, unit.toInt(dpi=layout.dpi))
+
 
 
     if 'defaults' in parsedLayout:

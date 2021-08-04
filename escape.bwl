@@ -1,0 +1,9 @@
+layout{
+    width: 3in
+    height: 3in
+}
+
+test {
+    type: label
+    text: test\h\hfoo
+}
