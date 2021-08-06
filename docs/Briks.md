@@ -41,15 +41,15 @@ This brik is a shortcut for bolding text with `<b>STRING</b>` in labels.
 Capitalize `STRING`. This uses a dumb algorithm of making the first letter of any word longer than 4 letters, plus the first letter overall, uppercase.
 
 `[dup| TIMES | STRING ]`
-Duplicate `STRING` `TIMES` times. When evaluating `STRING`, the brik `[d]` is set to which duplication this is, eg `[dup| 3| dup'ed [d] times.]` will return "dup'ed 1 times.dup'ed 2 times.dup'ed 3 times."
+Duplicate `STRING` `TIMES` times. When evaluating `STRING`, the brik `[d]` is set to which duplication this is, eg `[dup| 3| \s[d] times ]` will result in " 1 times 2 times 3 times". If `TIMES` begins with a `0` then `[d]` will start counting with zero.
 
-`[file| FILENAME]`
+`[file| FILENAME ]`
 Open the file `FILENAME` and return the text.
 
 `[i| STRING ]`
 This brik is a shortcut for italicizing text with `<i>STRING</i>` in labels.
 
-`[lower| STRING]`
+`[lower| STRING ]`
 Convert the entirety of `STRING` to lowercase.
 
 `[s| STRING ]`
@@ -57,9 +57,13 @@ This brik is a shortcut for striking thru text with `<s>STRING</s>` in labels.
 
 `[slice| STRING | START ]`
 `[slice| STRING | START | END ]`
+Select a sub string from `STRING` starting at `START` and ending with `END`. If `END` is not present then the rest of the string will be selected, if it is present the specified character won't be included. If `START` or `END` begins with a `0` that argument will count the first character as `0` the second as `1` and so on, otherwise the first charcter is `1`. Negative numbers are also allowed, which are counted from the end of the string, so `-1` is the last character.
 
 `[substr| STRING | START | LENGTH ]`
-Select a sub string of `STRING`, starting at `START` for `LENGTH`. The first character of `STRING` is `1`, eg `[substring| abcdefg | 2 | 2 ]` will return "bc".
+Select a sub string of `STRING`, starting at `START` for `LENGTH`. If `START` begins with a `0` the first character will count as `0` the second as `1` and so on, other wise the first character is `1`. Negative numbers are not allowed.
+
+!!! tip "Examples"
+    Because `[slice| ]` and `[substr| ]` are so similar and so flexible, examples for both are located on  [this page](../Selecting-Strings/)
 
 `[u| STRING ]`
 This brik is a shortcut for underlining text with `<u>STRING</u>` in labels.
@@ -90,7 +94,7 @@ Test if `LEFT` and `RIGHT` are not equal. The arguments can be any type of value
 Macro briks do more processing on their argument.
 
 `[?| VALUE ]` - the comparison brik
-The comparison brik performs numeric comparison. `VALUE` is evaluated for a single comparison operator with either side being the operands, if either operand is not a number parsing will stop with an error. Inches will be converted to pixels before comparison.
+The comparison brik performs numeric comparison. `VALUE` is evaluated for a single comparison operator with either side being the operands, if either operand is not a number parsing will stop with an error. Units are ignored so `3in`,  `3mm`, and `3%` are all treated the same as `3`.
 Valid comparison operators are:
 
  * `==` - equal to
@@ -114,7 +118,7 @@ The expansion brik processes and expands escapes. Normally this is the last step
 Because values are evaluated until there are no more briks, this would end up evaluating a brik with the name of whatever is in `[someBrik]`.
 
 `[#| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic. Parentheses `( )` are currently not allowed.
+The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic. Parentheses `( )` are currently not allowed. Like with the comparison brik above units are ignored, however negative numbers are still negative.
 Accepted operators are:
 
  * `+` - addition

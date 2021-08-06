@@ -31,8 +31,10 @@ upperLeftPip {
 }
 lowerRightNumber {
     type: label
-    x: [#| 2.5in - .35in]
-    y: [#| 3.5in - .35in]
+    #x: [#| 2.5in - .35in]
+    #y: [#| 3.5in - .35in]
+    x: ^.15in
+    y: ^.15in
     #The math macro is a convinient way to position something relative to the far corner from 0,0
     rotation: 180
     width: .2in
@@ -44,8 +46,10 @@ lowerRightNumber {
 }
 lowerRightPip {
     type: image
-    x: [#| 2.5in - .185in - 38]
-    y: [#| 3.5in - .35in - 45]
+    #x: [#| 2.5in - .185in - 38]
+    #y: [#| 3.5in - .35in - 45]
+    x: ^.185in
+    y: ^.35in
     rotation: 180
     source: images/[suit]Small.png
 }

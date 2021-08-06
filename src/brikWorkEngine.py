@@ -38,7 +38,7 @@ def validateString(frame, elem):
     return True
 
 def validateNumber(frame, elem):
-    value = Unit.fromStr(frame.value)
+    value = Unit.fromStr(frame.value, signs='+')
     if value is None:
         return False
     elem[frame.prop] = value.toInt(dpi=frame.layout.dpi)
@@ -79,11 +79,13 @@ def validateXY(frame, elem):
         elem[frame.prop] = (parentDim-elem[dim])//2 + parentLoc
         return True
     else:
-        value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
+        value = Unit.fromStr(frame.value, signs='-+^',units=('px', 'in', 'mm', '%'))
         if value is None:
             return False
         if value.unit == '%':
             value = value.toInt(whole=parentDim)
+        elif value.sign == '^':
+            value = parentDim - elem[dim] - value.toInt(dpi=frame.layout.dpi)
         else:
             value = value.toInt(dpi=frame.layout.dpi)
         elem[frame.prop] = value + parentLoc
@@ -103,7 +105,18 @@ def validateHeightWidth(frame, elem):
         value = value.toInt(dpi=frame.layout.dpi)
     elem[frame.prop] = value
     return True
-    
+
+def validateAngle(frame, elem):
+    value = Unit.fromStr(frame.value, signs='+', units=('deg'))
+    if value is None:
+        return False
+    value = value.toInt()
+    if frame.container == 'layout':
+        elem[frame.prop] = value % 360
+    else:
+        elem[frame.prop] = (value+frame.containerValue) % 360
+    return True
+
 
 def validateDraw(frame, elem):
     value = asBool(frame.value)
@@ -118,7 +131,7 @@ def validateDraw(frame, elem):
     return True
 
 def validateFontSize(frame, elem):
-    value = Unit.fromStr(frame.value, units=('pt', 'px', 'in', 'mm'))
+    value = Unit.fromStr(frame.value, signs='+', units=('pt', 'px', 'in', 'mm'))
     if value is None:
         return False
     elem[frame.prop] = value, frame.layout.dpi
@@ -167,11 +180,11 @@ class Element():
         prop('type', 'string', ''),
         prop('name', 'string', ''),
         prop('draw', validateDraw, 'true'),
-        prop('x', validateXY, '0'),
-        prop('y', validateXY, '0'),
-        prop('width', validateHeightWidth, '50'),
-        prop('height', validateHeightWidth, '50'),
-        prop('rotation', 'number', '0'),
+        prop('x', validateXY, '0px'),
+        prop('y', validateXY, '0px'),
+        prop('width', validateHeightWidth, '1/4in'),
+        prop('height', validateHeightWidth, '1/4in'),
+        prop('rotation', validateAngle, '0'),
     ]))
     @staticmethod
     def paint(elem, painter, upperLect, size):
@@ -181,7 +194,7 @@ class LabelElement():
     defaults = Element.defaults.new_child(dict([
         prop('text', 'string', ''),
         prop('fontFamily', 'string', 'Verdana'),
-        prop('fontSize', validateFontSize, '18'),
+        prop('fontSize', validateFontSize, '18pt'),
         prop('color', 'string', 'black'),
         prop('wordWrap', 'toggle', 'yes'),
         prop('alignment', validateAlignment, 'center top'),
@@ -232,8 +245,8 @@ def validateImage(frame, elem):
 
 class ImageElement():
     defaults = Element.defaults.new_child(dict([
-        prop('width', validateHeightWidth, '0'),
-        prop('height', validateHeightWidth, '0'),
+        prop('width', validateHeightWidth, '0px'),
+        prop('height', validateHeightWidth, '0px'),
         prop('source', validateImage, ''),
         prop('keepAspectRatio', 'toggle', 'yes'),
     ]))
@@ -273,7 +286,7 @@ class ImageElement():
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
         prop('lineColor', 'string', 'black'),
-        prop('lineWidth', 'number', '1'),
+        prop('lineWidth', 'number', '1px'),
         prop('lineJoin', validateLineJoin, 'miter'),
         prop('lineCap', validateLineCap, 'flat'),
         prop('fillColor', 'string', 'white'),
@@ -293,8 +306,8 @@ class ShapeElement():
 
 class RectangleElement():
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('xRadius', 'number', '0'),
-        prop('yRadius', 'number', '0'),
+        prop('xRadius', 'number', '0px'),
+        prop('yRadius', 'number', '0px'),
     ]))
 
     @staticmethod
@@ -320,8 +333,8 @@ class EllipseElement():
 class LineElement():
     #AAAAAAAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('x2', validateXY, '50'),
-        prop('y2', validateXY, '50'),
+        prop('x2', validateXY, '1/4in'),
+        prop('y2', validateXY, '1/4in'),
     ]))
 
     @staticmethod
@@ -407,8 +420,8 @@ class ElementGenerator ():
 class Layout():
     '''class for owning layouts'''
     
-    width:int = 300
-    height:int = 300
+    width:int = '1in'
+    height:int = '1in'
     name:str = 'asset.png'
     output:str = ''
     data:str = None
@@ -617,8 +630,9 @@ def buildLayout(filename):
     if userData != None:
         layout.data = parseData(userData)
     
-    #update layout with the rest of the 
+    #update layout with the rest of the props
     for prop, value in rawLayout.items():
+        #NOTE width and height get passed on as strings
         if prop == 'dpi':
             unit = Unit.fromStr(value, signs='+', units=('px',))
             if unit is None:
@@ -627,6 +641,7 @@ def buildLayout(filename):
         setattr(layout, prop, value)
 
     for prop in ('width', 'height'):
+        #NOTE the width and height strings are parsed here, regardless of where they comefrom
         value = getattr(layout, prop)
         if type(value) == str:
             unit = Unit.fromStr(value, signs='+')

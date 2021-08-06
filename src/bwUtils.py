@@ -104,9 +104,7 @@ class Unit():
     unit: str
     def toFloat(self, **data):
         'return the number as an int according to type'
-        if self.unit in ('px', 'pt', ''):
-            return self.num
-        elif self.unit == 'in':
+        if self.unit == 'in':
             if 'dpi' in data:
                 return self.num*data['dpi']
             else:
@@ -121,6 +119,8 @@ class Unit():
                 return self.num/100*data['whole']
             else:
                 return self.num
+        else:
+            return self.num
     def toInt(self, **data):
         return int(self.toFloat(**data))
     

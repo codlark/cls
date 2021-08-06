@@ -3,9 +3,17 @@ This is a shorter page to quickly go over the types of values used by properties
 
 ## Numbers
 
-Most numbers used in brikWork are locations and sizes, like `x` and `width`. These numbers, called `NUM` on [Layout and Elements](../Layout-and-Elements/), by default are in pixels and aren't allowed to have a decimal point. Sizes can also be in inches, by having `in` attached to the end, like `1in`. Inches can have a decimal point like `1.25in`. Inches are converted to pixels at a dpi (dots per inch) of 300 which is commonly used by print on demand services. In a future update, not only will there be more units but also dpi will be changeable.
+Numbers in brikWork ca be a whole number like `7`, a decimal number like `1.25` or a fraction like `1 1/8`. Fractions and decimals can also be with out the whole number component like `.75` and `3/8`. Numbers can also have other features like having units. Different properties allow different units, these will be listed in the property's entry on [Layout and Elements](../Layout-and-Elements/). Units are always optional, and when a unit is not provided the unit listed in the description of a property will be the default, for example `fontSize` lists units `pt`, `px`, `in`, and `mm`, so any value without a unit will be given the unit `pt`. Numbers can also hava a sign, either positive `+` or negative `-`. Some properties require positive numbers and will say so in their description. When no sign is given the number will be positive. The `x` and `y` properties also allow a sign of inverse `^` which cannot be combined with the other signs.
+Units you'll see in brikWork include
 
-Lastly some properties use numbers in different units, these will be spelled out in their entry on [Layout and Elements](../Layout-and-Elements/).
+ - `px` - pixel, this is the native unit of brikWOrk for most things
+ - `in` - inch, these are converted to pixels accourding to the `dpi` property of the layout
+ - `mm` - millimeter, these are converted to inches before being converted to pixels
+ - `pt` - point, this is a common unit for measuring fonts; exactly how big a given point size is depends on the font, but generally, at 300 dpi a 40pt to 44pt font will snuggly fit into a quarter inch tall space
+ - `%` - a percent, this is a proportion of a property on another element
+ - `deg` - degree, this is a unit of rotation
+
+Any property or brik that uses different units will describe them in their description.
 
 ## Toggles
 
