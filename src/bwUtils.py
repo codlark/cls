@@ -130,10 +130,10 @@ class Unit():
             units = ('px', 'pt', 'in', 'mm', '%')
 
         signs = r'^(?P<sign>['+signs+r']?)'
-        unitRe = r' *(?P<unit>(?:' + '|'.join(units) + r')?)$'
+        unitRe = r'(?P<unit>(?:' + '|'.join(units) + r')?)$'
         whole = signs + r'(?P<num>\d+)' + unitRe
         flt = signs + r'(?P<num>\d*\.\d+)' + unitRe
-        frac = signs + r'(?P<whole>\d+) (?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        frac = signs + r'(?P<whole>\d+)[/.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
         fracOnly = signs + r'(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
 
         if (match := re.match(whole, string)) or (match := re.match(flt, string)):
@@ -161,20 +161,6 @@ class Unit():
         if sign == '-' and unit != '%':
             num *= -1
         return Unit(sign, num, unit)
-
-
-#def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
-#    '''tries to convert a number string to an int
-#    if a number isn't found raise an error if present else return None'''
-#    if re.match(r'^-?\d+$', string):
-#        return int(string)
-#    elif re.match(r'^\d*(\.\d+)? *in$', string):
-#        #FIXME this uses a hardcoded dpi
-#        #I'll need to get context in here somehow lol
-#        return int(float(string[:-2].strip())*300)
-#    else:
-#        if err:
-#            raise err
 
 trues = 'yes on true'.split()
 falses = 'no off false 0'.split()
@@ -560,40 +546,6 @@ class LayoutParser():
 
 if __name__ == '__main__':
 
-    expansions = {
-        '\\': '\\', 'n': '\n',
-        't': '\t', 's': ' ',
-    }
-
-    def eval(string:str) -> str:
-        pos = 0
-        accum = []
-        while pos < len(string):
-            char = string[pos]
-            if char == '\\':
-                pos += 1
-                char = string[pos]
-                if char in expansions:
-                    accum.append(expansions[char])
-                else:
-                    accum.append(char)
-            else:
-                accum.append(char)
-            print(build(accum))
-            pos += 1
-    
-    def parse(string:str):
-        pos = 0
-        accum = []
-        while pos < len(string):
-            char = string[pos]
-            
-            if char == '\\':
-                accum.append(string[pos:pos+2])
-                pos += 1
-            else:
-                accum.append(char)
-            print(pos, accum)
-            pos += 1
-        return build(accum)
-    eval(parse(r'te\k\kst'))
+    print(Unit.fromStr('1/3/4 in'))
+    print(Unit.fromStr('1.3/4'))
+    print(Unit.fromStr('1.75'))

@@ -1,6 +1,6 @@
 layout {
     width: 2.25in
-    height: 3 1/2in
+    height: 3.1/2in
     wiggle: foo
     name: test[assetIndex].png
     output: out/

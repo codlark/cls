@@ -85,6 +85,7 @@ def validateXY(frame, elem):
         if value.unit == '%':
             value = value.toInt(whole=parentDim)
         elif value.sign == '^':
+            #TODO consider making ^ a signal not a sign to allow ^-.3
             value = parentDim - elem[dim] - value.toInt(dpi=frame.layout.dpi)
         else:
             value = value.toInt(dpi=frame.layout.dpi)

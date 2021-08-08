@@ -3,9 +3,10 @@ This page collects the changes made to brikWork over time
 
 ## v 0.4
  - added: more units! checkout [values] for how they work
- - added: strip brik, `[$| ]`, to remove an explicit unit. This won't make sense until you read the new docs
  - added: `[slice| STRING | START | STOP]` takes substring of `STRING` like `[substr| ]` but uses start and stop positions instead of a start position and a length
+ - added: support for parenthesis to the math brik, infact the whole thing has been rewritten
  - changed: the `[substring| ]` brik has been renamed to `[substr| ]`
+ - changed: the math brik has been changed to `[=| ]`
 
 ## v 0.3
  - added: A graphical interface

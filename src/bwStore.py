@@ -1,8 +1,9 @@
 import os
 import re
-from collections import ChainMap
+from collections import ChainMap, deque
 from typing import Union, Callable, Collection
 from bwUtils import *
+import operator
 
 class BrikStore():
 
@@ -369,91 +370,96 @@ def comparisonMacro(context, value):
     else:
         return 'false'
 
-@BrikStore.addStdlib('#', 1)
-def mathMacro(context, value):
-    
-    value = context.parse(value)
-    ops = '+-*/%'
+def makeOp(op):
+    if op not in '+-*/%(':
+        return None
+    elif op == '+':
+        return AttrDict(prec=1, op=operator.add, name=op)
+    elif op == '-':
+        return AttrDict(prec=1, op=operator.sub, name=op)
+    elif op == '*':
+        return AttrDict(prec=2, op=operator.mul, name=op)
+    elif op == '/':
+        return AttrDict(prec=2, op=operator.truediv, name=op)
+    elif op == '%':
+        return AttrDict(prec=2, op=operator.mod, name=op)
+    elif op == '(':
+        return AttrDict(prec=0, op=(lambda x, y: None), name=op)
 
-    makeToken = lambda x: ''.join(x).strip()
-    tokens = []
-    token = []
-    for c in value:
-        if c == ' ':
-            tokens.append(makeToken(token))
-            token = []
-        elif c in ops:
-            tokens.append(makeToken(token))
-            tokens .append(c)
-            token = []
+@BrikStore.addStdlib('=', 1)
+def mathBrik(context, value):
+    '''makes use of dijkstra's shunting yard algorithm to conver to
+    reverse polish notation, then parses the rpn'''
+    tokens = context.parse(value).split()
 
-        else:
-            token.append(c)
-    if len(token) > 0:
-        tokens.append(makeToken(token))
-
-    accum = None
-    op = None
-    newTokens = []
-
+    rpn = deque()
+    opStack = []
     for token in tokens:
-        if token == '': continue
-        currentToken = Unit.fromStr(token, units='all')
-        #currentToken = asNum(token)
-        if currentToken is None:
-            if token in '*/%':
-                op = token
-            elif token in '+-':
-                if accum is None:
-                    raise bWError("{op} in '{source}' is missing a left operand",
-                    elem=context.elem, prop=context.prop, source=value, op=token
-                    )    
-                newTokens.append(accum)
-                accum = None
-                newTokens.append(token)
-                op = None
+        if token == '':
+            continue
+        num = Unit.fromStr(token)
+        op = makeOp(token)
+        length = len(opStack)
+        if num is not None:
+            rpn.append(num.toFloat())
+        elif token == '(':
+            opStack.append(op)
+        elif token == ')':
+            if length == 0:
+                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
+                )
+            while length > 0:
+                if opStack[length-1].name != '(':
+                    rpn.append(opStack.pop())
+                else:
+                    break
+                length = len(opStack)
             else:
-                raise InvalidArgError(context.elem, context.prop, '#', 'OPERATION',token)
+                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
+                )
+            opStack.pop()
+        elif op != None:
+            if length > 0 and opStack[length-1].prec >= op.prec:
+                rpn.append(opStack.pop())
+            opStack.append(op)
         else:
-            currentToken = currentToken.toFloat()
-            if op is None:
-                accum = currentToken
-            elif accum is None:
-                raise bWError("{op} in '{source}' is missing a left operand",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            raise bWError("'{value}' is an unknown operator in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=token
                 )
-            elif op == '*':
-                accum *= currentToken
-            elif op == '/':
-                accum /= currentToken
-            elif op == '%':
-                accum %= currentToken
+    while len(opStack) > 0:
+        op = opStack.pop()
+        if op.name == '(':
+            raise bWError("'{value}' is missing a closing parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
+                )
+        rpn.append(op)
 
-
-    newTokens.append(accum)
-    accum = None
-    op = None
-
-    for token in newTokens:
-        if type(token) not in (int, float):
-            op = token
+    accum = []
+    if len(rpn) < 3:
+        raise bWError("'{value}' is not a valid mathematical expression in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
+                )
+    for op in rpn:
+        if type(op) == float:
+            accum.append(op)
         else:
-            if op is None:
-                accum = token#currentToken
-            elif accum is None:
-                raise bWError("{op} in '{source}' is missing a left operand",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            if len(accum) < 2:
+                print(accum, op)
+                raise bWError("'{value}' does not have enough operands in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
                 )
-            elif op == '+':
-                accum += token#currentToken
-            elif op == '-':
-                accum -= token#currentToken
-            else:
-                raise bWError("huh, not sure how you got here, anyway, {op} in '{source}' is not an operator",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            right = accum.pop()
+            left = accum.pop()
+            accum.append(op.op(left, right))
+    if len(accum) != 1:
+        raise bWError("'{value}' has too many operands in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name='=', value=value
                 )
+    
+    return str(int(accum[0]))
 
-    return str(int(accum))
 
 @BrikStore.addStdlib('file', 1)
 def fileBrik(context, filename):
@@ -468,4 +474,6 @@ def fileBrik(context, filename):
     return fileContents
 
     
-    
+if __name__ == '__main__':
+    context = AttrDict(elem='<test>', prop='<test>', parse=(lambda x: x))
+    print(mathBrik(context, '1 + ( 3 + 1 )'))
