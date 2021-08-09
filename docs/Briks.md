@@ -3,7 +3,7 @@ Briks are the main programming utility in brikWork. They come in 3 main types
 
  * variable briks like `[assetIndex]` that simply return a value
  * function briks like `[if| ]` that process arguments, and
- * macro briks that perform special parsing on their argument 
+ * operator briks that perform special parsing for operators on their argument 
  <!--Come up with a better name for macro briks-->
 
 ## Variable Briks
@@ -63,7 +63,7 @@ Select a sub string from `STRING` starting at `START` and ending with `END`. If 
 Select a sub string of `STRING`, starting at `START` for `LENGTH`. If `START` begins with a `0` the first character will count as `0` the second as `1` and so on, other wise the first character is `1`. Negative numbers are not allowed.
 
 !!! tip "Examples"
-    Because `[slice| ]` and `[substr| ]` are so similar and so flexible, examples for both are located on  [this page](../Selecting-Strings/)
+    Because `[slice| ]` and `[substr| ]` are so similar and so flexible, examples for both are located on  [this page](../Selecting-Strings/).
 
 `[u| STRING ]`
 This brik is a shortcut for underlining text with `<u>STRING</u>` in labels.
@@ -84,14 +84,14 @@ Test if `LEFT` and `RIGHT` are equal. The arguments can be any type of value.
 Returns either `TRUE` or `FALSE` depending on `TEST`, which must evaluate to a toggle. When the first character of `TEST` is `?` the rest of the argument will be given to the comparison brik for evaluation. The `FALSE` argument is optional, and omitting it is the same as using `[]` as `FALSE`.
 
 `[in| VALUE | ARGS... ]`
-This macro takes any number of arguments. Test to see if `VALUE` is equal to any of `ARGS`.
+This brik takes any number of arguments. Test to see if `VALUE` is equal to any of `ARGS`.
 
 `[ne | LEFT | RIGHT ]`
 Test if `LEFT` and `RIGHT` are not equal. The arguments can be any type of value.
 
-## Macro Briks
+## Operator Briks
 
-Macro briks do more processing on their argument.
+Operator briks scan their argument for operators, special characters that the brik gives special meaning.
 
 `[?| VALUE ]` - the comparison brik
 The comparison brik performs numeric comparison. `VALUE` is evaluated for a single comparison operator with either side being the operands, if either operand is not a number parsing will stop with an error. Units are ignored so `3in`,  `3mm`, and `3%` are all treated the same as `3`.
@@ -117,8 +117,14 @@ The expansion brik processes and expands escapes. Normally this is the last step
 ```
 Because values are evaluated until there are no more briks, this would end up evaluating a brik with the name of whatever is in `[someBrik]`.
 
-`[#| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to the order of operations. If any operand is not a number parsing will stop with an error. Inches will be converted to pixels before performing any arithmetic. Parentheses `( )` are currently not allowed. Like with the comparison brik above units are ignored, however negative numbers are still negative.
+`[=| VALUE ]` - the math brik
+The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to order of operations. If any operand is not a number parsing will stop with an error. Units are ignored like the comparison brik above. Operators and numbers must be separated with spaces, as in `1 + 2` but not `1+2`. 
+Any numbers with a decimal portion will propagate thru the expressions, but numbers will have their decimal portion removed when this brik returns. To maintain that floating portion use this brik as `[=.| ]`, with a dot after the equals sign, compare
+
+    [=| 10 / 4]
+    [=.| 10 / 4]
+The first returns "2" while the second returns "2.5". 
+
 Accepted operators are:
 
  * `+` - addition
@@ -126,9 +132,21 @@ Accepted operators are:
  * `*` - multiplication
  * `/` - division
  * `%` - modulus, the remainder of division
+ * `(` and `)` - grouping
 
-Division has a specific property. If the result features a decimal portion it will propagate to the other operators, but will be removed before the brik returns.
-```none
-[#| [assetIndex] / [assetTotal] * 100]
-```
-This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61".
+To provide an example:
+
+    [=| [assetIndex] / [assetTotal] * 100]
+
+This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61". We can use this to draw a progress bar as in
+
+    barHolder {
+        ...
+        bar {
+            type: line
+            ...
+            x2: [=| [assetIndex] / [assetTotal] * 100]%
+        }
+    }
+
+The element `barHolder` would be as wide as the bar at most, and each asset would have a longer bar than the last.

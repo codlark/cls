@@ -134,7 +134,7 @@ class Unit():
         whole = signs + r'(?P<num>\d+)' + unitRe
         flt = signs + r'(?P<num>\d*\.\d+)' + unitRe
         frac = signs + r'(?P<whole>\d+)[/.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
-        fracOnly = signs + r'(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        fracOnly = signs + r'[/.]?(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
 
         if (match := re.match(whole, string)) or (match := re.match(flt, string)):
             sign = match.group('sign')

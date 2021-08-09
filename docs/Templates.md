@@ -54,7 +54,7 @@ Lastly, the template has some test data to see where things will go. Let's take 
 For everything else we don't need any other properties in the `layout` section, because they'll be loaded in from the template. Here's a look at some of the rest of the face card layout.
 
     briks {
-        rank = [substring| [royal] | 1 | 1 ]
+        rank = [substr| [royal] | 1 | 1 ]
         #grab the first character of [royal]
     }
     portrait {

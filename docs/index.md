@@ -13,11 +13,11 @@ Current features
  * stronger-than-it-needs-to-be scripting functionality
  * define sizes and location in pixels or inches
 
-Future features
+Potential future features
 
  * more shapes and better colors
  * printer or pdf output
- * millimeter sizes
+ * gradients
  * vs code plugin for syntax highlighting
 
 ## brikWork layouts in brief

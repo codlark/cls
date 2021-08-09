@@ -17,7 +17,7 @@ These properties are optional:
  * `output: FOLDER` - folder to save the assets in. The default behavior is to save the assets in the same folder as the layout file.
  * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated.
  * `template: FILENAME` - Specify a layout file to act as a template. For a full description of templates see [Templates](Templates/).
- * `dpi: DPI` ratio to convert inches to pixels. Default value is `300` meaning 300 pixels per inch. Also affects millimeters. Number must bare (no unit).
+ * `dpi: DPI` ratio to convert inches to pixels. Default value is `300` meaning 300 pixels per inch. Also affects millimeters. Number must be bare (no unit).
 
 ## Element Properties
 

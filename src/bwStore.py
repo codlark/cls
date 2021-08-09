@@ -129,7 +129,9 @@ class BrikStore():
                 args.append(self.parseBrikArg(ps, context))
             
             elif char == ']':
-                return self.call(''.join(nameB).strip(), context, args)
+                name = build(nameB)
+                context.name = name
+                return self.call(name, context, args)
             
             else:
                 nameB.append(char)
@@ -386,6 +388,7 @@ def makeOp(op):
     elif op == '(':
         return AttrDict(prec=0, op=(lambda x, y: None), name=op)
 
+@BrikStore.addStdlib('=.', 1)
 @BrikStore.addStdlib('=', 1)
 def mathBrik(context, value):
     '''makes use of dijkstra's shunting yard algorithm to conver to
@@ -407,7 +410,7 @@ def mathBrik(context, value):
         elif token == ')':
             if length == 0:
                 raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             while length > 0:
                 if opStack[length-1].name != '(':
@@ -417,7 +420,7 @@ def mathBrik(context, value):
                 length = len(opStack)
             else:
                 raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             opStack.pop()
         elif op != None:
@@ -426,20 +429,20 @@ def mathBrik(context, value):
             opStack.append(op)
         else:
             raise bWError("'{value}' is an unknown operator in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=token
+                elem=context.elem, prop=context.prop, name=context.name, value=token
                 )
     while len(opStack) > 0:
         op = opStack.pop()
         if op.name == '(':
             raise bWError("'{value}' is missing a closing parenthesis in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
         rpn.append(op)
 
     accum = []
     if len(rpn) < 3:
         raise bWError("'{value}' is not a valid mathematical expression in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     for op in rpn:
         if type(op) == float:
@@ -448,17 +451,20 @@ def mathBrik(context, value):
             if len(accum) < 2:
                 print(accum, op)
                 raise bWError("'{value}' does not have enough operands in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             right = accum.pop()
             left = accum.pop()
             accum.append(op.op(left, right))
     if len(accum) != 1:
         raise bWError("'{value}' has too many operands in brik [{name}| ]", 
-                elem=context.elem, prop=context.prop, name='=', value=value
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     
-    return str(int(accum[0]))
+    if context.name == '=':
+        return str(int(accum[0]))
+    else:
+        return str(accum[0])
 
 
 @BrikStore.addStdlib('file', 1)
@@ -475,5 +481,5 @@ def fileBrik(context, filename):
 
     
 if __name__ == '__main__':
-    context = AttrDict(elem='<test>', prop='<test>', parse=(lambda x: x))
-    print(mathBrik(context, '1 + ( 3 + 1 )'))
+    context = AttrDict(elem='<test>', prop='<test>', name='=.', parse=(lambda x: x))
+    print(mathBrik(context, '10 / ( 3 + 1 )'))
