@@ -32,25 +32,33 @@ def openFile(filename):
     os.chdir(directory)
     try:
         #layoutText = _openFile(filename)
-        state.layout = buildLayout(filename)
-        state.painter = AssetPainter(state.layout)
-        state.painter.paint()
-        state.asset = 0
-        
-        return True, f'generated {len(state.painter.images)} assets'
+        layout = buildLayout(filename)
+        painter = AssetPainter(layout)
+        painter.paint()
+        #state.asset = 0        
 
     except bWError as e:
         os.chdir(dir)
-        state.layout = None
-        state.painter = None
+        #state.layout = None
+        #state.painter = None
+        #state.assetSpin.setValue(1)
+        #state.assetSpin.setRange(1, 1)
         return False, e.message
+    
+    else:
+        state.layout = layout
+        state.painter = painter
+        if len(state.painter.images) != state.assetSpin.value():
+            state.assetSpin.setValue(1)
+            state.assetSpin.setRange(1, len(state.painter.images))
+        return True, f'generated {len(state.painter.images)} assets'
 
 def setImage():
     if state.painter is None:
         return
     if len(state.painter.images) == 0:
         return
-    pix = QPixmap.fromImage(state.painter.images[state.asset][0])
+    pix = QPixmap.fromImage(state.painter.images[state.assetSpin.value()-1][0])
     window.assetHolder.setPixmap(pix.scaledToHeight(window.assetHolder.size().height()-10, mode=Qt.SmoothTransformation))
 
 @Slot()
@@ -93,21 +101,28 @@ def saveFunc():
     else:
         window.textLog.append('unable to save, no layout is presnt')
 
-@Slot()
-def nextFunc():
-    asset = state.asset + 1
-    if state.painter is None:
-        return
-    if asset == len(state.painter.images):
-        return
-    state.asset = asset
-    setImage()
+#@Slot()
+#def nextFunc():
+#    asset = state.asset + 1
+#    if state.painter is None:
+#        return
+#    if asset == len(state.painter.images):
+#        return
+#    state.asset = asset
+#    setImage()
+
+#@Slot()
+#def prevFunc():
+#    if state.asset == 0:
+#        return
+#    state.asset -= 1
+#    setImage()
 
 @Slot()
-def prevFunc():
-    if state.asset == 0:
+def spinChangeFunc(val):
+    if state.painter is None:
         return
-    state.asset -= 1
+    state.asset = val
     setImage()
 
 @Slot()
@@ -161,17 +176,16 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(saveAct)
         saveAct.triggered.connect(saveFunc)
 
-        prevAct = QAction('Previous Asset', parent=self)
-        self.toolbar.addAction(prevAct)
-        prevAct.triggered.connect(prevFunc)
+        self.toolbar.addWidget(QLabel("Current Asset ", parent=self))
 
-        nextAct = QAction('Next Asset', parent=self)
-        self.toolbar.addAction(nextAct)
-        nextAct.triggered.connect(nextFunc)
+        state.assetSpin = QSpinBox(parent=self)
+        self.toolbar.addWidget(state.assetSpin)
+        state.assetSpin.valueChanged.connect(spinChangeFunc)
+        state.assetSpin.setRange(1,1)
 
-        printAct = QAction('print', parent=self)
-        self.toolbar.addAction(printAct)
-        printAct.triggered.connect(makePDF)
+        #printAct = QAction('print', parent=self)
+        #self.toolbar.addAction(printAct)
+        #printAct.triggered.connect(makePDF)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)

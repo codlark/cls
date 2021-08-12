@@ -388,7 +388,6 @@ def makeOp(op):
     elif op == '(':
         return AttrDict(prec=0, op=(lambda x, y: None), name=op)
 
-@BrikStore.addStdlib('=.', 1)
 @BrikStore.addStdlib('=', 1)
 def mathBrik(context, value):
     '''makes use of dijkstra's shunting yard algorithm to conver to
@@ -461,10 +460,7 @@ def mathBrik(context, value):
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     
-    if context.name == '=':
-        return str(int(accum[0]))
-    else:
-        return str(accum[0])
+    return str(accum[0])
 
 
 @BrikStore.addStdlib('file', 1)
@@ -482,4 +478,5 @@ def fileBrik(context, filename):
     
 if __name__ == '__main__':
     context = AttrDict(elem='<test>', prop='<test>', name='=.', parse=(lambda x: x))
-    print(mathBrik(context, '10 / ( 3 + 1 )'))
+    print(mathBrik(context, '2.1/4 - 2/3 '))
+    #print(mathBrik(context, ''))

@@ -118,13 +118,7 @@ The expansion brik processes and expands escapes. Normally this is the last step
 Because values are evaluated until there are no more briks, this would end up evaluating a brik with the name of whatever is in `[someBrik]`.
 
 `[=| VALUE ]` - the math brik
-The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to order of operations. If any operand is not a number parsing will stop with an error. Units are ignored like the comparison brik above. Operators and numbers must be separated with spaces, as in `1 + 2` but not `1+2`. 
-Any numbers with a decimal portion will propagate thru the expressions, but numbers will have their decimal portion removed when this brik returns. To maintain that floating portion use this brik as `[=.| ]`, with a dot after the equals sign, compare
-
-    [=| 10 / 4]
-    [=.| 10 / 4]
-The first returns "2" while the second returns "2.5". 
-
+The math brik performs arithmetic. `VALUE` can contain any number of operators and they will be processed according to order of operations. If any operand is not a number parsing will stop with an error. Units are ignored like the comparison brik above. Operators and numbers must be separated with spaces, as in `1 + 2` but not `1+2`.
 Accepted operators are:
 
  * `+` - addition
@@ -138,7 +132,7 @@ To provide an example:
 
     [=| [assetIndex] / [assetTotal] * 100]
 
-This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61". We can use this to draw a progress bar as in
+This would give `[assetIndex]` as a percent, for example the 21st asset of 34 would be "61.76". We can use this to draw a progress bar as in
 
     barHolder {
         ...

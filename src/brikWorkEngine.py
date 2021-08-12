@@ -283,7 +283,11 @@ class ImageElement():
         
         elem.source = QPixmap.fromImage(elem.source)
             
-
+class ImageBoxElement():
+    defaults = ImageElement.defaults.new_child(dict([
+        prop('alignment', validateAlignment, 'center middle'),
+    ]))
+    
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
         prop('lineColor', 'string', 'black'),

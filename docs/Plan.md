@@ -11,6 +11,9 @@ units and dpi update
 
  later
  - polygons and polylines
+ - `inherit` value that means inherit fromm the container
+ - `csv` section to control the dialect of csv used
+ - `c` sign or prefix on positions to allow centering by the center of the element
  - imagebox element type that allow the more accurate positioning of variably sized images
  - texture element type that allows you yo specify a specific area of the images to draw
 
