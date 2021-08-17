@@ -105,4 +105,4 @@ After saving the assets they'll be in the location specified by the `output` pro
 <img src="../img/villager1.png" width=338 height=525 /><img src="../img/seer1.png" width=338 height=525 /><img src="../img/werewolf1.png" width=338 height=525 />
 ___
 
-Now you're ready to make your own layouts and generate your own assets, look at [Syntax](Syntax.md) for more about how the layout files are parsed, or [Layout and Elements](Layout-and-Elements.md) for more about what properties are available.
+Now you're ready to make your own layouts and generate your own assets, look at [Syntax](../Syntex/) for more about how the layout files are parsed, or [Properties](../Properties/) for more about what properties are available.

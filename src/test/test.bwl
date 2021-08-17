@@ -9,6 +9,8 @@ layout {
 
     template: template.bwl
 }
+pdf {
+}
 title {
     type: label
     x: center
@@ -39,6 +41,7 @@ bodyBorder {
     x: center
     y: 1.5in
     width: 1.75in
+    #lineWidth: 0.01in
     height: 1.75in
     xRadius: 1/8in; yRadius: 1/4in;
 }
@@ -48,7 +51,7 @@ body {
     y: 1.625in
     width: 1.5in
     height: 1.25in
-    text: [body]
+    text: [b|[body]]
     fontFamily: Cormorant
 }
 banjo {draw: no; lineColor: blue}

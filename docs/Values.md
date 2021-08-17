@@ -8,7 +8,7 @@ Numbers are just that, numbers. brikWork allows for three kinds of numbers:
  - A decimal number, like `1.25` or `.5`
  - A fraction, like `2/3` or `1/8`. Fractions can have a number component as well by separating the whole number from the fraction with a dot `.` or another slash `/`, like `1.1/4` or `3/1/2`
 
-Numbers can also have other features like units. Different properties allow different units, these will be listed in the property's entry on [Layout and Elements](../Layout-and-Elements/). Units are always optional, and when a unit is not provided the unit listed in the description of a property will be the default, for example `fontSize` lists units `pt`, `px`, `in`, and `mm`, so any value without a unit will be given the unit `pt`. Numbers can also hava a sign, either positive `+` or negative `-`. Some properties require positive numbers and will say so in their description. When no sign is given the number will be positive. The `x` and `y` properties also allow a sign of inverse `^` which cannot be combined with the other signs.
+Numbers can also have other features like units. Different properties allow different units, these will be listed in the property's entry on [Properties](../Properties/). Units are always optional, and when a unit is not provided the unit listed in the description of a property will be the default, for example `fontSize` lists units `pt`, `px`, `in`, and `mm`, so any value without a unit will be given the unit `pt`. Numbers can also hava a sign, either positive `+` or negative `-`. Some properties require positive numbers and will say so in their description. When no sign is given the number will be positive. The `x` and `y` properties also allow a sign of inverse `^` which cannot be combined with the other signs.
 Units you'll see in brikWork include
 
  - `px` - pixel, this is the native unit of brikWork for most things
@@ -30,7 +30,7 @@ Currently colors in brikWork exist in a rather rudimentary state, they can eithe
 
 ## Strings
 
-A string is any value or other piece of text that isn't one of the above values types, such as the `source` property on image elements. Some properties further restrict the allowed values of strings, which are detailed in their entry on [Layout and Elements](../Layout-and-Elements/).
+A string is any value or other piece of text that isn't one of the above values types, such as the `source` property on image elements. Some properties further restrict the allowed values of strings, which are detailed in their entry on [Properties](../Properties/).
 
 ## File Paths
 

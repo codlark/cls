@@ -126,6 +126,7 @@ The class the represents the layout properties
  - filename
  - userBriks
  - dpi
+ - pdf
  - addElement(elem) add element to elements
 
 ### AssetPainter(layout)
@@ -134,6 +135,7 @@ draws the assets, really the main runner
 - validator: Validation
 - images: list[QImage, str] - the generated asset images
 - paint() - paints the assets, storing them in images
+- makePdf() - generates a pdf
 - save() - save the images
 
 ## Functions

@@ -515,7 +515,7 @@ class LayoutParser():
                 name = build(accum)
                 self.pos += 1
                 accum = []
-                if name in ('layout', 'defaults'):
+                if name in ('layout', 'defaults', 'pdf', 'csv'):
                     layout[name] = self.parseProps(name)
                 elif name == 'briks':
                     layout[name] = self.parseUserBriks()
@@ -546,6 +546,4 @@ class LayoutParser():
 
 if __name__ == '__main__':
 
-    print(Unit.fromStr('1/3/4 in'))
-    print(Unit.fromStr('1.3/4'))
-    print(Unit.fromStr('1.75'))
+    pass

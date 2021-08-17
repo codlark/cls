@@ -14,7 +14,7 @@ nav:
   - ./Syntax.md
   - ./Using.md
   - 'Reference':
-    - ./Layout-and-Elements.md
+    - ./Properties.md
     - ./Values.md
     - ./Briks.md
     - ./Templates.md

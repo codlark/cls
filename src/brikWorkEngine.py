@@ -1,6 +1,7 @@
 import os
 import re
 from bwStore import BrikStore
+from collections import ChainMap
 from dataclasses import dataclass, asdict, field
 from typing import *
 from PySide6.QtCore import *
@@ -68,40 +69,40 @@ def validateXY(frame, elem):
     else:
         dim = 'height'
     if frame.container == 'layout':
-        parentDim = frame.layout[dim]
-        parentLoc = 0
+        containerDim = frame.layout[dim]
+        containerLoc = 0
     else:
-        parentDim = frame.container[dim]
-        parentLoc = frame.container[frame.prop[0]]
+        containerDim = frame.container[dim]
+        containerLoc = frame.container[frame.prop[0]]
         # on x2 and y2 use the container's x and y
 
     if frame.value == 'center':
-        elem[frame.prop] = (parentDim-elem[dim])//2 + parentLoc
+        elem[frame.prop] = (containerDim-elem[dim])//2 + containerLoc
         return True
     else:
         value = Unit.fromStr(frame.value, signs='-+^',units=('px', 'in', 'mm', '%'))
         if value is None:
             return False
         if value.unit == '%':
-            value = value.toInt(whole=parentDim)
+            value = value.toInt(whole=containerDim)
         elif value.sign == '^':
             #TODO consider making ^ a signal not a sign to allow ^-.3
-            value = parentDim - elem[dim] - value.toInt(dpi=frame.layout.dpi)
+            value = containerDim - elem[dim] - value.toInt(dpi=frame.layout.dpi)
         else:
             value = value.toInt(dpi=frame.layout.dpi)
-        elem[frame.prop] = value + parentLoc
+        elem[frame.prop] = value + containerLoc
         return True
 
 def validateHeightWidth(frame, elem):
     if frame.container == 'layout':
-        parentDim = frame.layout[frame.prop]
+        containerDim = frame.layout[frame.prop]
     else:
-        parentDim = frame.container[frame.prop]
+        containerDim = frame.container[frame.prop]
     value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
     if value is None:
         return False
     if value.unit == '%':
-        value = value.toInt(whole=parentDim)
+        value = value.toInt(whole=containerDim)
     else:
         value = value.toInt(dpi=frame.layout.dpi)
     elem[frame.prop] = value
@@ -111,11 +112,7 @@ def validateAngle(frame, elem):
     value = Unit.fromStr(frame.value, signs='+', units=('deg'))
     if value is None:
         return False
-    value = value.toInt()
-    if frame.container == 'layout':
-        elem[frame.prop] = value % 360
-    else:
-        elem[frame.prop] = (value+frame.containerValue) % 360
+    elem[frame.prop] = value.toInt() % 360
     return True
 
 
@@ -169,11 +166,10 @@ def validateLineCap(frame, elem):
     return True
 
 class ElementScope(ChainMap):
-    '''A subclass of ChainMap that also has attributes for parent and child relationships'''
+    '''A subclass of ChainMap that also has an attribute to hold an element's container'''
     def __init__(self, *maps: Mapping) -> None:
         super().__init__(*maps)
-        self.children = []
-        self.parent = None
+        self.container = None
 
 
 class Element():
@@ -195,7 +191,7 @@ class LabelElement():
     defaults = Element.defaults.new_child(dict([
         prop('text', 'string', ''),
         prop('fontFamily', 'string', 'Verdana'),
-        prop('fontSize', validateFontSize, '18pt'),
+        prop('fontSize', validateFontSize, '22pt'),
         prop('color', 'string', 'black'),
         prop('wordWrap', 'toggle', 'yes'),
         prop('alignment', validateAlignment, 'center top'),
@@ -291,7 +287,7 @@ class ImageBoxElement():
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
         prop('lineColor', 'string', 'black'),
-        prop('lineWidth', 'number', '1px'),
+        prop('lineWidth', 'number', '0.01in'),
         prop('lineJoin', validateLineJoin, 'miter'),
         prop('lineCap', validateLineCap, 'flat'),
         prop('fillColor', 'string', 'white'),
@@ -363,7 +359,6 @@ class ElementGenerator ():
         self.elements = {}
 
     def generate(self, template:Element, validator:Validation):
-        #TODO rename parent everywhere to container
         
         frame = AttrDict(name=template['name'])
         validator.store.add('elementName', frame.name)
@@ -384,13 +379,13 @@ class ElementGenerator ():
 
         frame.layout = AttrDict(**asdict(validator.layout))
 
-        if template.parent is None:
+        if template.container is None:
             frame.container = 'layout'
             frame.containerValue = None
         else:
-            frame.container = self.elements[template.parent].copy()
+            frame.container = self.elements[template.container].copy()
          
-        elem = AttrDict(name=template['name'], container=template.parent,
+        elem = AttrDict(name=template['name'], container=template.container,
         type=template['type'])
         self.elements[elem.name] = elem
         frame.elem = elem
@@ -413,7 +408,7 @@ class ElementGenerator ():
 
         for prop in ['x', 'y']:
             value = template[prop]
-            if template.parent is not None and prop in frame.container:
+            if template.container is not None and prop in frame.container:
                 frame.containerValue = frame.container[prop]
             validator.store.add('propertyName', prop)
             frame.prop = prop
@@ -422,11 +417,88 @@ class ElementGenerator ():
         return elem
 
 @dataclass
+class PDF():
+    
+    name:str = None
+    render:bool = 'yes'
+    xMargin:Unit = '.25in'
+    yMargin:Unit = '.25in'
+    border:Unit = '.01in'
+    pageSize:QPageSize = 'letter'
+    orientation:QPageLayout.Orientation = 'portrait'
+    
+    @staticmethod
+    def fromDict(options, current, name):
+        options = AttrDict(**options)
+        if current is None:
+            current = PDF()
+        
+        if 'name' in options:
+            current.name = options.name
+        else:
+            current.name = os.path.splitext(os.path.basename(name))[0] + '.pdf'
+        
+        if 'render' in options:
+            current.render = options.render
+        if type(current.render) == str:
+            render = asBool(current.render)
+            if render is None:
+                raise InvalidValueError('pdf', 'render', 'render')
+            current.render = render
+            
+
+        for prop in ('xMargin', 'yMargin'):
+            if prop in options:
+                setattr(current, prop, options[prop])
+            value = getattr(current, prop)
+            if type(value) == str:
+                num = Unit.fromStr(value, signs='+', units=('in', 'mm'))
+                if num is None:
+                    raise InvalidValueError('pdf', prop, value)
+                setattr(current, prop, num)
+        if current.xMargin.unit != current.yMargin.unit:
+            raise bWError("pdf margins must use the same unit", file=name)
+        
+        if 'border' in options:
+            current.border = options.border
+        if type(current.border) == str:
+            border = Unit.fromStr(current.border, signs='+', units=('in', 'mm'))
+            if border is None:
+                raise InvalidValueError('pdf', 'borders', current.border)
+            current.border = border
+        
+        #these two need to be based on the Qt enum values
+        if 'pageSize' in options:
+            current.pageSize = options.pageSize
+        if type(current.pageSize) == str:
+            if current.pageSize.lower() == 'letter':
+                current.pageSize = QPageSize.Letter
+            elif current.pageSize.lower() == 'a4':
+                current.pageSize = QPageSize.A4
+            else:
+                raise InvalidValueError('pdf', 'pageSize', current.pageSize)
+        
+        if 'orientation' in options:
+            current.orientation = options.orientation
+        if type(current.orientation) == str:
+            if current.orientation.lower() == 'portrait':
+                current.orientation = QPageLayout.Portrait
+            elif current.orientation.lower() == 'landscape':
+                current.orientation = QPageLayout.Landscape
+            else:
+                raise InvalidValueError('pdf', 'orientation', current.orientation)
+
+        return current
+    
+
+@dataclass
 class Layout():
     '''class for owning layouts'''
     
     width:int = '1in'
+    widthUnit:Unit = None
     height:int = '1in'
+    heightUnit:Unit = None
     name:str = 'asset.png'
     output:str = ''
     data:str = None
@@ -436,6 +508,7 @@ class Layout():
     filename:str = ''
     userBriks:dict = field(default_factory=dict)
     dpi:int = 300
+    pdf:PDF = None
 
     def addElement(self, element):
         self.elements[element['name']] = element
@@ -449,26 +522,12 @@ class AssetPainter():
             self.validator.store.add('rowTotal', str(layout.data[-1]['rowIndex']))
        
         self.validator.store.briks.update(self.layout.userBriks)
-        #if hasattr(self.layout, '_names'):
-        #    self.validator.store.briks.update(self.layout._names)
 
         self.images = []
 
-        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
-            if not os.path.isfile(self.layout.output):
-                os.mkdir(self.layout.output)
-            else:
-                raise bWError("'{dir}' exists and is not a directory",
-                origin="output in section layout", dir=self.layout.output
-                )
 
     def paintElement(self, elem, painter:QPainter, generator):
         '''Paint a given element'''
-        #elem = generator.generate(template, self.validator)
-        #if not generator.elements[elem.parent].draw:
-        #    return
-        #if not elem.draw:
-        #    return
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
@@ -520,14 +579,94 @@ class AssetPainter():
                 #self.image.save(os.path.join(self.layout.output, name))
 
 
+    def makePdf(self):
+        pdf = self.layout.pdf
+        #print(pdf)
+        
+        if pdf.xMargin.unit == 'in':
+            unit = QPageLayout.Inch
+        elif pdf.xMargin.unit == 'mm':
+            unit = QPageLayout.Millimeter
+
+        xMargin = pdf.xMargin.num
+        yMargin = pdf.yMargin.num
+        
+        pageLayout = QPageLayout()
+        pageLayout.setUnits(unit)
+        pageLayout.setPageSize(QPageSize(pdf.pageSize))
+        pageLayout.setOrientation(pdf.orientation)
+        pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
+        
+        assetWidth = self.layout.widthUnit.toInt(dpi=self.layout.dpi)
+        assetHeight = self.layout.heightUnit.toInt(dpi=self.layout.dpi)
+        assetAcross = int(pageLayout.paintRect().width() // self.layout.widthUnit.num)
+        assetDown = int(pageLayout.paintRect().height() // self.layout.heightUnit.num)
+
+        if assetAcross == 0 or assetDown == 0:
+            raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
+
+        assetPages = len(self.images)/(assetAcross*assetDown)
+        if assetPages - int(assetPages) > 0:
+            assetPages = int(assetPages) + 1
+        
+        pdfWriter = QPdfWriter(pdf.name)
+        self._pdf = pdfWriter
+        pdfWriter.setPageLayout(pageLayout)
+        pdfWriter.setResolution(self.layout.dpi)
+        pdfWriter.setCreator('brikWork')
+
+        pdfPainter = QPainter()
+        result = pdfPainter.begin(pdfWriter)
+        if not result:
+            raise bWError("failed to render pdf, no reason could be found. Maybe jsut try again?", file=self.layout.filename)
+
+        assetsSeen = 0
+        #print(assetDown, assetAcross, assetPages)
+        limit = len(self.images)
+        for page in range(assetPages):
+            for down in range(assetDown):
+                
+                for across in range(assetAcross):
+                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0])
+                    if pdf.border.num > 0:
+                        pen = QPen()
+                        pen.setWidth(pdf.border.toInt(dpi=self.layout.dpi))
+                        pdfPainter.setPen(pen)
+                        pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
+                    assetsSeen += 1
+                    if assetsSeen == limit:
+                        break #down
+                
+                if assetsSeen == limit:
+                    break #across
+            
+            if assetsSeen == limit:
+                break #page
+            
+            pdfWriter.newPage()
+
+
     def save(self):
         '''save the generated images.'''
-        try:
-            for image, name in self.images:
-                image.save(os.path.join(self.layout.output, name))
-        except OSError:
-            raise bWError('failed to save images to {ouput}',
-            output=self.layout.output, layout=self.layout.filename)
+        path = os.getcwd()
+        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
+            try:
+                os.mkdir(self.layout.output)
+            except IOError:
+                os.chdir(path)
+                raise bWError("failed to make output directory", file=self.layout.filename)
+        os.chdir(os.path.realpath(self.layout.output))
+        if self.layout.pdf != None and self.layout.pdf.render:
+            self.makePdf()
+        else:
+            try:
+                for image, name in self.images:
+                    image.save(name)
+            except OSError:
+                os.chdir(path)
+                raise bWError('failed to save images to {ouput}',
+                output=self.layout.output, layout=self.layout.filename)
+        os.chdir(path)
 
 
 
@@ -598,25 +737,24 @@ def buildLayout(filename):
         )
     
     layoutParser = LayoutParser(layoutText, filename)
-    parsedLayout = layoutParser.parseLayoutFile()
-    if 'layout' in parsedLayout:
-        rawLayout = parsedLayout.pop('layout')
+    layoutFile = layoutParser.parseLayoutFile()
+    if 'layout' in layoutFile:
+        rawLayoutDict = layoutFile.pop('layout')
     else:
         #templates may not have a layout
-        rawLayout = {}
+        rawLayoutDict = {}
 
-
-    if 'template' in rawLayout:
-        layout = buildLayout(rawLayout.pop('template'))
+    if 'template' in rawLayoutDict:
+        layout = buildLayout(rawLayoutDict.pop('template'))
     else:
         layout = Layout()
     layout.filename = filename
     
-    if 'data' in rawLayout:
+    if 'data' in rawLayoutDict:
         #prefer the data property over section
-        dataFilename = rawLayout.pop('data')
-        if 'data' in parsedLayout:
-            parsedLayout.pop('data')
+        dataFilename = rawLayoutDict.pop('data')
+        if 'data' in layoutFile:
+            layoutFile.pop('data')
         if not os.path.isfile(dataFilename):
             raise bWError("'{filename}' is not a valid file",
             file=filename, filename=dataFilename
@@ -628,15 +766,15 @@ def buildLayout(filename):
             raise bWError("'{filename}' could not be opened",
             file=filename, filename=dataFilename
             )
-    elif 'data' in parsedLayout:
-        userData = parsedLayout.pop('data')
+    elif 'data' in layoutFile:
+        userData = layoutFile.pop('data')
     else:
         userData = None
     if userData != None:
         layout.data = parseData(userData)
     
     #update layout with the rest of the props
-    for prop, value in rawLayout.items():
+    for prop, value in rawLayoutDict.items():
         #NOTE width and height get passed on as strings
         if prop == 'dpi':
             unit = Unit.fromStr(value, signs='+', units=('px',))
@@ -652,17 +790,27 @@ def buildLayout(filename):
             unit = Unit.fromStr(value, signs='+')
             if unit is None:
                 raise InvalidValueError('layout', prop, value)
+            setattr(layout, prop+'Unit', unit)
             setattr(layout, prop, unit.toInt(dpi=layout.dpi))
-
-
-
-    if 'defaults' in parsedLayout:
-        deepUpdate(layout.defaults, parsedLayout.pop('defaults'))
-
-    if 'briks' in parsedLayout:
-        layout.userBriks.update(parsedLayout.pop('briks'))
     
-    def makeElements(items, parent=None):
+    if layout.heightUnit.unit != layout.widthUnit.unit:
+        raise bWError("layout width and height must use the same unit",
+        file=filename)
+
+    if 'pdf' in layoutFile:
+        pdfDict = layoutFile.pop('pdf')
+        layout.pdf = PDF.fromDict(pdfDict, layout.pdf, filename)
+        if layout.pdf.xMargin.unit != layout.widthUnit.unit:
+            raise bWError("Layout size and pdf margins must use the same units",
+            file=filename)
+
+    if 'defaults' in layoutFile:
+        deepUpdate(layout.defaults, layoutFile.pop('defaults'))
+
+    if 'briks' in layoutFile:
+        layout.userBriks.update(layoutFile.pop('briks'))
+    
+    def makeElements(items, container=None):
         for name, props in items:
             #props.pop('children')
             if name in layout.elements:
@@ -673,8 +821,8 @@ def buildLayout(filename):
                     makeElements(children.items(), layout.elements[name]['name'])
 
             else:
-                if parent is not None:
-                    name = f'{parent}->{name}'
+                if container is not None:
+                    name = f'{container}->{name}'
                 if 'type' not in props:
                     props['type'] = 'none'
                 elif props['type'] not in elemClasses:
@@ -682,7 +830,7 @@ def buildLayout(filename):
                 elemType = elemClasses[props['type']]
                 elem = elemType.defaults.new_child(props)
                 elem.maps.insert(1, layout.defaults)
-                elem.parent = parent
+                elem.container = container
                 elem['name'] = name
                 
                 layout.addElement(elem)
@@ -690,7 +838,15 @@ def buildLayout(filename):
                 if len(children) > 0:
                     makeElements(children.items(), layout.elements[name]['name'])
         
-    makeElements(parsedLayout.items())
+    makeElements(layoutFile.items())
     
 
     return layout
+
+
+if __name__ == '__main__':
+    pageSize = QPageSize(QPageSize.A4)
+    pageLayout = QPageLayout(pageSize, QPageLayout.Portrait, QMarginsF(.25, .25, .25, .25), units=QPageLayout.Inch)
+    print(pageLayout.minimumMargins())
+    print(pageLayout.margins())
+    print(pageLayout.maximumMargins())
