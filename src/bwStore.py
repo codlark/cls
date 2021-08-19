@@ -460,7 +460,10 @@ def mathBrik(context, value):
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     
-    return str(accum[0])
+    if int(accum[0]) == accum[0]:
+        return str(int(accum[0]))
+    else:
+        return str(accum[0])
 
 
 @BrikStore.addStdlib('file', 1)
