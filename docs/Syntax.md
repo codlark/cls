@@ -11,7 +11,9 @@ layout {
 ```
 Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by a semicolon, the end of the line, or the end of the section.
 ```
+    fontSize: 36pt
     italic: yes; bold: yes;
+    underline: no}
 ```
 The indentation is not required but reccomended for readability. There are two kinds of sections, special sections that control the operation of the engine and element sections that describe elements that become the asset.
 
@@ -33,6 +35,12 @@ briks {
 ```
 
 The `defaults` section specifies defaults for element properties, and uses the same property definition syntax.
+```
+defaults {
+    fontFamily: Times New Roman
+    
+}
+```
 
 The `pdf` section dictates that a pdf whould be generated from the assets instead of individual images. This section uses property definitions. A layout file needs at least an empty section to generate the pdf, as in
 

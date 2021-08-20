@@ -165,9 +165,8 @@ def validateLineCap(frame, elem):
 
 class ElementProtoype(ChainMap):
     '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
-    def __init__(self, container, name, props:dict, defaults:dict, type_) -> None:
-        elemType = elemClasses[type_]
-        super().__init__(props, defaults, *elemType.defaults.maps)
+    def __init__(self, container, name, props:dict, defaults:dict, type_:"Element") -> None:
+        super().__init__(props, defaults, *type_.defaults.maps)
 
         self.container = container
         self.subelements = {}
@@ -188,6 +187,18 @@ class Element():
         prop('height', validateHeightWidth, '1/4in'),
         prop('rotation', validateAngle, '0'),
     ]))
+
+    #an alternate idea I have to store validators in the class
+    #and use two mappings, defaults and validators.
+    #that way different classes can use the same prop
+    #with different validation, if they need it
+    #they would both be chain maps
+    #I could also get rid of the validation object and
+    #move validation to the generate function.
+    #the brik store would be stored right on the painter
+    #or layout, or else a new super object that holds all 3
+    #I can also use a third chainmap for re names, like
+    #to corralate word-wrap and "word wrap" to wordWrap
 
     @staticmethod
     def paint(elem, painter, upperLect, size):
@@ -408,9 +419,8 @@ class ElementGenerator ():
             #the validate function puts the new value on element
             validator.validate(frame)
         
-        elemClass = elemClasses[proto.type]
-        if hasattr(elemClass, 'postGenerate'):
-            elemClass.postGenerate(elem)
+        if hasattr(proto.type, 'postGenerate'):
+            proto.type.postGenerate(elem)
 
         for prop in ['x', 'y']:
             #x and y need to be validated after width and height
@@ -540,8 +550,7 @@ class AssetPainter():
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
-        elemClasses[elem.type].paint(elem, painter, -mid, QSize(elem.width, elem.height))
-        #elemClasses[template['type']].paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        elem.type.paint(elem, painter, -mid, QSize(elem.width, elem.height))
         if len(elem.subelements) > 0:
             painter.translate(-mid)
             for subelem in elem.subelements.values():
@@ -841,7 +850,7 @@ def buildLayout(filename):
                 type_ = props.pop('type', 'none')
                 if type_ not in elemClasses:
                     raise InvalidValueError(name, 'type', type_)
-                proto = ElementProtoype(container, name, props, layout.defaults, type_)
+                proto = ElementProtoype(container, name, props, layout.defaults, elemClasses[type_])
                 dest[name] = proto
                 children = props.pop('children')
                 if len(children) > 0:

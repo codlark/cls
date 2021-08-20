@@ -22,11 +22,11 @@ Any property or brik that uses different units will describe them in their descr
 
 ## Toggles
 
-Some properties merely need to know if you want them on or off, such as the `underline` property of labels. This is done with toggle values. A toggle value tells its associated property true or false, on or off. A true value is one of `true`, `yes`, and `on` while a false value is one of `false`, `no`, `off`, `0`, or an empty string. They all evaluate the same in the end, so use whichever feels more readable. *In a future update the user will be able to add more values for both true and false.*
+Some properties merely need to know if you want them on or off, such as the `underline` property of labels. This is done with toggle values. A toggle value tells its associated property true or false, on or off. A true value is one of `true`, `yes`, and `on` while a false value is one of `false`, `no`, `off`, `0`, or an empty string. They all evaluate the same in the end, so use whichever feels more readable. 
 
 ## Colors
 
-Currently colors in brikWork exist in a rather rudimentary state, they can either be in hex color codes like `#ff00ff` or they can be one of the named SVG colors, which are highly suitable for simple colors like black and white, or for testing. *In a future update colors will be more robust, such as the ability to specify colors in hue-saturation-value and the ability to specify transparency.*
+Currently colors in brikWork exist in a rather rudimentary state, they can either be in hex color codes like `#ff00ff` or they can be one of the named SVG colors, which are highly suitable for simple colors like black and white, or for testing.
 
 ## Strings
 

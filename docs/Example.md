@@ -46,8 +46,8 @@ The size of the element.
         lineWidth: 6
 The line to draw the shape with in pixels.
 
-        xRadius: .125in
-        yRadius: .125in
+        xRadius: 1/8in
+        yRadius: 1/8in
     }
 The rounding of the corners.
 

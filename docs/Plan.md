@@ -3,22 +3,20 @@
 *note* to build, run `python setup.py build`
 
 
-units and dpi update
-
+for 0.5 - elements and values
  - better toggle handler
- - 
-Maybe 0.4
+ - custom true and false values
  - `inherit` value that means inherit fromm the container
  - `csv` section to control the dialect of csv used
- - custom true and false values?
+ - - maybe just a layout property?
 
-for 0.5
  - imagebox element type that allow the more accurate positioning of variably sized images 
  - texture element type that allows you yo specify a specific area of the images to draw
  - polygons and polylines
  - color briks, like `[hsl| H| S| L]` that emit a color string
  - -  OR a distinct color type that generate QColors, asColor if you will
  - - something like `color = hsl|12|67|67` or `color = hsl(12,67,67)`?
+ - - maybe `(hsl, 12, 67, 67)` and go full lisp?
  - gradients?
  - `c` sign or prefix on positions to allow centering by the center of the element?
 

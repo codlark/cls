@@ -4,7 +4,6 @@ Briks are the main programming utility in brikWork. They come in 3 main types
  * variable briks like `[assetIndex]` that simply return a value
  * function briks like `[if| ]` that process arguments, and
  * operator briks that perform special parsing for operators on their argument 
- <!--Come up with a better name for macro briks-->
 
 ## Variable Briks
 

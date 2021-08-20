@@ -102,10 +102,14 @@ frame isn't a class but an AttrDict passed between Validation and ElementGenerat
 Turn the Element objects into drawable elements by parsing and validating their properties.
  - generate(template, validator) turn an element object into a useable element.
 
-### ElementScope
+### ElementPrototype
 a subclass of chain map that keeps track of it's container by name
  - maps  the list of mappings used by ChainMap
- - parent/container - the name of this element's container
+ - contianer - this element's container, none if layout
+ - subelements - the sub elements of this container
+ - name - the name of this element
+ - qualName - the qualified name of this element
+ - type - the type of the element
 
 ### Element
 These classes represent the types of elements, and hold default values, as well as the paint and post generation function. all these values are static

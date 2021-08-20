@@ -54,7 +54,7 @@ These properties are common to all elements. With the exception of the `type` pr
     * A number with units `px`, `in`, or `mm`, either positive or negative.
     * A number with unit`%` which sizes the element to a ratio of its container, eg `width: 50%` will make an element half the width of its container. Can only be positive.
   Default value for both `width` and `height` is `1/4in`
- * `rotation: ANGLE` - the rotation of the element in degrees. Elements are rotated about their center. The default value is `0deg`. Unit is `deg`. Can be positve or negative.
+ * `rotation: ANGLE` - the rotation of the element in degrees. Elements are rotated about their center. Rotation also affects the location and rotation of contained elements.  The default value is `0deg`. Unit is `deg`. Can be positve or negative.
  * `draw: TOGGLE` - whether to draw the object. If `false` the element, and any contained elements, will not be drawn.
 
 

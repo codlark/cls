@@ -3,20 +3,20 @@ brikWork is a scripty asset maker for board games. brikWork turns text based lay
 
 Use brikWork to make cards and things for print-n-play games, for testing with Table Top Simulator, or to add a little flair to your favorite table top rpg.
 
-brikWork is still early in development and may contain bugs or change substantially.
+brikWork is still in development and may contain bugs or have breaking changes in the future.
 
 
 Current features
 
  * combine text, images, and shapes
- * unicode compliant text with HTML markup and styling
- * stronger-than-it-needs-to-be scripting functionality
- * define sizes and location in pixels or inches
+ * render unicode compliant text with HTML markup and styling
+ * specify layouts and customize each asset with scripting functionality
+ * define sizes and location in pixels, inches, or millimeters
+ * export to pdf or images
 
-Potential future features
+Planned features
 
  * more shapes and better colors
- * printer or pdf output
  * gradients
  * vs code plugin for syntax highlighting
 
@@ -27,7 +27,7 @@ A layout file is a simple text file with an optional section of CSV data at the 
 ## brikWork layouts in longer
 
 A layout file is a simple text file with sections for the layout properties and the elements
-```none
+```
 layout {
     width: 2.5in
     height: 3.5in
@@ -47,7 +47,7 @@ Layout files can also have CSV formatted data
 ```
 data {
 image, title
-./images/smile.png, smiley face
+images/smile.png, smiley face
 }
 ```
 For each row in the data a new asset will be generated, with the data from that row available as a brik with the name of the corresponding header.
