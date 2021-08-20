@@ -14,6 +14,9 @@ brikWork
 :   The engine that turns layout files and data into a set of assets.
 :   An app that runs the brikwork engine on a layout file.
 
+Container
+:   An element that contains another element, or the layout if a given element has no container. The phrase "element container" is used to specify the first case.
+
 Data
 :   The CSV based based data that is used to fill in and customize specific elements of a layout.
 

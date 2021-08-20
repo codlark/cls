@@ -11,15 +11,17 @@ layout {
 ```
 Different sections can feature different contents. The standard type of contents is a series of property definitions, which feature a property name, a colon, and a value, and are ended by a semicolon, the end of the line, or the end of the section.
 ```
+    fontSize: 36pt
     italic: yes; bold: yes;
+    underline: no}
 ```
 The indentation is not required but reccomended for readability. There are two kinds of sections, special sections that control the operation of the engine and element sections that describe elements that become the asset.
 
 ## Special Sections
 
-There are 4 special sections.
+There are 5 special sections.
 
-The `layout` section specifies the size of the final asset as well as interactions with the file system. This section uses property definitions. A full list of properties available to the `layout` section are listed in [Layout and Elements](../Layout-and-Elements/).
+The `layout` section specifies the size of the final asset as well as interactions with the file system. This section uses property definitions. A full list of properties available to the `layout` section are listed in [Properties](../Properties/).
 
 The `data` section specifies data used in generating assets. This section uses the CSV syntax described [below](#csv-syntax).
 
@@ -33,6 +35,18 @@ briks {
 ```
 
 The `defaults` section specifies defaults for element properties, and uses the same property definition syntax.
+```
+defaults {
+    fontFamily: Times New Roman
+    
+}
+```
+
+The `pdf` section dictates that a pdf whould be generated from the assets instead of individual images. This section uses property definitions. A layout file needs at least an empty section to generate the pdf, as in
+
+    pdf {}
+
+Assets are laid out an asset at a time starting from the upper left of the page, going across to the right, then the next row is started. The total usable area of the page determines how many assets can fit onto a page, eg a letter sized page with the default quarter inch margins will have a usable space of 8 inches across and 10.5 inches down, which is enough space for 9 poker or bridge size cards in portrait. A full list of properties available to the `pdf` section are listed in [Properties](../Properties/)
 
 ## Element Sections
 

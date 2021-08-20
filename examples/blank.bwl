@@ -1,15 +1,17 @@
 layout {
     width: 2.2in
     height: 3.4in
-    #This is the common size used for cards included in board games
+    # this is the common size used for cards included in board games
 }
+#pdf {}
+# uncomment the above line to generate a PDF
 briks {
 
 }
 defaults {
 
 }
-#Elements go here
+# elements go here
 data {
     
 }

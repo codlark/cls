@@ -2,7 +2,7 @@ layout {
     template: indexes.bwl
 }
 briks {
-    rank = [substring| [royal]| 1| 1]
+    rank = [substr| [royal]| 1| 1]
     #grab the first character of [royal]
 }
 portrait {

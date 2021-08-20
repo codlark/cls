@@ -1,5 +1,13 @@
-# Change log
+# Changelog
 This page collects the changes made to brikWork over time
+
+## v 0.4
+ - added: more units! checkout [Values](../Values/) for how they work
+ - added: `[slice| STRING | START | STOP]` takes substring of `STRING` like `[substr| ]` but uses start and stop positions instead of a start position and a length
+ - added: support for parenthesis to the math brik, infact the whole thing has been rewritten
+ - added: pdf export
+ - changed: the `[substring| ]` brik has been renamed to `[substr| ]`
+ - changed: the math brik has been changed to `[=| ]` and has different semantics
 
 ## v 0.3
  - added: A graphical interface

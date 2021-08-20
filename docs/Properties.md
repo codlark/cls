@@ -1,14 +1,15 @@
-# Layout and Elements
+# Properties
 brikWork uses a text file to define a layout and the elements on that layout. This document will list the types of elements as well as the properties that layouts and elements may have.
 
 [TOC]
+
 
 ## Layout Properties
 
 These properties affect the layout and how assets are generated. These are mandatory:
 
- * `width: NUM` width of the asset.
- * `height: NUM` height of the asset.
+ * `width: WIDTH` width of the asset. Unit can be `px`, `in`, or `mm`.
+ * `height: HEIGHT` height of the asset. Unit can be `px`, `in`, or `mm`. The `width` and `height` values must use the same unit.
  * `name: FILENAME` - pattern to use for generating names of assets. If no briks are featured `[assetIndex]` will be added to the beginning of the name. This is the only layout property that evaluates briks.
 
 These properties are optional:
@@ -16,6 +17,19 @@ These properties are optional:
  * `output: FOLDER` - folder to save the assets in. The default behavior is to save the assets in the same folder as the layout file.
  * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated.
  * `template: FILENAME` - Specify a layout file to act as a template. For a full description of templates see [Templates](Templates/).
+ * `dpi: DPI` ratio to convert inches to pixels. Default value is `300` meaning 300 pixels per inch. Also affects millimeters. Number must be bare (no unit).
+
+## PDF properties
+
+These properties control how pdf files are generated.
+
+ - `name: FILENAME` - The name to save the pdf as. If no name is provided, the name of the layout file will be used, eg "cards.bwl" will become "cards.pdf".
+ - `xMargin: MARGIN`
+ - `yMargin: MARGIN` - `xMargin` and `yMargin` control the margin on the left/right and top/bottom of the page respectively. Unit is one of 'px' or 'mm'. Both `xMargin` and `yMargin` must use the same unit and that unit must be the same unit as the `width` and `height` properties in the `layout` section. Default for both is `.25in`, which is the minimum allowed by most printers.
+ - `border: WIDTH` - The width of the border to draw around assets, if 0 no border will be drawn. Units are `in` and `mm`. Default value is `.01in`
+ - `pageSize: SIZE` - The size of the pages. Must be either `letter` or `A4`. Default is `letter`.
+ - `orientation: ORIENTATION` - The rotation of the page. must be either `portrait` or `landscape`. Default value is `portrait`.
+ - `render: TOGGLE` - If a true value, create a pdf file, if false create individual images as if the pdf section was not present. Default value is `true`.
 
 ## Element Properties
 
@@ -28,12 +42,21 @@ These properties are common to all elements. With the exception of the `type` pr
     * `ellipse` - an ellipse or circle
     * `circ` - an easier to spell alias for `ellipse`
     * `line` - a line
- * `x: NUM` - this and `y` determine the upper left corner location of the element. If `center` is used instead of a number, the element will be centered in that dimension. The origin point (the 0,0 point) is at the upper left of the asset. The default value is `0`. If the element these properties belong to is contained in another element, the element will be positioned relative to the cotainer, this also affects `center`.
- * `y: NUM` - this and `x` are in either pixels or inches, see [Numbers](../Values/#Numbers) . The default value is `0`.
- * `width: NUM` - this and `height` determine the size of the element. Like `x` and `y` these can be in pixels or inches. The default value is `50`.
- * `height: NUM` - the default value is `50`.
- * `rotation: ANGLE` - the rotation of the element in degrees. The default value is `0`.
+ * `x: X`
+ * `y: Y` - `x` and `y` can be one of:
+    * A number with units `px`, `in`, or `mm`, either positive or negative. This positions the element's upper left to its container's upper left. This is considered the standard positioning scheme.
+    * A number with units `px`, `in`, or `mm`, and with the sign `^`. This positions the element's lower right to its container's lower right. An example of this is given in the playing card example.
+    * A number with unit `%` which positions the element realative to its container in the same direction, eg `x: 50%` will position the left edge of the element in the middle of its container going left-right. Can only be positive.
+    * `center` which centers the element within its container.
+  Default value for both `x` and `y` is `0`
+ * `width: WIDTH` 
+ * `height: HEIGHT` - `width` and `height` can be one of:
+    * A number with units `px`, `in`, or `mm`, either positive or negative.
+    * A number with unit`%` which sizes the element to a ratio of its container, eg `width: 50%` will make an element half the width of its container. Can only be positive.
+  Default value for both `width` and `height` is `1/4in`
+ * `rotation: ANGLE` - the rotation of the element in degrees. Elements are rotated about their center. Rotation also affects the location and rotation of contained elements.  The default value is `0deg`. Unit is `deg`. Can be positve or negative.
  * `draw: TOGGLE` - whether to draw the object. If `false` the element, and any contained elements, will not be drawn.
+
 
 ### `label`
 
@@ -41,8 +64,8 @@ Labels place text on an asset and have the most properties, which are used to cu
 
  * `text: TEXT` - text to display. The default value is no text.
  * `fontFamily: FONT` - the font family to use to render the text. The default value is `Verdana`.
- * `fontSize: POINTSIZE` - the point size of the text. The default value is `18`.
- * `color: COLOR` - color to render the font with, see "Colors"../Values#Colors for accepted colors. The default value is `black`.
+ * `fontSize: SIZE` - the point size of the text. The default value is `18pt`. Unit is one of `pt`, `px`, `in`, `mm`. Must be positive.
+ * `color: COLOR` - color to render the font with, see [Colors](../Values#Colors) for accepted colors. The default value is `black`.
  * `wordWrap: TOGGLE` - whether to wrap the text, if false, the. text will spill over and be unreadable. The default value is `true`
  * `alignment: HORZ VERT` - how to align the text. Both `HORZ` and `VERT` must be specified. The default value is `center top`.
     * `HORZ` must be one of `left`, `center`, `right`, or `justify`
@@ -83,7 +106,7 @@ The final size to render an image at is found with the algorithm below. In all t
 The rest of the elements are shapes, which have certain properties in common. Not all of these properties affect every shape element. Some of these properties will be more meaningful in the future when arbitrary polygons are added.
  
  * `lineColor: COLOR` - the color of the line used to draw the shape. The default value is `black`.
- * `lineWidth: NUM` - the width of the line used to draw the shape, if `lineWidth` is `0` no line will be drawn. The default value is `1`.
+ * `lineWidth: NUM` - the width of the line used to draw the shape, if `lineWidth` is `0` no line will be drawn. The default value is `0.01in`. Unit can be one of `px`, `in`, `mm`. Must be positive.
  * `lineJoin: JOIN` - this affects the corners of rectangles when `lineWidth` is more than `1`. The default value is `miter`. `JOIN` must be one of:
     * `miter` - a sharp point
     * `bevel` - a flattened corner, as if it were sanded
@@ -99,8 +122,8 @@ The rest of the elements are shapes, which have certain properties in common. No
 
 A rect fills the entirety of its `width` and `height` with a rectangle, and can have optional corner rounding.
 
- * `xRadius: NUM` - this and `yRadius` control the rounding of the corners of the rectangle in the x and y directions respectively. The default value is `0`.
- * `yRadius: NUM` - the default value is `0`.
+ * `xRadius: NUM` - this and `yRadius` control the rounding of the corners of the rectangle in the x and y directions respectively. The default value is `0px`. Unit can be one of `px`, `in`, `mm`. Must be positive.
+ * `yRadius: NUM` - the default value is `0px`. Unit can be one of `px`, `in`, `mm`. Must be positive.
 
 ### `circ` and `ellipse`
 
@@ -110,7 +133,5 @@ Both the circ and ellipse type do the same thing, draw a round shape. The differ
 
 A line is a simple line from one point to another. Lines cannot be rotated and any `rotation` value will be ignored.
 
- * `x: NUM` - this and `y` define the starting point for the line.
- * `y: NUM`
- * `x2: NUM` - this and `y2` define the endin point for the line. The default value is `50`.
- * `y2: NUM` - the default value is `50`.
+ * `x2: NUM` 
+ * `y2: NUM` - `x2` and `y2` work the same way as `x` and `y`, described in [Element Properties](#element-properties) above. The only difference is that their default value is `1/4in`.

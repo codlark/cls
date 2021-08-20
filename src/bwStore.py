@@ -1,8 +1,9 @@
 import os
 import re
-from collections import ChainMap
+from collections import ChainMap, deque
 from typing import Union, Callable, Collection
 from bwUtils import *
+import operator
 
 class BrikStore():
 
@@ -81,8 +82,7 @@ class BrikStore():
 
             if char == '\\':
                 argB.append(ps.string[ps.pos:ps.pos+2])
-                ps.pos += 2
-                continue
+                ps.pos += 1
 
             elif char == '[':
                 brikStack.append(ps.pos)
@@ -102,7 +102,8 @@ class BrikStore():
 
             ps.pos += 1
         
-        raise UnclosedBrikError(context.elem, context.prop, ps.source)
+        print('parseBrikArg')
+        raise UnclosedBrikError(context.elem, context.prop, ps.string)
 
 
     def evalBrik(self, ps) -> str:
@@ -119,24 +120,24 @@ class BrikStore():
         )
         while ps.pos < len(ps.string):
             char = ps.string[ps.pos]
-
             if char == '\\':
                 nameB.append(ps.string[ps.pos:ps.pos+2])
-                ps.pos += 2
-                continue
+                ps.pos += 1
                 
             elif char == '|':
                 ps.pos += 1
                 args.append(self.parseBrikArg(ps, context))
             
             elif char == ']':
-                return self.call(''.join(nameB).strip(), context, args)
+                name = build(nameB)
+                context.name = name
+                return self.call(name, context, args)
             
             else:
                 nameB.append(char)
 
             ps.pos += 1
-
+        print('evalBrik')
         raise UnclosedBrikError(context.elem, context.prop, ps.string)
 
     def evalValue(self, string:str) -> str:
@@ -152,8 +153,7 @@ class BrikStore():
         
             if char == '\\':
                 result.append(ps.string[ps.pos:ps.pos+2])
-                ps.pos += 2
-                continue
+                ps.pos += 1
                 #ignore escapes
         
             elif char == '[':
@@ -248,13 +248,16 @@ def underlineBrik(context, string):
 @BrikStore.addStdlib('dup', 2)
 def repeatBrik(context, times, value):
     nTimes = context.parse(times)
-    times = asNum(times, err=InvalidArgError(
-        context.elem, context.prop, 'dup', 'TIMES', nTimes
-    ))
+    unit = Unit.fromStr(nTimes, signs='+0', units=('',))
+    if unit is None:
+        raise InvalidArgError(context.elem, context.prop, 'dup', 'TIMES', nTimes)
+    #times = asNum(times, err=)
+    times = unit.toInt()
+    ofs = 0 if unit.sign == '0' else 1
     result = []
     newStore = context.store.copy()
     for i in range(times):
-        newStore.add('d', str(i+1))#FIXME
+        newStore.add('d', str(i+ofs))
         result.append(newStore.parse(value))
     return ''.join(result)
     
@@ -280,16 +283,49 @@ def upperBrik(context, value):
         return m.group(1).lower()
     return re.sub(r'(?<!\\)([A-Z])', repl, value)
 
-@BrikStore.addStdlib('substring', 3)
+@BrikStore.addStdlib('substr', 3)
 def subBrik(context, value, start, length):
     value = context.parse(value)
-    start = asNum(context.parse(start), err=InvalidArgError(
-        context.elem, context.prop, 'substring', 'START', start
-    ))-1
-    length = asNum(context.parse(length), err=InvalidArgError(
-        context.elem, context.prop, 'substring', 'LENGTH', length
-    ))
+    
+    start = context.parse(start)
+    startUnit = Unit.fromStr(context.parse(start), signs='+0', units=('',))
+    if startUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'substr', 'START', start)
+    start = startUnit.toInt()
+    if startUnit.sign != '0':
+        start -= 1
+    
+    length = context.parse(length)
+    lengthUnit = Unit.fromStr(context.parse(length), signs='+0', units=('',))
+    if lengthUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'substr', 'LENGTH', length)
+    length = lengthUnit.toInt()
+    
     return value[start:start+length]
+
+@BrikStore.addStdlib('slice', (2, 3))
+def sliceBrik(context, value, start, stop=None):
+    value = context.parse(value)
+
+    start = context.parse(start)
+    startUnit = Unit.fromStr(context.parse(start), signs='+-0', units=('',))
+    if startUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'slice', 'START', start)
+    start = startUnit.toInt()
+    if startUnit.sign in ('+', ''):
+        start -= 1
+
+    if stop is not None:
+        stop = context.parse(stop)
+        stopUnit = Unit.fromStr(context.parse(stop), signs='+-0', units=('',))
+        if stopUnit is None:
+            raise InvalidArgError(context.elem, context.prop, 'slice', 'STOP', stop)
+        stop = stopUnit.toInt()
+        if stopUnit.sign in ('+', ''):
+            stop -= 1
+        
+    return value[start:stop]
+
 
 @BrikStore.addStdlib('/', 1)
 def expansionMacro(context, value):
@@ -306,12 +342,14 @@ def comparisonMacro(context, value):
         raise bWError("'{value}' does not contain a valid comparison",
         prop=context.prop, elem=context.elem, value=value
         )
-    left = asNum(left.strip(), err=InvalidArgError(
-        context.elem, context.prop, '?', 'OPERAND', left
-    ))
-    right = asNum(right.strip(), err=InvalidArgError(
-        context.elem, context.prop, '?', 'OPERAND', right
-    ))
+    leftUnit = Unit.fromStr(left.strip(), units='all')
+    if leftUnit is None:
+        raise InvalidArgError(context.elem, context.prop, '?', 'OPERAND', left)
+    rightUnit = Unit.fromStr(right.strip(), units='all')
+    if rightUnit is None:
+        raise InvalidArgError(context.elem, context.prop, '?', 'OPERAND', right)
+    left = leftUnit.toFloat()
+    right = rightUnit.toFloat()
     op = op.strip()
     if op == '==':
         final = left == right
@@ -334,91 +372,99 @@ def comparisonMacro(context, value):
     else:
         return 'false'
 
-@BrikStore.addStdlib('#', 1)
-def mathMacro(context, value):
-    
-    value = context.parse(value)
-    ops = '+-*/%'
+def makeOp(op):
+    if op not in '+-*/%(':
+        return None
+    elif op == '+':
+        return AttrDict(prec=1, op=operator.add, name=op)
+    elif op == '-':
+        return AttrDict(prec=1, op=operator.sub, name=op)
+    elif op == '*':
+        return AttrDict(prec=2, op=operator.mul, name=op)
+    elif op == '/':
+        return AttrDict(prec=2, op=operator.truediv, name=op)
+    elif op == '%':
+        return AttrDict(prec=2, op=operator.mod, name=op)
+    elif op == '(':
+        return AttrDict(prec=0, op=(lambda x, y: None), name=op)
 
-    makeToken = lambda x: ''.join(x).strip()
-    tokens = []
-    token = []
-    for c in value:
-        if c == ' ':
-            tokens.append(makeToken(token))
-            token = []
-        elif c in ops:
-            tokens.append(makeToken(token))
-            tokens .append(c)
-            token = []
+@BrikStore.addStdlib('=', 1)
+def mathBrik(context, value):
+    '''makes use of dijkstra's shunting yard algorithm to conver to
+    reverse polish notation, then parses the rpn'''
+    tokens = context.parse(value).split()
 
-        else:
-            token.append(c)
-    if len(token) > 0:
-        tokens.append(makeToken(token))
-
-    accum = None
-    op = None
-    newTokens = []
-
+    rpn = deque()
+    opStack = []
     for token in tokens:
-        if token == '': continue
-        currentToken = asNum(token)
-        if currentToken is None:
-            if token in '*/%':
-                op = token
-            elif token in '+-':
-                if accum is None:
-                    raise bWError("{op} in '{source}' is missing a left operand",
-                    elem=context.elem, prop=context.prop, source=value, op=token
-                    )    
-                newTokens.append(accum)
-                accum = None
-                newTokens.append(token)
-                op = None
+        if token == '':
+            continue
+        num = Unit.fromStr(token)
+        op = makeOp(token)
+        length = len(opStack)
+        if num is not None:
+            rpn.append(num.toFloat())
+        elif token == '(':
+            opStack.append(op)
+        elif token == ')':
+            if length == 0:
+                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
+                )
+            while length > 0:
+                if opStack[length-1].name != '(':
+                    rpn.append(opStack.pop())
+                else:
+                    break
+                length = len(opStack)
             else:
-                raise InvalidArgError(context.elem, context.prop, '#', 'OPERATION',token)
+                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
+                )
+            opStack.pop()
+        elif op != None:
+            if length > 0 and opStack[length-1].prec >= op.prec:
+                rpn.append(opStack.pop())
+            opStack.append(op)
         else:
-            if op is None:
-                accum = currentToken
-            elif accum is None:
-                raise bWError("{op} in '{source}' is missing a left operand",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            raise bWError("'{value}' is an unknown operator in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=token
                 )
-            elif op == '*':
-                accum *= currentToken
-            elif op == '/':
-                accum /= currentToken
-            elif op == '%':
-                accum %= currentToken
+    while len(opStack) > 0:
+        op = opStack.pop()
+        if op.name == '(':
+            raise bWError("'{value}' is missing a closing parenthesis in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
+                )
+        rpn.append(op)
 
-
-    newTokens.append(accum)
-    accum = None
-    op = None
-
-    for token in newTokens:
-        #currentToken = asNum(token)
-        #if currentToken is None:
-        if type(token) not in (int, float):
-            op = token
+    accum = []
+    if len(rpn) < 3:
+        raise bWError("'{value}' is not a valid mathematical expression in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
+                )
+    for op in rpn:
+        if type(op) == float:
+            accum.append(op)
         else:
-            if op is None:
-                accum = token#currentToken
-            elif accum is None:
-                raise bWError("{op} in '{source}' is missing a left operand",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            if len(accum) < 2:
+                print(accum, op)
+                raise bWError("'{value}' does not have enough operands in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
-            elif op == '+':
-                accum += token#currentToken
-            elif op == '-':
-                accum -= token#currentToken
-            else:
-                raise bWError("huh, not sure how you got here, anyway, {op} in '{source}' is not an operator",
-                elem=context.elem, prop=context.prop, source=value, op=op
+            right = accum.pop()
+            left = accum.pop()
+            accum.append(op.op(left, right))
+    if len(accum) != 1:
+        raise bWError("'{value}' has too many operands in brik [{name}| ]", 
+                elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
+    
+    if int(accum[0]) == accum[0]:
+        return str(int(accum[0]))
+    else:
+        return str(accum[0])
 
-    return str(int(accum))
 
 @BrikStore.addStdlib('file', 1)
 def fileBrik(context, filename):
@@ -433,4 +479,7 @@ def fileBrik(context, filename):
     return fileContents
 
     
-    
+if __name__ == '__main__':
+    context = AttrDict(elem='<test>', prop='<test>', name='=.', parse=(lambda x: x))
+    print(mathBrik(context, '2.1/4 - 2/3 '))
+    #print(mathBrik(context, ''))

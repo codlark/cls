@@ -2,7 +2,7 @@ layout {
     template: indexes.bwl
 }
 briks {
-    rank = [#| [repeatIndex] + 1]
+    rank = [=| [repeatIndex] + 1]
 }
 #pips are named for their position in a grid
 # .5  1.05 1.6

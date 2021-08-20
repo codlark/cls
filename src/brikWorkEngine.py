@@ -1,7 +1,7 @@
 import os
 import re
-import configparser
 from bwStore import BrikStore
+from collections import ChainMap
 from dataclasses import dataclass, asdict, field
 from typing import *
 from PySide6.QtCore import *
@@ -11,9 +11,7 @@ from bwUtils import *
 
 
 class Validation():
-    '''This object holds all the property validators and runs them
-    at a future date it may also store the mapping between user property
-    and Element attrs'''
+    '''This object holds all the property validators and runs them'''
     
     validators = {}
 
@@ -25,89 +23,200 @@ class Validation():
     def __init__(self, layout:'Layout'):
         self.layout = layout
         self.store = BrikStore()
-    
-    def validate(self, name, value, element=''):
-        if name not in self.validators:
-            if type(value) == str:
-                return evalEscapes(value)
-            #not actually sure what to do here?
-        func = self.validators[name]
-        newValue = func(value)
-        if newValue is None:
-            raise InvalidValueError(element, name, value)
-        elif type(newValue) == str:
-            #do I want this here or generate?
-            return evalEscapes(newValue)
+
+    def validate(self, frame:AttrDict):
+        if frame.prop not in self.validators:
+            raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.elem.name)
+        func = self.validators[frame.prop]
+        result = func(frame, frame.elem)
+        if not result:
+            raise InvalidValueError(frame.elem.name, frame.prop, frame.value)
         else:
-            return newValue
+            return
+
+def validateString(frame, elem):
+    elem[frame.prop] = evalEscapes(frame.value)
+    return True
+
+def validateNumber(frame, elem):
+    value = Unit.fromStr(frame.value, signs='+')
+    if value is None:
+        return False
+    elem[frame.prop] = value.toInt(dpi=frame.layout.dpi)
+    return True
+
+def validateToggle(frame, elem):
+    value = asBool(frame.value)
+    if value is None:
+        return False
+    elem[frame.prop] = value
+    return True
 
 def prop(name, validator, default):
+    if validator == 'number': 
+        validator = validateNumber
+    elif validator == 'string':
+        validator = validateString
+    elif validator == 'toggle':
+        validator = validateToggle
     Validation.addValidator(name, validator)
     return name, default
 
-def validateAlignment(string):
+def validateXY(frame, elem):
+    #also handles x2 and y2
+    if frame.prop[0] == 'x':
+        dim = 'width'
+    else:
+        dim = 'height'
+    if frame.container == 'layout':
+        containerDim = frame.layout[dim]
+    else:
+        containerDim = frame.container[dim]
+
+    if frame.value == 'center':
+        #x2 and y2 shouldn't center, 
+        elem[frame.prop] = (containerDim-elem[dim])//2
+        return True
+    else:
+        value = Unit.fromStr(frame.value, signs='-+^',units=('px', 'in', 'mm', '%'))
+        if value is None:
+            return False
+        if value.unit == '%':
+            value = value.toInt(whole=containerDim)
+        elif value.sign == '^':
+            #TODO consider making ^ a signal not a sign to allow ^-.3
+            value = containerDim - elem[dim] - value.toInt(dpi=frame.layout.dpi)
+        else:
+            value = value.toInt(dpi=frame.layout.dpi)
+        elem[frame.prop] = value
+        return True
+
+def validateHeightWidth(frame, elem):
+    if frame.container == 'layout':
+        containerDim = frame.layout[frame.prop]
+    else:
+        containerDim = frame.container[frame.prop]
+    value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
+    if value is None:
+        return False
+    if value.unit == '%':
+        value = value.toInt(whole=containerDim)
+    else:
+        value = value.toInt(dpi=frame.layout.dpi)
+    elem[frame.prop] = value
+    return True
+
+def validateAngle(frame, elem):
+    value = Unit.fromStr(frame.value, signs='+', units=('deg'))
+    if value is None:
+        return False
+    elem[frame.prop] = value.toInt() % 360
+    return True
+
+
+def validateDraw(frame, elem):
+    value = asBool(frame.value)
+    if value is None:
+        return False
+    elif frame.container == 'layout':
+        elem[frame.prop] = value
+    elif frame.containerValue == True:
+        elem.draw = value
+    else:
+        elem.draw = frame.containerValue
+    return True
+
+def validateFontSize(frame, elem):
+    value = Unit.fromStr(frame.value, signs='+', units=('pt', 'px', 'in', 'mm'))
+    if value is None:
+        return False
+    elem[frame.prop] = value, frame.layout.dpi
+    return True
+
+def validateAlignment(frame, elem):
     horz = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
         'justify':Qt.AlignJustify}
     vert = {'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter,}
-    terms = string.lower().split()
+    terms = frame.value.lower().split()
     if terms[0] in horz:
         result = horz[terms[0]]
     else:
-        return None
+        return False
     if terms[1] in vert:
-        return result|vert[terms[1]]
+         result |= vert[terms[1]]
     else:
-        return None
+        return False
+    elem[frame.prop] = result
+    return True
 
-
-def validateLineJoin(value):
+def validateLineJoin(frame, elem):
     joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
-    if value.lower() not in joins:
-        return None
-    return joins[value.lower()]
+    if frame.value.lower() not in joins:
+        return False
+    elem[frame.prop] = joins[frame.value.lower()]
+    return True
 
-def validateLineCap(value):
+def validateLineCap(frame, elem):
     caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
-    if value.lower() not in caps:
-        return None
-    return caps[value.lower()]
+    if frame.value.lower() not in caps:
+        return False
+    elem[frame.prop] = caps[frame.value.lower()]
+    return True
 
-class ElementScope(ChainMap):
-    '''A subclass of ChainMap that also has attributes for parent and child relationships'''
-    def __init__(self, *maps: Mapping) -> None:
-        super().__init__(*maps)
-        self.children = []
-        self.parent = None
+class ElementProtoype(ChainMap):
+    '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
+    def __init__(self, container, name, props:dict, defaults:dict, type_:"Element") -> None:
+        super().__init__(props, defaults, *type_.defaults.maps)
+
+        self.container = container
+        self.subelements = {}
+        self.name = name
+        self.type = type_
+        if container is not None:
+            self.qualName = f'{container}->{name}'
+        else:
+            self.qualName = name
 
 
 class Element():
-    defaults = ElementScope(dict([
-        prop('type', str, ''),
-        prop('name', str, ''),
-        prop('draw', asBool, 'true'),
-        prop('x', asNum, '0'),
-        prop('y', asNum, '0'),
-        prop('width', asNum, '50'),
-        prop('height', asNum, '50'),
-        prop('rotation', asNum, '0'),
+    defaults = ChainMap(dict([
+        prop('draw', validateDraw, 'true'),
+        prop('x', validateXY, '0px'),
+        prop('y', validateXY, '0px'),
+        prop('width', validateHeightWidth, '1/4in'),
+        prop('height', validateHeightWidth, '1/4in'),
+        prop('rotation', validateAngle, '0'),
     ]))
+
+    #an alternate idea I have to store validators in the class
+    #and use two mappings, defaults and validators.
+    #that way different classes can use the same prop
+    #with different validation, if they need it
+    #they would both be chain maps
+    #I could also get rid of the validation object and
+    #move validation to the generate function.
+    #the brik store would be stored right on the painter
+    #or layout, or else a new super object that holds all 3
+    #I can also use a third chainmap for re names, like
+    #to corralate word-wrap and "word wrap" to wordWrap
+
     @staticmethod
     def paint(elem, painter, upperLect, size):
         pass
 
 class LabelElement():
     defaults = Element.defaults.new_child(dict([
-        prop('text', str, ''),
-        prop('fontFamily', str, 'Verdana'),
-        prop('fontSize', asNum, '18'),
-        prop('color', str, 'black'),
-        prop('wordWrap', asBool, 'yes'),
+        prop('text', 'string', ''),
+        prop('fontFamily', 'string', 'Verdana'),
+        prop('fontSize', validateFontSize, '22pt'),
+        prop('color', 'string', 'black'),
+        prop('wordWrap', 'toggle', 'yes'),
         prop('alignment', validateAlignment, 'center top'),
-        prop('italic', asBool, 'no'),
-        prop('bold', asBool, 'no'),
-        prop('overline', asBool, 'no'),
-        prop('underline', asBool, 'no'),
-        prop('lineThrough', asBool, 'no'),
+        prop('italic', 'toggle', 'no'),
+        prop('bold', 'toggle', 'no'),
+        prop('overline', 'toggle', 'no'),
+        prop('underline', 'toggle', 'no'),
+        prop('lineThrough', 'toggle', 'no'),
     ]))
 
     @staticmethod
@@ -120,7 +229,14 @@ class LabelElement():
         label.setWordWrap(elem.wordWrap)
         style = 'QLabel {\n'
         style += f'font-family: {elem.fontFamily};\n'
-        style += f'font-size: {elem.fontSize}pt;\n'
+        fontSize, dpi = elem.fontSize
+        if fontSize.unit == 'pt':
+            fontUnit = fontSize.unit
+            fontSize = fontSize.num
+        else:
+            fontUnit = fontSize.unit
+            fontSize = fontSize.toInt(dpi=dpi)
+        style += f'font-size: {fontSize}{fontUnit};\n'
         style += f'color: {elem.color};\n'
         if elem.italic: style += 'font-style: italic;\n'
         if elem.bold: style += 'font-weight: bold;\n'
@@ -135,17 +251,18 @@ class LabelElement():
         # - should I allow pt and px? (extra validation)
 
 imageCache = {}
-def validateImage(value):
-    if value not in imageCache:
-        imageCache[value] = QImage(value)
-    return imageCache[value]
+def validateImage(frame, elem):
+    if frame.value not in imageCache:
+        imageCache[frame.value] = QImage(frame.value)
+    elem[frame.prop] = imageCache[frame.value]
+    return True
 
 class ImageElement():
     defaults = Element.defaults.new_child(dict([
-        prop('width', asNum, '0'),
-        prop('height', asNum, '0'),
+        prop('width', validateHeightWidth, '0px'),
+        prop('height', validateHeightWidth, '0px'),
         prop('source', validateImage, ''),
-        prop('keepAspectRatio', asBool, 'yes'),
+        prop('keepAspectRatio', 'toggle', 'yes'),
     ]))
 
     @staticmethod
@@ -179,14 +296,18 @@ class ImageElement():
         
         elem.source = QPixmap.fromImage(elem.source)
             
-
+class ImageBoxElement():
+    defaults = ImageElement.defaults.new_child(dict([
+        prop('alignment', validateAlignment, 'center middle'),
+    ]))
+    
 class ShapeElement():
     defaults = Element.defaults.new_child(dict([
-        prop('lineColor', str, 'black'),
-        prop('lineWidth', asNum, '1'),
+        prop('lineColor', 'string', 'black'),
+        prop('lineWidth', 'number', '0.01in'),
         prop('lineJoin', validateLineJoin, 'miter'),
         prop('lineCap', validateLineCap, 'flat'),
-        prop('fillColor', str, 'white'),
+        prop('fillColor', 'string', 'white'),
     ]))
 
     @staticmethod
@@ -203,8 +324,8 @@ class ShapeElement():
 
 class RectangleElement():
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('xRadius', asNum, '0'),
-        prop('yRadius', asNum, '0'),
+        prop('xRadius', 'number', '0px'),
+        prop('yRadius', 'number', '0px'),
     ]))
 
     @staticmethod
@@ -228,9 +349,10 @@ class EllipseElement():
             elem.height = elem.width
 
 class LineElement():
+    #AAAAAAAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH
     defaults = ShapeElement.defaults.new_child(dict([
-        prop('x2', asNum, '50'),
-        prop('y2', asNum, '50'),
+        prop('x2', validateXY, '1/4in'),
+        prop('y2', validateXY, '1/4in'),
     ]))
 
     @staticmethod
@@ -251,71 +373,150 @@ elemClasses = dict(
 class ElementGenerator ():
 
     def __init__(self):
-        self.elements = {}
-    
-    def getDraw(self, elem):
+        self._elements = {}
+        #elements is a flat store of elements stored by qualName
 
-        while elem.parent is not None:
-            if not elem.draw:
-                return False
-            elem = self.elements[elem.parent]
-        return elem.draw
-
-    def generate(self, template, validator:Validation):
-        elem =  Collection()
-        new_val = None
-        centerRe = r'center'
-        validator.store.add('elementName', template['name'])
-        for prop, value in template.items():
-            if prop in ['x', 'y']:
-                if re.match(centerRe, value.lower()):
-                    continue
-            validator.store.add('propertyName', prop)
-            parsed = validator.store.parse(value)
-            new_val = validator.validate(prop, parsed, template['name'])
-            elem._set(prop, new_val)
+    def generate(self, source:dict[str, ElementProtoype], dest, validator):
         
-        elem.parent = template.parent
-        elem.draw = self.getDraw(elem)
+        for proto in source.values():
+            elem = self._generate(proto, validator)
+            if elem.draw:
+                dest[proto.name] = elem
+                elem.subelements = {}
+                if len(proto.subelements) > 0:
+                    self.generate(proto.subelements, elem.subelements, validator)
         
-        elemClass = elemClasses[template['type']]
-        if hasattr(elemClass, 'postGenerate'):
-            elemClass.postGenerate(elem)
-    
 
-        #center is a special case here because it needs the width and height 
-        #to be fully validated.
-        if template.parent in self.elements:
-            parent = self.elements[template.parent]
+    def _generate(self, proto:ElementProtoype, validator:Validation):
+        frame = AttrDict(name=proto.qualName)
+        validator.store.add('elementName', frame.name)
+        
+        #if I ever add back [$| ] strip brik it goes here.
+
+        frame.layout = AttrDict(**asdict(validator.layout))
+
+        if proto.container is None:
+            frame.container = 'layout'
+            frame.containerValue = None
         else:
-            parent = None
+            frame.container = self._elements[proto.container].copy()
+         
+        elem = AttrDict(name=proto.qualName, container=proto.container,
+            type=proto.type)
+        self._elements[elem.name] = elem
+        frame.elem = elem
         
-        if parent:
-            if re.match(centerRe, template['x']):
-                elem.x = (parent.width-elem.width)//2+parent.x
+        for prop, value in proto.items():
+            if prop in ['x', 'y']:
+                continue
+            if frame.container != 'layout' and prop in frame.container:
+                frame.containerValue = frame.container[prop]
             else:
-                elem.x = parent.x + elem.x
-        elif re.match(centerRe, template['x']):
-            elem.x = (validator.layout.width-elem.width)//2
+                frame.containerValue = None
+            validator.store.add('propertyName', prop)
+            frame.prop = prop
+            frame.value = validator.store.parse(value)
+            #the validate function puts the new value on element
+            validator.validate(frame)
         
-        if parent:
-            if re.match(centerRe, template['y']):
-                elem.y = (parent.height-elem.height)//2+parent.y
-            else:
-                elem.y = parent.y + elem.y
-        elif re.match(centerRe, template['y']):
-            elem.y = (validator.layout.height-elem.height)//2
+        if hasattr(proto.type, 'postGenerate'):
+            proto.type.postGenerate(elem)
 
-        self.elements[elem.name] = elem
+        for prop in ['x', 'y']:
+            #x and y need to be validated after width and height
+            value = proto[prop]
+            if frame.container != 'layout' and prop in frame.container:
+                frame.containerValue = frame.container[prop]
+            validator.store.add('propertyName', prop)
+            frame.prop = prop
+            frame.value = validator.store.parse(value)
+            validator.validate(frame)
+
         return elem
+
+@dataclass
+class PDF():
+    
+    name:str = None
+    render:bool = 'yes'
+    xMargin:Unit = '.25in'
+    yMargin:Unit = '.25in'
+    border:Unit = '.01in'
+    pageSize:QPageSize = 'letter'
+    orientation:QPageLayout.Orientation = 'portrait'
+    
+    @staticmethod
+    def fromDict(options, current, name):
+        options = AttrDict(**options)
+        if current is None:
+            current = PDF()
         
+        if 'name' in options:
+            current.name = options.name
+        else:
+            current.name = os.path.splitext(os.path.basename(name))[0] + '.pdf'
+        
+        if 'render' in options:
+            current.render = options.render
+        if type(current.render) == str:
+            render = asBool(current.render)
+            if render is None:
+                raise InvalidValueError('pdf', 'render', 'render')
+            current.render = render
+            
+
+        for prop in ('xMargin', 'yMargin'):
+            if prop in options:
+                setattr(current, prop, options[prop])
+            value = getattr(current, prop)
+            if type(value) == str:
+                num = Unit.fromStr(value, signs='+', units=('in', 'mm'))
+                if num is None:
+                    raise InvalidValueError('pdf', prop, value)
+                setattr(current, prop, num)
+        if current.xMargin.unit != current.yMargin.unit:
+            raise bWError("pdf margins must use the same unit", file=name)
+        
+        if 'border' in options:
+            current.border = options.border
+        if type(current.border) == str:
+            border = Unit.fromStr(current.border, signs='+', units=('in', 'mm'))
+            if border is None:
+                raise InvalidValueError('pdf', 'borders', current.border)
+            current.border = border
+        
+        #these two need to be based on the Qt enum values
+        if 'pageSize' in options:
+            current.pageSize = options.pageSize
+        if type(current.pageSize) == str:
+            if current.pageSize.lower() == 'letter':
+                current.pageSize = QPageSize.Letter
+            elif current.pageSize.lower() == 'a4':
+                current.pageSize = QPageSize.A4
+            else:
+                raise InvalidValueError('pdf', 'pageSize', current.pageSize)
+        
+        if 'orientation' in options:
+            current.orientation = options.orientation
+        if type(current.orientation) == str:
+            if current.orientation.lower() == 'portrait':
+                current.orientation = QPageLayout.Portrait
+            elif current.orientation.lower() == 'landscape':
+                current.orientation = QPageLayout.Landscape
+            else:
+                raise InvalidValueError('pdf', 'orientation', current.orientation)
+
+        return current
+    
 
 @dataclass
 class Layout():
     '''class for owning layouts'''
     
-    width:int = 300
-    height:int = 300
+    width:int = '1in'
+    widthUnit:Unit = None
+    height:int = '1in'
+    heightUnit:Unit = None
     name:str = 'asset.png'
     output:str = ''
     data:str = None
@@ -324,6 +525,8 @@ class Layout():
     defaults:dict = field(default_factory=dict)
     filename:str = ''
     userBriks:dict = field(default_factory=dict)
+    dpi:int = 300
+    pdf:PDF = None
 
     def addElement(self, element):
         self.elements[element['name']] = element
@@ -337,40 +540,34 @@ class AssetPainter():
             self.validator.store.add('rowTotal', str(layout.data[-1]['rowIndex']))
        
         self.validator.store.briks.update(self.layout.userBriks)
-        #if hasattr(self.layout, '_names'):
-        #    self.validator.store.briks.update(self.layout._names)
 
         self.images = []
 
-        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
-            if not os.path.isfile(self.layout.output):
-                os.mkdir(self.layout.output)
-            else:
-                raise bWError("'{dir}' exists and is not a directory",
-                origin="output in section layout", dir=self.layout.output
-                )
 
-    def paintElement(self, elem, painter:QPainter, generator):
+    def paintElement(self, elem, painter:QPainter):
         '''Paint a given element'''
-        #elem = generator.generate(template, self.validator)
-        #if not generator.elements[elem.parent].draw:
-        #    return
-        #if not elem.draw:
-        #    return
+        painter.save()
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
         painter.rotate(elem.rotation)
-        elemClasses[elem.type].paint(elem, painter, -mid, QSize(elem.width, elem.height))
-        #elemClasses[template['type']].paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        elem.type.paint(elem, painter, -mid, QSize(elem.width, elem.height))
+        if len(elem.subelements) > 0:
+            painter.translate(-mid)
+            for subelem in elem.subelements.values():
+                self.paintElement(subelem, painter)
+
+        painter.restore()
 
     def paintAsset(self):
         '''paint the layout and the contained elements'''
         generator = ElementGenerator()
-        elements = []
-        for template in self.layout.elements.values():
-            elem = generator.generate(template, self.validator)
-            if elem.draw:
-                elements.append(elem)
+        elements = {}
+        generator.generate(self.layout.elements, elements, self.validator)
+        #use generator.
+        #for template in self.layout.elements.values():
+        #    elem = generator.generate(template, self.validator)
+        #    if elem.draw:
+        #        elements.append(elem)
 
         image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.white)
@@ -379,12 +576,11 @@ class AssetPainter():
         painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
         
-        for element in elements:
-
-            painter.resetTransform()
+        for element in elements.values():
+            #painter.resetTransform()
             painter.setPen(Qt.black)
             painter.setBrush(Qt.white)
-            self.paintElement(element, painter, generator)
+            self.paintElement(element, painter)
 
         return image
 
@@ -408,14 +604,94 @@ class AssetPainter():
                 #self.image.save(os.path.join(self.layout.output, name))
 
 
+    def makePdf(self):
+        pdf = self.layout.pdf
+        #print(pdf)
+        
+        if pdf.xMargin.unit == 'in':
+            unit = QPageLayout.Inch
+        elif pdf.xMargin.unit == 'mm':
+            unit = QPageLayout.Millimeter
+
+        xMargin = pdf.xMargin.num
+        yMargin = pdf.yMargin.num
+        
+        pageLayout = QPageLayout()
+        pageLayout.setUnits(unit)
+        pageLayout.setPageSize(QPageSize(pdf.pageSize))
+        pageLayout.setOrientation(pdf.orientation)
+        pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
+        
+        assetWidth = self.layout.widthUnit.toInt(dpi=self.layout.dpi)
+        assetHeight = self.layout.heightUnit.toInt(dpi=self.layout.dpi)
+        assetAcross = int(pageLayout.paintRect().width() // self.layout.widthUnit.num)
+        assetDown = int(pageLayout.paintRect().height() // self.layout.heightUnit.num)
+
+        if assetAcross == 0 or assetDown == 0:
+            raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
+
+        assetPages = len(self.images)/(assetAcross*assetDown)
+        if assetPages - int(assetPages) > 0:
+            assetPages = int(assetPages) + 1
+        
+        pdfWriter = QPdfWriter(pdf.name)
+        self._pdf = pdfWriter
+        pdfWriter.setPageLayout(pageLayout)
+        pdfWriter.setResolution(self.layout.dpi)
+        pdfWriter.setCreator('brikWork')
+
+        pdfPainter = QPainter()
+        result = pdfPainter.begin(pdfWriter)
+        if not result:
+            raise bWError("failed to render pdf, no reason could be found. Maybe jsut try again?", file=self.layout.filename)
+
+        assetsSeen = 0
+        #print(assetDown, assetAcross, assetPages)
+        limit = len(self.images)
+        for page in range(assetPages):
+            for down in range(assetDown):
+                
+                for across in range(assetAcross):
+                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0])
+                    if pdf.border.num > 0:
+                        pen = QPen()
+                        pen.setWidth(pdf.border.toInt(dpi=self.layout.dpi))
+                        pdfPainter.setPen(pen)
+                        pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
+                    assetsSeen += 1
+                    if assetsSeen == limit:
+                        break #down
+                
+                if assetsSeen == limit:
+                    break #across
+            
+            if assetsSeen == limit:
+                break #page
+            
+            pdfWriter.newPage()
+
+
     def save(self):
         '''save the generated images.'''
-        try:
-            for image, name in self.images:
-                image.save(os.path.join(self.layout.output, name))
-        except OSError:
-            raise bWError('failed to save images to {ouput}',
-            output=self.layout.output, layout=self.layout.filename)
+        path = os.getcwd()
+        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
+            try:
+                os.mkdir(self.layout.output)
+            except IOError:
+                os.chdir(path)
+                raise bWError("failed to make output directory", file=self.layout.filename)
+        os.chdir(os.path.realpath(self.layout.output))
+        if self.layout.pdf != None and self.layout.pdf.render:
+            self.makePdf()
+        else:
+            try:
+                for image, name in self.images:
+                    image.save(name)
+            except OSError:
+                os.chdir(path)
+                raise bWError('failed to save images to {ouput}',
+                output=self.layout.output, layout=self.layout.filename)
+        os.chdir(path)
 
 
 
@@ -486,25 +762,24 @@ def buildLayout(filename):
         )
     
     layoutParser = LayoutParser(layoutText, filename)
-    parsedLayout = layoutParser.parseLayoutFile()
-    if 'layout' in parsedLayout:
-        rawLayout = parsedLayout.pop('layout')
+    layoutFile = layoutParser.parseLayoutFile()
+    if 'layout' in layoutFile:
+        rawLayoutDict = layoutFile.pop('layout')
     else:
         #templates may not have a layout
-        rawLayout = {}
+        rawLayoutDict = {}
 
-
-    if 'template' in rawLayout:
-        layout = buildLayout(rawLayout.pop('template'))
+    if 'template' in rawLayoutDict:
+        layout = buildLayout(rawLayoutDict.pop('template'))
     else:
         layout = Layout()
     layout.filename = filename
     
-    if 'data' in rawLayout:
+    if 'data' in rawLayoutDict:
         #prefer the data property over section
-        dataFilename = rawLayout.pop('data')
-        if 'data' in parsedLayout:
-            parsedLayout.pop('data')
+        dataFilename = rawLayoutDict.pop('data')
+        if 'data' in layoutFile:
+            layoutFile.pop('data')
         if not os.path.isfile(dataFilename):
             raise bWError("'{filename}' is not a valid file",
             file=filename, filename=dataFilename
@@ -516,62 +791,83 @@ def buildLayout(filename):
             raise bWError("'{filename}' could not be opened",
             file=filename, filename=dataFilename
             )
-    elif 'data' in parsedLayout:
-        userData = parsedLayout.pop('data')
+    elif 'data' in layoutFile:
+        userData = layoutFile.pop('data')
     else:
         userData = None
     if userData != None:
         layout.data = parseData(userData)
     
-    #update layout with the rest of the 
-    for prop, value in rawLayout.items():
+    #update layout with the rest of the props
+    for prop, value in rawLayoutDict.items():
+        #NOTE width and height get passed on as strings
+        if prop == 'dpi':
+            unit = Unit.fromStr(value, signs='+', units=('px',))
+            if unit is None:
+                raise InvalidValueError('layout', prop, value)
+            value = unit.toInt()
         setattr(layout, prop, value)
 
-    if type(layout.width) == str:
-        layout.width = asNum(layout.width, 
-        err=bWError("'{value}' is not a valid asset width",
-        layout=filename, value=layout.width))
-    if type(layout.height) == str:
-        layout.height = asNum(layout.height, 
-        err=bWError("'{value}' is not a valid asset height",
-        layout=filename, value=layout.height))
-
-
-    if 'defaults' in parsedLayout:
-        deepUpdate(layout.defaults, parsedLayout.pop('defaults'))
-
-    if 'briks' in parsedLayout:
-        layout.userBriks.update(parsedLayout.pop('briks'))
+    for prop in ('width', 'height'):
+        #NOTE the width and height strings are parsed here, regardless of where they comefrom
+        value = getattr(layout, prop)
+        if type(value) == str:
+            unit = Unit.fromStr(value, signs='+')
+            if unit is None:
+                raise InvalidValueError('layout', prop, value)
+            setattr(layout, prop+'Unit', unit)
+            setattr(layout, prop, unit.toInt(dpi=layout.dpi))
     
-    def makeElements(items, parent=None):
-        for name, props in items:
-            #props.pop('children')
-            if name in layout.elements:
-                #if the template includes this element usurp it
-                layout.elements[name].maps.insert(0, props)
-                children = props.pop('children')
-                if len(children) > 0:
-                    makeElements(children.items(), layout.elements[name]['name'])
+    if layout.heightUnit.unit != layout.widthUnit.unit:
+        raise bWError("layout width and height must use the same unit",
+        file=filename)
 
-            else:
-                if parent is not None:
-                    name = f'{parent}->{name}'
-                if 'type' not in props:
-                    props['type'] = 'none'
-                elif props['type'] not in elemClasses:
-                    raise InvalidValueError(name, 'type', prop['type'])
-                elemType = elemClasses[props['type']]
-                elem = elemType.defaults.new_child(props)
-                elem.maps.insert(1, layout.defaults)
-                elem.parent = parent
-                elem['name'] = name
-                
-                layout.addElement(elem)
+    if 'pdf' in layoutFile:
+        pdfDict = layoutFile.pop('pdf')
+        layout.pdf = PDF.fromDict(pdfDict, layout.pdf, filename)
+        if layout.pdf.xMargin.unit != layout.widthUnit.unit:
+            raise bWError("Layout size and pdf margins must use the same units",
+            file=filename)
+
+    if 'defaults' in layoutFile:
+        deepUpdate(layout.defaults, layoutFile.pop('defaults'))
+
+    if 'briks' in layoutFile:
+        layout.userBriks.update(layoutFile.pop('briks'))
+    
+    def makeElements(source, dest, container=None):
+        for name, props in source.items():
+
+            if name in dest:
+                #if the template includes this element usurp it
+                proto = dest[name]
+                proto.maps.insert(0, props)
                 children = props.pop('children')
                 if len(children) > 0:
-                    makeElements(children.items(), layout.elements[name]['name'])
+                    makeElements(children, proto.subelements, proto.qualName)
+                    
+            else:
+                type_ = props.pop('type', 'none')
+                if type_ not in elemClasses:
+                    raise InvalidValueError(name, 'type', type_)
+                proto = ElementProtoype(container, name, props, layout.defaults, elemClasses[type_])
+                dest[name] = proto
+                children = props.pop('children')
+                if len(children) > 0:
+                    makeElements(children, proto.subelements, proto.qualName)
         
-    makeElements(parsedLayout.items())
+    makeElements(layoutFile, layout.elements)
     
 
     return layout
+
+
+if __name__ == '__main__':
+    import pprint
+    try:
+        layout = buildLayout(os.path.join(os.getcwd(), 'test.bwl'))
+    except bWError as e:
+        print(e.message)
+        import sys
+        sys.exit()
+    print(pprint.pformat(layout.elements['icon'].subelements))

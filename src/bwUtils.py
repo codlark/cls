@@ -1,4 +1,5 @@
 
+from dataclasses import dataclass
 import re
 from collections.abc import Mapping
 from collections import UserDict
@@ -24,18 +25,10 @@ class bWError(Exception):
             self.msg = "error from unknown source:\n\t"+msg
         self.kwargs = kwargs
 
-
     @property
     def message(self):
         return self.msg.format(**self.kwargs)
 
-# I actually want to make this not even an error, it just gets ignored
-class InvalidPropError(bWError):
-    def __init__(self, elem, prop):
-        super().__init__("'{prop}' is not a valid property for this element", 
-        elem=elem, prop=prop
-        )
-    
 class InvalidValueError(bWError):
     def __init__(self, elem, prop, value):
         super().__init__("'{value}' is not a valid value for this property",
@@ -46,6 +39,12 @@ class InvalidArgError(bWError):
     def __init__(self, elem, prop, brik, arg, value):
         super().__init__("'{value}' is not a valid {arg} argument for brik [{brik}| ]",
         elem=elem, prop=prop, brik=brik, arg=arg, value=value
+        )
+
+class UnclosedBrikError(bWError):
+    def __init__(self, elem, prop, source):
+        super().__init__("'{source}' has an unclosed brik",
+        elem=elem, prop=prop, source=source
         )
         
 class bWSyntaxError(bWError):
@@ -70,12 +69,6 @@ class UnexpectedEOFError(bWSyntaxError):
         super.__init__("unexpected EOF in '{name}'",
         file=file, name=name)
 
-class UnclosedBrikError(bWSyntaxError):
-    def __init__(self, elem, prop, source):
-        super().__init__("'{source}' has an unclosed brik",
-        elem=elem, prop=prop, source=source
-        )
-
 class Collection(SimpleNamespace):
     '''Used to hold generated elements'''
     def _set(self, name:str, value:Any):
@@ -83,26 +76,91 @@ class Collection(SimpleNamespace):
     def _get(self, name:str) -> Any:
         return self.__dict__[name]
 
+class AttrDict():
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def __repr__(self):
+        return repr(self.__dict__)
+    def __getitem__(self, key):
+        return self.__dict__[key]
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+    def __contains__(self, key):
+        return key in self.__dict__
+    def items(self):
+        return self.__dict__.items()
+    def copy(self):
+        copy = AttrDict()
+        copy.__dict__.update(self.__dict__)
+        return copy
 
-class AttrDict(UserDict):
-    '''a subclass of dict, remaps unknown attrs to indexes'''
-    def __getattr__(self, attr):
-        return self[attr]
 
-def asNum(string:str, *, err:bWError = False) -> Union[int, Literal[None]]:
-    '''tries to convert a number string to an int
-    if a number isn't found raise an error if present else return None'''
-    if re.match(r'^-?\d+$', string):
-        return int(string)
-    elif re.match(r'^\d*(\.\d+)? *in$', string):
-        #FIXME this uses a hardcoded dpi
-        #I'll need to get context in here somehow lol
-        return int(float(string[:-2].strip())*300)
-    else:
-        if err:
-            raise err
+
+@dataclass
+class Unit():
+    '''Unit represents a unitized number'''
+    sign: str
+    num: int
+    unit: str
+    def toFloat(self, **data):
+        'return the number as an int according to type'
+        if self.unit == 'in':
+            if 'dpi' in data:
+                return self.num*data['dpi']
+            else:
+                return self.num
+        elif self.unit == 'mm':
+            if 'dpi' in data:
+                return (self.num/25.4)*data['dpi']
+            else:
+                return self.num
+        elif self.unit == '%':
+            if 'whole' in data:
+                return self.num/100*data['whole']
+            else:
+                return self.num
+        else:
+            return self.num
+    def toInt(self, **data):
+        return int(self.toFloat(**data))
+    
+    @staticmethod
+    def fromStr(string, signs='-+', units=('px', 'in', 'mm')):
+        if units == 'all':
+            units = ('px', 'pt', 'in', 'mm', '%')
+
+        signs = r'^(?P<sign>['+signs+r']?)'
+        unitRe = r'(?P<unit>(?:' + '|'.join(units) + r')?)$'
+        whole = signs + r'(?P<num>\d+)' + unitRe
+        flt = signs + r'(?P<num>\d*\.\d+)' + unitRe
+        frac = signs + r'(?P<whole>\d+)[/.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        fracOnly = signs + r'[/.]?(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+
+        if (match := re.match(whole, string)) or (match := re.match(flt, string)):
+            sign = match.group('sign')
+            num = float(match.group('num'))
+            unit = match.group('unit')
+        elif match := re.match(fracOnly, string):
+            sign = match.group('sign')
+            numer = match.group('numer')
+            denom = match.group('denom')
+            unit = match.group('unit')
+            num = (int(numer)/int(denom))
+        elif match := re.match(frac, string):
+            sign = match.group('sign')
+            whole = match.group('whole')
+            numer = match.group('numer')
+            denom = match.group('denom')
+            unit = match.group('unit')
+            num = int(whole)+(int(numer)/int(denom))
         else:
             return None
+        
+        if unit == '':
+            unit = units[0]
+        if sign == '-' and unit != '%':
+            num *= -1
+        return Unit(sign, num, unit)
 
 trues = 'yes on true'.split()
 falses = 'no off false 0'.split()
@@ -125,13 +183,24 @@ expansions = {
     '\\': '\\', 'n': '\n',
     't': '\t', 's': ' ',
 }
+
 def evalEscapes(string:str) -> str:
-    '''replace escapes with their corresponding values'''
-    def repl(m):
-        c = m.group(1)
-        return expansions.get(c, c)
-        #return self.expansions[m.group(0)]
-    return re.sub(r'\\(.)', repl, string)
+    pos = 0
+    accum = []
+    while pos < len(string):
+        char = string[pos]
+        if char == '\\':
+            pos += 1
+            char = string[pos]
+            if char in expansions:
+                accum.append(expansions[char])
+            else:
+                accum.append(char)
+        else:
+            accum.append(char)
+        pos += 1
+    
+    return build(accum)
 
 def deepUpdate(self:Mapping, other:Mapping):
     '''like update, but if a given index is a mapping in both self and other we recurse'''
@@ -196,11 +265,7 @@ class CSVParser():
         while pos < len(line):
             char = line[pos]
 
-            if char == '\\':
-                accum.append(self.processEscape(line,pos))
-                pos += 1
-            
-            elif char == ',':
+            if char == ',':
                 name = build(accum)
                 if name != '':
                     headers.append(name)
@@ -285,7 +350,7 @@ class LayoutParser():
                 value = build(accum)
                 return value
             
-            if char == '}':
+            elif char == '}':
                 value = build(accum)
                 self.pos -= 1 #OH NO A BCKTRACK
                 return value
@@ -311,11 +376,7 @@ class LayoutParser():
         while self.pos < len(self.string):
             char = self.string[self.pos]
 
-            if char == '\\':
-                accum.append(self.string[self.pos:self.pos+2])
-                self.pos += 1
-            
-            elif char == ':':
+            if char == ':':
                 name = build(accum)
                 accum = []
                 self.pos += 1
@@ -332,6 +393,11 @@ class LayoutParser():
                 if name != '':
                     raise NoValueError(self.filename, elem, name)
                 return section
+            
+            elif char == '=':
+                name = build(accum)
+                raise bWSyntaxError("'{elem}' section can not define briks",
+                elem=elem, file=self.filename)
         
             else:
                 accum.append(char)
@@ -348,11 +414,7 @@ class LayoutParser():
         while self.pos < len(self.string):
             char = self.string[self.pos]
 
-            if char == '\\':
-                accum.append(self.string[self.pos:self.pos+2])
-                self.pos += 1
-            
-            elif char == ':':
+            if char == ':':
                 name = build(accum)
                 accum = []
                 self.pos += 1
@@ -367,6 +429,11 @@ class LayoutParser():
                 if name != '':
                     raise NoValueError(self.filename, elem, name)
                 return section
+            
+            elif char == '=':
+                name = build(accum)
+                raise bWSyntaxError("'{elem}' section can not define briks",
+                elem=elem, file=self.filename)
             
             else:
                 accum.append(char)
@@ -385,11 +452,7 @@ class LayoutParser():
         while self.pos < len(self.string):
             char = self.string[self.pos]
 
-            if char == '\\':
-                accum.append(self.string[self.pos:self.pos+2])
-                self.pos += 1
-            
-            elif char == '=':
+            if char == '=':
                 name = build(accum)
                 accum = []
                 self.pos += 1
@@ -447,16 +510,12 @@ class LayoutParser():
 
         while self.pos < len(self.string):
             char = self.string[self.pos]
-
-            if char == '\\':
-                accum.append(self.string[self.pos:self.pos+2])
-                self.pos += 1
             
-            elif char == '{':
+            if char == '{':
                 name = build(accum)
                 self.pos += 1
                 accum = []
-                if name in ('layout', 'defaults'):
+                if name in ('layout', 'defaults', 'pdf', 'csv'):
                     layout[name] = self.parseProps(name)
                 elif name == 'briks':
                     layout[name] = self.parseUserBriks()
@@ -486,9 +545,5 @@ class LayoutParser():
 
 
 if __name__ == '__main__':
-    test = '''lol
-    yes
-'''
 
-    parser = CSVParser(test)
-    print(parser.parseCSV())
+    pass

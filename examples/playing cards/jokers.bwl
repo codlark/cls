@@ -17,8 +17,6 @@ upperLeftPip {
 
 lowerRightNumber {
     text: [b|J]oker
-    x: [#| 2.5in - .65in]
-    y: [#| 3.5in - .65in]
     width: .5in
     height: .5in
     color: [color]
