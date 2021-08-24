@@ -505,7 +505,7 @@ class LayoutParser():
     def parseLayoutFile(self):
 
         accum = []
-        layout = {}
+        layout = dict(props={}, elements={}, sections={})
         name = ''
 
         while self.pos < len(self.string):
@@ -515,14 +515,16 @@ class LayoutParser():
                 name = build(accum)
                 self.pos += 1
                 accum = []
-                if name in ('layout', 'defaults', 'pdf', 'csv'):
-                    layout[name] = self.parseProps(name)
+                if name == 'layout':
+                    layout['props'] = self.parseProps(name)
+                if name in ('defaults', 'pdf', 'csv'):
+                    layout['sections'][name] = self.parseProps(name)
                 elif name == 'briks':
-                    layout[name] = self.parseUserBriks()
+                    layout['sections'][name] = self.parseUserBriks()
                 elif name == 'data':
-                    layout[name] = self.parseNil(name)
+                    layout['sections'][name] = self.parseNil(name)
                 else:
-                    layout[name] = self.parseSection(name)
+                    layout['elements'][name] = self.parseSection(name)
 
             elif char == ':':
                 raise bWSyntaxError("properties not allow at the top level of a layout file",

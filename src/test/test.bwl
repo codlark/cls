@@ -1,7 +1,6 @@
 layout {
     width: 2.25in
     height: 3.1/2in
-    wiggle: foo
     name: test[assetIndex].png
     output: out/
     #data: test.csv
@@ -70,7 +69,7 @@ body {
     text: [b|[body]]
     fontFamily: Cormorant
 }
-banjo {draw: no; lineColor: blue}
+banjo {draw: yes; lineColor: blue}
 
 lineHolder {
     type: rect
