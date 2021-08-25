@@ -517,7 +517,7 @@ class LayoutParser():
                 accum = []
                 if name == 'layout':
                     layout['props'] = self.parseProps(name)
-                if name in ('defaults', 'pdf', 'csv'):
+                elif name in ('defaults', 'pdf', 'csv'):
                     layout['sections'][name] = self.parseProps(name)
                 elif name == 'briks':
                     layout['sections'][name] = self.parseUserBriks()

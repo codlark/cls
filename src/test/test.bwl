@@ -6,10 +6,15 @@ layout {
     #data: test.csv
     dpi: 300
 
-    template: template.bwl
+    #template: template.bwl
 }
 pdf {
 }
+
+defaults {
+    #fontFamily: Times New Roman
+}
+
 title {
     type: label
     x: center
@@ -69,7 +74,16 @@ body {
     text: [b|[body]]
     fontFamily: Cormorant
 }
-banjo {draw: yes; lineColor: blue}
+#banjo {draw: yes; lineColor: blue}
+
+flower {
+    type: imageBox
+    width: 1/2in
+    height: 1/2in
+    x: center
+    y: center
+    source: img/[flower].png
+}
 
 lineHolder {
     type: rect
@@ -91,8 +105,8 @@ lineHolder {
 
 
 data {
-title, img, body
-Smile, smile.png, This face is smiling.
-Neutral, flat.png, This face is neither smiling nor frowning.
-Frown, frown.png, This face is frowning\, [i|unfortunate].
+title, img, body, flower
+Smile, smile.png, This face is smiling., daisy
+Neutral, flat.png, This face is neither smiling nor frowning., rose
+Frown, frown.png, This face is frowning\, [i|unfortunate]., lily
 }

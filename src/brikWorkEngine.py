@@ -153,7 +153,8 @@ class ElementProtoype(ChainMap):
     
     def validate(self, frame:AttrDict):
         if frame.prop not in self.type.validators:
-            raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.name)
+            return
+            #raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.name)
         func = self.type.validators[frame.prop]
         result = func(frame, frame.elem)
         if not result:
@@ -190,8 +191,8 @@ class ElementProtoype(ChainMap):
             self.validate(frame)
 
         
-        if hasattr(self.type, 'postGenerate'):
-            self.type.postGenerate(elem)
+        if hasattr(self.type, 'midGenerate'):
+            self.type.midGenerate(elem)
 
         for prop in ['x', 'y']:
             #x and y need to be validated after width and height
@@ -202,6 +203,9 @@ class ElementProtoype(ChainMap):
             frame.prop = prop
             frame.value = store.parse(value)
             self.validate(frame)
+        
+        if hasattr(self.type, 'postGenerate'):
+            self.type.postGenerate(elem)
 
         return elem
 
@@ -315,7 +319,7 @@ class ImageElement():
         painter.drawPixmap(upperLeft, elem.source)
 
     @staticmethod
-    def postGenerate(elem):
+    def midGenerate(elem):
         scaleMode = Qt.SmoothTransformation
         if elem.keepAspectRatio:
             aspect = Qt.KeepAspectRatio
@@ -340,46 +344,53 @@ class ImageElement():
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
         
         elem.source = QPixmap.fromImage(elem.source)
-            
+    
+
 class ImageBoxElement():
-
-    @staticmethod
-    def validateIBY(frame, elem):
-        validateXY(frame, elem)
-        
-        imgWidth = elem.source.width()
-        imgHeight = elem.source.height()
-
-        if elem.alignment & Qt.AlignLeft:
-            pass
-        elif elem.alignment & Qt.AlignRight:
-            elem.x += imgWidth
-        else: #center or justify
-            elem.x += imgWidth/2
-        
-        if elem.alignment & Qt.AlignTop:
-            pass
-        elif elem.alignment & Qt.AlignBottom:
-            elem.y += imgHeight
-        else:
-            elem.y += imgHeight/2
-        
-
-
     defaults = ImageElement.defaults.new_child(dict(
         alignment = 'center middle'
     ))
 
     validators = ImageElement.validators.new_child(dict(
-        y = validateIBY, #post, post, generate
         alignment = validateAlignment
     ))
     
+    @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
         painter.drawPixmap(upperLeft, elem.source)
     
+    @staticmethod
+    def midGenerate(elem):
+        scaleMode = Qt.SmoothTransformation
+        if elem.keepAspectRatio:
+            aspect = Qt.KeepAspectRatio
+        else:
+            aspect = Qt.IgnoreAspectRatio
+
+        if elem.source.width() > elem.width or elem.source.height() > elem.height:
+            elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
+
+        elem.source = QPixmap.fromImage(elem.source)
+
+    @staticmethod
     def postGenerate(elem):
-        pass
+        widthDif = abs(elem.source.width()-elem.width)
+        heightDif = abs(elem.source.height()-elem.height)
+
+        if elem.alignment & Qt.AlignLeft:
+            pass
+        elif elem.alignment & Qt.AlignRight:
+            elem.x += widthDif
+        else: #center or justify
+            elem.x += widthDif/2
+        
+        if elem.alignment & Qt.AlignTop:
+            pass
+        elif elem.alignment & Qt.AlignBottom:
+            elem.y += heightDif
+        else:
+            elem.y += heightDif/2
+
 
 
 class ShapeElement():
@@ -466,7 +477,7 @@ elemClasses = dict(
     none = Element,
     label = LabelElement,
     image = ImageElement,
-    #imageBox = ImageBoxElement,
+    imageBox = ImageBoxElement,
     rect = RectangleElement,
     ellipse = EllipseElement,
     circle = EllipseElement,
@@ -632,6 +643,7 @@ def buildLayout(filename):
 
     sections = parsedLayout['sections']
 
+    #data
     if layout.data != '':
         #prefer the data property over section
         dataFilename = layout.data
