@@ -1,5 +1,5 @@
 import os
-import re
+import csv
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -61,6 +61,14 @@ class Section():
             return True
         else:
             return False
+    
+    @staticmethod
+    def validateCSV(frame, sec):
+        if frame.value.lower() not in ('brikwork', 'excel'):
+            return False
+        else:
+            sec[frame.prop] = frame.value.lower()
+            return True
 
 class PDFSection(Section):
 
@@ -103,6 +111,7 @@ class LayoutSection(Section):
         output = '',
         data = '',
         dpi = '300',
+        csv = 'brikWork',
     ))
 
     validators = ChainMap(dict(
@@ -112,6 +121,7 @@ class LayoutSection(Section):
         output = Section.validateString,
         data = Section.validateString,
         dpi = Section.validateNumber(units=('px'), out=int),
+        csv = Section.validateCSV,
     ))
 
 def parseLayout(filename):
@@ -190,7 +200,14 @@ def buildLayout(filename):
     else:
         userData = None
     if userData != None:
-        layout.data = parseData(userData)
+        if layout.csv == 'brikwork':
+            reader = CSVParser(userData)
+            data = reader.parseCSV()
+        else:
+            reader = csv.DictReader(userData.splitlines(), restval='')
+            data = list(reader)
+        layout.data = parseData(data)
+        
     else:
         layout.data = None
         
@@ -418,11 +435,11 @@ class AssetPainter():
                 output=self.layout.output, layout=self.layout.filename)
         os.chdir(path)
 
-def parseData(rows:str):
+def parseData(data):
 
-    #data = parseCSV(rows)
-    parser = CSVParser(rows)
-    data = parser.parseCSV()
+    ##data = parseCSV(rows)
+    #parser = CSVParser(rows)
+    #data = parser.parseCSV()
     if data is None:
         return None
         

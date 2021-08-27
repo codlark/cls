@@ -7,8 +7,6 @@ for 0.5 - elements and values
  - better toggle handler
  - custom true and false values
  - `inherit` value that means inherit fromm the container
- - `csv` section to control the dialect of csv used
- - - maybe just a layout property?
  - variadic user briks `myBrik = [0],[1]` --> `[myBrik| 1| 2]` --> "1,2"
  - texture element type that allows you yo specify a specific area of the images to draw
  - polygons and polylines
