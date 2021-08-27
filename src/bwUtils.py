@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import re
 from collections.abc import Mapping
-from collections import UserDict
+from collections import ChainMap
 from types import SimpleNamespace
 from typing import *
 
