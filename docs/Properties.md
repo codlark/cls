@@ -18,6 +18,9 @@ These properties are optional:
  * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated.
  * `template: FILENAME` - Specify a layout file to act as a template. For a full description of templates see [Templates](Templates/).
  * `dpi: DPI` ratio to convert inches to pixels. Default value is `300` meaning 300 pixels per inch. Also affects millimeters. Number must be bare (no unit).
+ * `csv: DIALECT` - dictates how to process csv data, both the `data` section and the `data` property. Can be one of
+    * `brikWork` - the dialect described in [Syntax](../Syntax/). This is the default value.
+    * `excel` - the dialect exported by speadsheet programs like Microsoft Excel and Google Sheets. This is a strict dialect and not recommended for hand written data, but is crucial for CSV data exported by those programs.
 
 ## PDF properties
 
@@ -89,17 +92,30 @@ These are only some of the tags available, for a fuller explanation of these and
 
 ### `image`
 
-An `image` element displays an image.
+An `image` element displays an image. This element is best suited to displaying a single image across all assets, or images of the same size.
  
  * `source: FILENAME` - the image file to load, several filetypes are recognized but png is recommended. The default value is no value.
  * `keepAspectRatio: TOGGLE` - whether to keep the aspect ratio when resizing the image. The default value is `true`.
 
 The final size to render an image at is found with the algorithm below. In all these cases the final size of the element will affect any contained elements that are positioned with `center`.
 
- - If both `width` and `height` are `0` the image is drawn at full size, reguardless of `keepAspectRatio`. This is the default behavior.
+ - If both `width` and `height` are `0` the image is drawn at full size, regardless of `keepAspectRatio`. This is the default behavior.
  - If `keepAspectRatio` is `true` and either `width` or `height` is `0` the image will be scaled evenly according to the other of the two.
  - If `keepAspectRatio` is `true` the image will be scaled evenly according to the smaller of `width` and `height`.
  - If `keepAspectRatio` is `false` the image will be scaled to exactly what `width` and `height` specify.
+
+### `imageBox`
+An `imageBox` element displays images like the `image` element, but is better suited to images of different sizes.
+
+ * `source: FILENAME` - the image file to load, several filetypes are recognized but png is recommended. The default value is no value.
+ * `keepAspectRatio: TOGGLE` - whether to keep the aspect ratio when resizing the image. The default value is `true`.
+ * `alignment: HORZ VERT` - how to align a given image. Both `HORZ` and `VERT` must be specified. The default value is `center middle`.
+    * `HORZ` must be one of `left`, `center`, or `right`
+    * `VERT` must be one of `top`, `middle`, or `bottom`
+
+Whereas `image` elements find the size to draw the image at by looking at the image, `imageBox` always uses the `width` and `height` properties of the element. 
+ - If the image is smaller than the element, the image will be aligned according to the `alignment` property
+ - If the image is larger than the element, the image will be resized to fit according to the `keepAspectRatio` property
 
 ### Shapes
 

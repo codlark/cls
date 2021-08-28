@@ -1,6 +1,11 @@
 # Changelog
 This page collects the changes made to brikWork over time
 
+## v 0.5
+ - added: `imageBox` element type, which aligns images within its box
+ - added: `csv` property to layout that controls what dialect of csv to parse data as
+ - changed: unknown properties are no longer errors
+
 ## v 0.4
  - added: more units! checkout [Values](../Values/) for how they work
  - added: `[slice| STRING | START | STOP]` takes substring of `STRING` like `[substr| ]` but uses start and stop positions instead of a start position and a length

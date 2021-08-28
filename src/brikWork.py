@@ -1,7 +1,6 @@
 import sys
 import os
 import argparse
-from types import prepare_class
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *

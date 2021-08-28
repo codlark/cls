@@ -1,16 +1,21 @@
 layout {
     width: 2.25in
     height: 3.1/2in
-    wiggle: foo
     name: test[assetIndex].png
     output: out/
     #data: test.csv
     dpi: 300
+    #csv: excel
 
-    template: template.bwl
+    #template: template.bwl
 }
 pdf {
 }
+
+defaults {
+    #fontFamily: Times New Roman
+}
+
 title {
     type: label
     x: center
@@ -67,10 +72,11 @@ body {
     y: 1.625in
     width: 1.5in
     height: 1.25in
-    text: [b|[body]]
+    text: [body]
     fontFamily: Cormorant
 }
-banjo {draw: no; lineColor: blue}
+#banjo {draw: yes; lineColor: blue}
+
 
 lineHolder {
     type: rect
