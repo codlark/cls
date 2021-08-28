@@ -27,11 +27,11 @@ These are useful for things like generating "24 out of 50" with `[rowIndex] out 
 
 ## Function Briks
 
-Function briks can effectivly be divided into two categories, string functions and comparison functions.
+Function briks can effectivly be divided into two categories, value functions and comparison functions.
 
-### String Functions
+### Value Functions
 
-String function briks modify and create string values.
+Value function briks modify and create values.
 
 `[b| STRING ]`
 This brik is a shortcut for bolding text with `<b>STRING</b>` in labels.
@@ -50,6 +50,10 @@ This brik is a shortcut for italicizing text with `<i>STRING</i>` in labels.
 
 `[lower| STRING ]`
 Convert the entirety of `STRING` to lowercase.
+
+`[rnd| STOP ]`
+`[rnd| START | STOP ]`
+Generate a random number from `START` upto and including `STOP`. `START` must be a lower number than `STOP`. 
 
 `[s| STRING ]`
 This brik is a shortcut for striking thru text with `<s>STRING</s>` in labels.
@@ -87,6 +91,9 @@ This brik takes any number of arguments. Test to see if `VALUE` is equal to any 
 
 `[ne | LEFT | RIGHT ]`
 Test if `LEFT` and `RIGHT` are not equal. The arguments can be any type of value.
+
+### Other Functions
+
 
 ## Operator Briks
 

@@ -23,7 +23,7 @@ for 0.5 - elements and values
  - a working directory folder property, like `folder: ` that specifies a folder that contains the resources and output folder
  - finish annotating types (maybe? not sure if this gets me much)
  - json based data? (i'm not sure what the point of this was)
- - - array of object, each object is an asset and each kv pair is a brik maybe?
+ - - array of object, each object is an asset and each kv pair is a brik maybe? The ability to set specific values for each asset???
  - `[=| NAME | VALUE ]` - change the value of the element's propery
  - `[assetName]` ???
  - `[print| STRING]` prints a string to the console

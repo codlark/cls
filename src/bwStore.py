@@ -1,5 +1,6 @@
 import os
 import re
+import random
 from collections import ChainMap, deque
 from typing import Union, Callable, Collection
 from bwUtils import *
@@ -326,16 +327,24 @@ def sliceBrik(context, value, start, stop=None):
         
     return value[start:stop]
 
-#@BrikStore.addStdlib('rnd', (1,2))
-#def randomBrik(context, start, stop=None):
-#    if stop == None:
-#        start, stop = '+0', start
-#    startUnit = Unit.fromStr(start, signs='+0', units=('',))
-#    if startUnit is None:
-#        raise InvalidArgError(context.elem, context.prop, 'rnd', 'START', start)
-#    stopUnit = Unit.fromStr(stop, signs='+0', units=('',))
+@BrikStore.addStdlib('rnd', (1,2))
+def randomBrik(context, start, stop=None):
+    if stop == None:
+        start, stop = '+1', start
+    startUnit = Unit.fromStr(start, signs='+-0', units=('',))
+    if startUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'rnd', 'START', start)
+    start = startUnit.toInt()
+    stopUnit = Unit.fromStr(stop, signs='+-0', units=('',))
+    if stopUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'rnd', 'STOP', stop)
+    stop = stopUnit.toInt()
+    try:
+        num = random.randint(start, stop)
+    except ValueError:
+        raise InvalidArgError(context.elem, context.prop, 'rnd', 'START', start)
+    return str(num)
 
-    
 
 @BrikStore.addStdlib('/', 1)
 def expansionMacro(context, value):

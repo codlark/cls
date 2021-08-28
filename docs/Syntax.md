@@ -101,7 +101,8 @@ Anything else has it's back slash removed and put into the final value. Because 
 
 ## CSV Syntax
 
-brikWork uses comma seperated values for data. Like with colons seperating properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. Blank headers are not allowed, but blank values are. If a row doesn't provide values for all the columns those columns will be assigned a blank value.
+brikWork uses comma seperated values for data. CSV is a common format with many dialects, this description is for the dialect used by brikWork.
+Values are separated with commans, and like with colons seperating properties and values, any whitespace that touches the comma is removed. The first row is used as names for column briks. Commas can be escaped to be included in the data with `\,`. Blank headers are not allowed, but blank values are. If a row doesn't provide values for all the columns those columns will be assigned a blank value.
 
     colorLeft, colorCenter,, colorRight
     red, blue, yellow

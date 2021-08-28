@@ -18,6 +18,9 @@ These properties are optional:
  * `data: FILENAME` - external file to load data from. This property overrides the `data` section. If neither the `data` property nor the `data` section are present only one asset will be generated.
  * `template: FILENAME` - Specify a layout file to act as a template. For a full description of templates see [Templates](Templates/).
  * `dpi: DPI` ratio to convert inches to pixels. Default value is `300` meaning 300 pixels per inch. Also affects millimeters. Number must be bare (no unit).
+ * `csv: DIALECT` - dictates how to process csv data, both the `data` section and the `data` property. Can be one of
+    * `brikWork` - the dialect described in [Syntax](../Syntax/). This is the default value.
+    * `excel` - the dialect exported by speadsheet programs like Microsoft Excel and Google Sheets. This is a strict dialect and not recommended for hand written data, but is crucial for CSV data exported by those programs.
 
 ## PDF properties
 
