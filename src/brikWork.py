@@ -211,7 +211,6 @@ commandParser.add_argument('-w', '--windowless',
 
 app = QApplication()
 window = MainWindow()
-        
 args = commandParser.parse_args()
 
 if args.file is not None and args.windowless:

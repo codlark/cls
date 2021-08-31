@@ -77,9 +77,10 @@ class PDFSection(Section):
         render ='yes',
         xMargin = '.25in',
         yMargin = '.25in',
-        border = '0.1in',
+        border = '0.01in',
         pageSize = 'letter',
         orientation = 'portrait',
+        contentOnly = 'false',
     ))
 
     validators = ChainMap(dict(
@@ -90,6 +91,7 @@ class PDFSection(Section):
         border = Section.validateNumber(units=('in', 'mm'), out=Unit),
         pageSize = Section.validatePageSize,
         orientation = Section.validateOrientation,
+        contentOnly = validateToggle,
     ))
 
     @staticmethod
@@ -363,11 +365,30 @@ class AssetPainter():
         pageLayout.setPageSize(QPageSize(pdf.pageSize))
         pageLayout.setOrientation(pdf.orientation)
         pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
+
+        assetUnitWidth = self.layout.widthUnit
+        assetUnitHeight = self.layout.heightUnit
+        assetXOfs = 0
+        assetYOfs = 0
+
+        if pdf.contentOnly and 'content' in self.layout.elements:
+            content = self.layout.elements['content']
+            contentWidth = Unit.fromStr(content['width'])
+            contentHeight = Unit.fromStr(content['height'])
+            contentX = Unit.fromStr(content['x'])
+            contentY = Unit.fromStr(content['y'])
+            if contentWidth.unit == contentHeight.unit \
+              and contentWidth.unit == contentX.unit\
+              and contentWidth.unit == pdf.xMargin.unit:
+                assetUnitWidth = contentWidth
+                assetUnitHeight = contentHeight
+                assetXOfs = contentX.toInt(dpi=self.layout.dpi)
+                assetYOfs = contentY.toInt(dpi=self.layout.dpi)
         
-        assetWidth = self.layout.widthUnit.toInt(dpi=self.layout.dpi)
-        assetHeight = self.layout.heightUnit.toInt(dpi=self.layout.dpi)
-        assetAcross = int(pageLayout.paintRect().width() // self.layout.widthUnit.num)
-        assetDown = int(pageLayout.paintRect().height() // self.layout.heightUnit.num)
+        assetWidth = assetUnitWidth.toInt(dpi=self.layout.dpi)
+        assetHeight = assetUnitHeight.toInt(dpi=self.layout.dpi)
+        assetAcross = int(pageLayout.paintRect().width() // assetUnitWidth.num)
+        assetDown = int(pageLayout.paintRect().height() // assetUnitHeight.num)
 
         if assetAcross == 0 or assetDown == 0:
             raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
@@ -394,7 +415,9 @@ class AssetPainter():
             for down in range(assetDown):
                 
                 for across in range(assetAcross):
-                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0])
+                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0],
+                        assetXOfs, assetYOfs, assetWidth, assetHeight
+                    )
                     if pdf.border.num > 0:
                         pen = QPen()
                         pen.setWidth(pdf.border.toInt(dpi=self.layout.dpi))

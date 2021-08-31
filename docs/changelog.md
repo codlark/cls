@@ -1,6 +1,10 @@
 # Changelog
 This page collects the changes made to brikWork over time
 
+## v0.6
+### added
+ - `contentOnly` property to `pdf` section, when true and there's an element named `content` that element will be clipped out of the asset and drawn onto the pdf that way
+
 ## v 0.5
  - added: `imageBox` element type, which aligns images within its box
  - added: `csv` property to layout that controls what dialect of csv to parse data as
