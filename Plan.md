@@ -4,17 +4,19 @@
 
 
 for 0.6 - elements and values
+ - font from files
  - css style shortcut properties, like `radius = 5` to set both radii on rect
  - texture element type that allows you yo specify a specific area of the images to draw
- - polygons and polylines
- - rename label to textBox and add text as a direct write to the canvas, save label for an eventual imageMagick plugin
  - list value - `(1, 2, 3, 4, 5)` `(1:2:3:4:5)`
  - - briks like `dup` and `in` can make use of this
  - - parsing is gonna be a bitch, maybe pare out the items, then run the briks?
  - `[switch| key | match| result| match| result...]` brik
- - special handling of `content` element
- - - when `pdf{contentOnly: yes}` the size and location of content will be used as the asset size for rendering assets onto the pdf document.
+ - export {type: pdf|tts|images}
+ - - would have the same props as pdf and somr from layout
  
+ - rename label to textBox and add text as a direct write to the canvas, save label for an eventual imageMagick plugin
+ 
+ - polygons and polylines
  - better toggle handler
  - custom true and false values
 

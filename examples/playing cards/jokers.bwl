@@ -5,32 +5,29 @@ layout {
 
 upperLeftNumber {
     text: [b|J]oker
-    width: .5in
-    height: .5in
-    color: [color]
-    alignment: left top
+    size: 0.75in 0.5in
+    font-color: [color]
+    align: left top
 }
 
 upperLeftPip {
-    draw: no
+    draw: off
 }
 
 lowerRightNumber {
     text: [b|J]oker
-    width: .5in
-    height: .5in
-    color: [color]
-    alignment: left top
+    size: 0.75in 0.5in
+    font-color: [color]
+    align: left top
 }
 
 lowerRightPip {
-    draw: no
+    draw: off
 }
 
 portrait {
     type: image
-    x: center
-    y: center
+    position: center center
     source: images/[name].png
 }
 

@@ -1,15 +1,16 @@
 layout {
     width: 2.25in
     height: 3.1/2in
-    name: test[assetIndex].png
+    name: test[asset-index].png
     output: out/
     #data: test.csv
     dpi: 300
     #csv: excel
 
-    #template: template.bwl
+    template: template.bwl
 }
 pdf {
+    margin: 1in
 }
 
 defaults {
@@ -23,7 +24,8 @@ title {
     width: 1.75in
     height: 2in
     text: [title]
-    fontSize: 30pt
+    font-size: 30pt
+    #decoration: italic underline
 }
 icon {
     type: image
@@ -48,7 +50,7 @@ rotator {
     y: 7/8in
     width: 3/4in
     height: 3/8in
-    rotation: 180
+    rotate: 180
     rotated {
         type: rect
         x: 0
@@ -59,12 +61,15 @@ rotator {
 }
 bodyBorder {
     type: rect
-    x: center
-    y: 1.5in
+    foo: bar
+    #x: center
+    #y: 1.5in
+    position: center 1.5in
     width: 1.75in
     #lineWidth: 0.01in
     height: 1.75in
-    xRadius: 1/8in; yRadius: 1/4in;
+    #xRadius: 1/8in; yRadius: 1/4in;
+    radius: 1/8in 
 }
 body {
     type: label
@@ -73,7 +78,7 @@ body {
     width: 1.5in
     height: 1.25in
     text: [body]
-    fontFamily: Cormorant
+    font-family: Cormorant
 }
 #banjo {draw: yes; lineColor: blue}
 

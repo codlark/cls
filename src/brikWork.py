@@ -26,9 +26,10 @@ state.painter = None
 state.asset = 0
 
 def openFile(filename):
-    dir = os.getcwd()
+    startingDir = os.getcwd()
     directory, filename = os.path.split(os.path.realpath(filename))
     os.chdir(directory)
+    app.setOverrideCursor(waitCursor)
     try:
         #layoutText = _openFile(filename)
         layout = buildLayout(filename)
@@ -37,7 +38,7 @@ def openFile(filename):
         #state.asset = 0        
 
     except bWError as e:
-        os.chdir(dir)
+        os.chdir(startingDir)
         #state.layout = None
         #state.painter = None
         #state.assetSpin.setValue(1)
@@ -51,6 +52,9 @@ def openFile(filename):
             state.assetSpin.setValue(1)
             state.assetSpin.setRange(1, len(state.painter.images))
         return True, f'generated {len(state.painter.images)} assets'
+    
+    finally:
+        app.setOverrideCursor(arrowCursor)
 
 def setImage():
     if state.painter is None:
@@ -91,12 +95,17 @@ def reloadFunc():
 @Slot()
 def saveFunc():
     if state.painter is not None:
+        app.setOverrideCursor(waitCursor)
+        startingDir = os.getcwd()
         try:
             state.painter.save()
         except bWError as e:
+            os.chdir(startingDir)
             window.textLog.append(e.message)
         else:
             window.textLog.append(f"saved assets to {state.layout.output}")
+        finally:
+            app.setOverrideCursor(arrowCursor)
     else:
         window.textLog.append('unable to save, no layout is presnt')
 
@@ -212,6 +221,10 @@ commandParser.add_argument('-w', '--windowless',
 app = QApplication()
 window = MainWindow()
 args = commandParser.parse_args()
+
+waitCursor = QCursor(Qt.WaitCursor)
+arrowCursor = QCursor()
+
 
 if args.file is not None and args.windowless:
     result, message = openFile(args.file)

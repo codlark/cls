@@ -2,7 +2,7 @@ layout {
     template: indexes.bwl
 }
 briks {
-    rank = [=| [repeatIndex] + 1]
+    rank = [=| [repeat-index] + 1]
 }
 #pips are named for their position in a grid
 # .5  1.05 1.6
@@ -19,8 +19,7 @@ defaults {
 #pips are contained by a row element, which specifies the location of the left most pip
 
 row1 {
-    x: .5in
-    y: .5in
+    position: .5in .5in
     draw: [in| [rank]| 8| 9| 10]
     col1 {
         type: image
@@ -31,15 +30,14 @@ row1 {
     }
 }
 row2 {
-    x: .5in
-    y: .83in
+    position: 0.5in 0.83in
     col1 {
         type: image
         draw: [in| [rank]| 4| 5| 6]
     }
     col2 {
         type: image
-        x: .55in
+        x: 0.55in
         draw: [in| [rank]| 2| 3| 7| 10]
     }
     col3 {
@@ -49,8 +47,7 @@ row2 {
     }
 }
 row3 {
-    x: .5in
-    y: 1.17in
+    position: .5in 1.17in
     draw: [in| [rank]| 7| 8| 9| 10]
     pip13 {
         type: image
@@ -61,15 +58,14 @@ row3 {
         }
 }
 row4 {
-    x: .5in
-    y: 1.51in
+    position: 0.5in 1.51in
     col1 {
         type: image
         draw: [in| [rank]| 6]
     }
     col2 {
         type: image
-        x: .55in
+        x: 0.55in
         draw: [in| [rank]| 3| 5| 7| 9]
     }
     col3 {
@@ -79,52 +75,49 @@ row4 {
     }
 }
 row5 {
-    x: .5in
-    y: 1.84in
+    position: 0.5in 1.84in
     draw: [in| [rank]| 7| 8| 9| 10]
     col1 {
         type: image
-        rotation: 180
+        rotate: 180
     }
     col3 {
         type: image
         x: 1.1in
-        rotation: 180
+        rotate: 180
     }
 }
 row6 {
-    x: .5in
-    y: 2.19in
+    position: 0.5in 2.19in
     col1 {
         type: image
-        rotation: 180
+        rotate: 180
         draw: [in| [rank]| 4| 5| 6]
     }
     col2 {
         type: image
-        x: .55in
-        rotation: 180
+        x: 0.55in
+        rotate: 180
         draw: [in| [rank]| 2| 3| 7| 10]
     }
     col3 {
         type: image
         x: 1.1in
-        rotation: 180
+        rotate: 180
         draw: [in| [rank]| 4| 5| 6]
     }
 }
 row7 {
-    x: 0.5in
-    y: 2.52in
+    position: 0.5in 2.52in
     draw: [in| [rank]| 8| 9| 10]
     col1 {
         type: image
-        rotation: 180
+        rotate: 180
     }
     col3 {
         type: image
         x: 1.1in
-        rotation: 180
+        rotate: 180
     }
 }
 data {

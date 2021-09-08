@@ -4,7 +4,8 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from bwUtils import *
 
-__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle"]
+__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",
+    "validateMany", "validateManyStretch"]
 
 def validateString(frame, elem):
     elem[frame.prop] = evalEscapes(frame.value)
@@ -32,6 +33,43 @@ def validateToggle(frame, elem):
         return False
     elem[frame.prop] = value
     return True
+
+def validateMany(min, **props):
+    def validator(frame, elem):
+        values = frame.value.split()
+        if len(values) < min:
+            return False
+        for i, (prop, valid) in enumerate(props.items()):
+            frame.prop = prop
+            frame.value = values[i]
+            ret = valid(frame, elem)
+            if ret is False:
+                return False
+        return True
+        
+    return validator
+
+def validateManyStretch(**props):
+    def validator(frame, elem):
+        values = frame.value.split()
+        if len(values) == 1:
+            frame.value = values[0]
+            for prop, valid in props.items():
+                frame.prop = prop
+                ret = valid(frame, elem)
+                if ret is False:
+                    return False
+        elif len(values) == len(props):
+            for i, (prop, valid) in enumerate(props.items()):
+                frame.prop = prop
+                frame.value = values[i]
+                ret = valid(frame, elem)
+                if ret is False:
+                    return False
+        else:
+            return False
+        return True
+    return validator
 
 def validateXY(frame, elem):
     #also handles x2 and y2
@@ -84,7 +122,6 @@ def validateAngle(frame, elem):
     elem[frame.prop] = value.toInt() % 360
     return True
 
-
 def validateDraw(frame, elem):
     value = asBool(frame.value)
     if value is None:
@@ -104,21 +141,62 @@ def validateFontSize(frame, elem):
     elem[frame.prop] = value, frame.layout.dpi
     return True
 
-def validateAlignment(frame, elem):
-    horz = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
-        'justify':Qt.AlignJustify}
-    vert = {'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter,}
+alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
+        'justify':Qt.AlignJustify,
+        'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter}
+
+def validateAlignmentUpdate(frame, elem):
+    if 'alignment' not in elem:
+        elem.alignment = 0
+    if frame.value.lower() in alignments:
+        elem.alignment |= alignments[frame.value.lower()]
+        return True
+    return False
+
+def validateAlignmentSet(frame, elem):
     terms = frame.value.lower().split()
-    if terms[0] in horz:
-        result = horz[terms[0]]
-    else:
-        return False
-    if terms[1] in vert:
-         result |= vert[terms[1]]
-    else:
-        return False
-    elem[frame.prop] = result
+    result = 0
+    for term in terms:
+        if term not in alignments:
+            return False
+        else:
+            result |= alignments[term]
+    elem.alignment = result
     return True
+
+def validateDecoration(frame, elem):
+    values = frame.value.split()
+    for value in values:
+        if value == 'italic':
+            elem.italic = True
+        elif value == 'bold':
+            elem.bold = True
+        elif value == 'underline':
+            elem.underline = True
+        elif value == 'overline':
+            elem.overline = True
+        elif value in ['wrap', 'word-wrap']:
+            elem.wordWrap = True
+        elif value in ['thru', 'through', 'line-thru', 'line-through']:
+            elem.lineThrough = True
+        
+        elif value == 'no-italic':
+            elem.italic = False
+        elif value == 'no-bold':
+            elem.bold = False
+        elif value == 'no-underline':
+            elem.underline = False
+        elif value == 'no-overline':
+            elem.overline = False
+        elif value in ['no-wrap', 'no-word-wrap']:
+            elem.wordWrap = False
+        elif value in ['no-thru', 'no-through', 'no-line-thru', 'no-line-through']:
+            elem.lineThrough = False
+
+        else:
+            return False
+    return True
+
 
 def validateLineJoin(frame, elem):
     joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
@@ -132,6 +210,14 @@ def validateLineCap(frame, elem):
     if frame.value.lower() not in caps:
         return False
     elem[frame.prop] = caps[frame.value.lower()]
+    return True
+
+def validateLineStyle(frame, elem):
+    styles = {'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dot': Qt.DotLine,
+    'dash-dot': Qt.DashDotLine, 'dot-dash': Qt.DashDotLine}
+    if frame.value.lower() not in styles:
+        return False
+    elem[frame.prop] = styles[frame.value.lower()]
     return True
 
 class ElementProtoype(ChainMap):
@@ -149,13 +235,22 @@ class ElementProtoype(ChainMap):
             self.qualName = name
     
     def validate(self, frame:AttrDict):
-        if frame.prop not in self.type.validators:
+        userProp = frame.prop
+        value = frame.value
+        #trueProp = userProp
+        if userProp in self.type.names:
+            trueProp = self.type.names[userProp]
+            #print(userProp, trueProp)
+        else:
+            trueProp = userProp
+        frame.prop = trueProp
+        #print(trueProp)
+        if trueProp not in self.type.validators:
             return
-            #raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.name)
-        func = self.type.validators[frame.prop]
+        func = self.type.validators[trueProp]
         result = func(frame, frame.elem)
         if not result:
-            raise InvalidValueError(frame.elem.name, frame.prop, frame.value)
+            raise InvalidValueError(frame.elem.name, userProp, value)
         else:
             return
 
@@ -174,8 +269,10 @@ class ElementProtoype(ChainMap):
         
         store.add('elementName', self.qualName)
         
+        xyProps = ['x', 'y', 'position', 'xy', 'start']
+
         for prop, value in self.items():
-            if prop in ['x', 'y']:
+            if prop in xyProps:
                 continue
             if frame.container != 'layout' and prop in frame.container:
                 frame.containerValue = frame.container[prop]
@@ -191,7 +288,9 @@ class ElementProtoype(ChainMap):
         if hasattr(self.type, 'midGenerate'):
             self.type.midGenerate(elem)
 
-        for prop in ['x', 'y']:
+        for prop in xyProps:
+            if prop not in self:
+                continue
             #x and y need to be validated after width and height
             value = self[prop]
             if frame.container != 'layout' and prop in frame.container:
@@ -221,10 +320,18 @@ class Element():
         draw = validateDraw,
         x = validateXY,
         y = validateXY,
+        position = validateMany(2, x=validateXY, y=validateXY),
         width = validateHeightWidth,
         height = validateHeightWidth,
-        rotation = validateAngle
+        size = validateMany(2, width=validateHeightWidth, height=validateHeightWidth),
+        rotation = validateAngle,
     ))
+    names = ChainMap({
+        'xy': 'position',
+        'corner': 'position',
+        'angle': 'rotation',
+        'rotate': 'rotation',
+    })
 
     @staticmethod
     def paint(elem, painter, upperLect, size):
@@ -235,7 +342,7 @@ class LabelElement():
         text = '',
         fontFamily = 'Verdana',
         fontSize = '22pt',
-        color = 'black',
+        fontColor = 'black',
         wordWrap = 'yes',
         alignment = 'center top',
         italic = 'no',
@@ -249,16 +356,34 @@ class LabelElement():
         text = validateString,
         fontFamily = validateString,
         fontSize = validateFontSize,
-        color = validateString,
+        fontColor = validateString,
         wordWrap = validateToggle,
-        alignment = validateAlignment,
+        hAlignment = validateAlignmentUpdate,
+        vAlignment = validateAlignmentUpdate,
+        alignment = validateAlignmentSet,
         italic = validateToggle,
         bold = validateToggle,
         overline = validateToggle,
         underline = validateToggle,
         lineThrough = validateToggle,
-
+        decoration = validateDecoration,
+        #font - family, size, color
+        #decoration - for bold, underline, etc
     ))
+
+    names = Element.names.new_child({
+        'font-family': 'fontFamily',
+        'font': 'fontFamily',
+        'font-color': 'fontColor',
+        'color': 'fontColor',
+        'font-size': 'fontSize',
+        'word-wrap': 'wordWrap',
+        'align': 'alignment',
+        'h-align': 'hAlignment',
+        'v-align': 'vAlignment',
+        'line-through': 'lineThrough',
+        'line-thru': 'lineThrough',
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -275,10 +400,10 @@ class LabelElement():
             fontUnit = fontSize.unit
             fontSize = fontSize.num
         else:
-            fontUnit = fontSize.unit
+            fontUnit = 'px'
             fontSize = fontSize.toInt(dpi=dpi)
         style += f'font-size: {fontSize}{fontUnit};\n'
-        style += f'color: {elem.color};\n'
+        style += f'color: {elem.fontColor};\n'
         if elem.italic: style += 'font-style: italic;\n'
         if elem.bold: style += 'font-weight: bold;\n'
         if elem.overline: style += 'text-decoration: overline;\n'
@@ -289,7 +414,6 @@ class LabelElement():
         label.setText(re.sub(r'\n', '<br>', elem.text))
         painter.drawPixmap(upperLeft, label.grab())
 
-        # - should I allow pt and px? (extra validation)
 
 imageCache = {}
 def validateImage(frame, elem):
@@ -310,6 +434,11 @@ class ImageElement():
         source = validateImage,
         keepAspectRatio = validateToggle,
     ))
+
+    names = Element.names.new_child({
+        'keep-aspect-ratio': 'keepAspectRatio',
+        'keep-ratio': 'keepAspectRatio'
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -345,12 +474,18 @@ class ImageElement():
 
 class ImageBoxElement():
     defaults = ImageElement.defaults.new_child(dict(
-        alignment = 'center middle'
+        alignment = 'center middle',
     ))
 
     validators = ImageElement.validators.new_child(dict(
-        alignment = validateAlignment
+        hAlignment = validateAlignmentUpdate,
+        vAlignment = validateAlignmentUpdate,
+        alignment = validateAlignmentSet,
     ))
+
+    names = ImageElement.names.new_child({
+        'align': 'alignment'
+    })
     
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -387,6 +522,10 @@ class ImageBoxElement():
             elem.y += heightDif
         else:
             elem.y += heightDif/2
+        
+
+        elem.width = elem.source.width()
+        elem.height = elem.source.height()
 
 
 
@@ -394,6 +533,7 @@ class ShapeElement():
     defaults = Element.defaults.new_child(dict(
         lineColor = 'black',
         lineWidth = '0.01in',
+        lineStyle = 'solid',
         lineJoin = 'miter',
         lineCap = 'flat',
         fillColor = 'white',
@@ -401,11 +541,23 @@ class ShapeElement():
 
     validators = Element.validators.new_child(dict(
         lineColor = validateString,
+        lineStyle = validateLineStyle,
         lineWidth = validateNumber(),
         lineJoin = validateLineJoin,
         lineCap = validateLineCap,
         fillColor = validateString,
+        line = validateMany(3, lineStyle=validateLineStyle, lineWidth=validateNumber(), lineColor=validateString,
+            lineJoin=validateLineJoin, lineCap=validateLineCap)
     ))
+
+    names = Element.names.new_child({
+        'line-color': 'lineColor',
+        'line-width': 'lineWidth',
+        'line-style': 'lineStyle',
+        'line-join': 'lineJoin',
+        'line-cap': 'lineCap',
+        'fill-color': 'fillColor',
+    })
 
     @staticmethod
     def readyPainter(elem, painter:QPainter):
@@ -416,6 +568,7 @@ class ShapeElement():
             pen.setWidth(elem.lineWidth)
         pen.setCapStyle(elem.lineCap)
         pen.setJoinStyle(elem.lineJoin)
+        pen.setStyle(elem.lineStyle)
         painter.setPen(pen)
         painter.setBrush(QBrush(QColor(elem.fillColor)))
 
@@ -423,12 +576,19 @@ class RectangleElement():
     defaults = ShapeElement.defaults.new_child(dict(
         xRadius = '0px',
         yRadius = '0px',
+        #rename these
+        #corner radius: one value for both OR two values for x and y
     ))
 
     validators = ShapeElement.validators.new_child(dict(
         xRadius = validateNumber(),
         yRadius = validateNumber(),
+        radius = validateManyStretch(xRadius=validateNumber(), yRadius=validateNumber()),
     ))
+
+    names = ShapeElement.names.new_child({
+        'rounding': 'radius'
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -437,7 +597,12 @@ class RectangleElement():
 
 class EllipseElement():
     defaults = ShapeElement.defaults.new_child()
-    validators = ShapeElement.validators.new_child()
+    validators = ShapeElement.validators.new_child(dict(
+        diameter = validateManyStretch(width=validateHeightWidth, height=validateHeightWidth)
+    ))
+    names = ShapeElement.names.new_child()
+    #radius - r*2 for width and height
+    #diameter
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
@@ -461,7 +626,12 @@ class LineElement():
     validators = ShapeElement.validators.new_child(dict(
         x2 = validateXY,
         y2 = validateXY,
+        end = validateMany(2, x2=validateXY, y2=validateXY)
     ))
+
+    names = ShapeElement.names.new_child({
+        'start': 'position'
+    })
 
 
     @staticmethod
@@ -470,13 +640,13 @@ class LineElement():
         painter.resetTransform()
         painter.drawLine(elem.x, elem.y, elem.x2, elem.y2)
 
-elemClasses = dict(
-    none = Element,
-    label = LabelElement,
-    image = ImageElement,
-    imageBox = ImageBoxElement,
-    rect = RectangleElement,
-    ellipse = EllipseElement,
-    circle = EllipseElement,
-    line = LineElement
-)
+elemClasses = {
+    'none': Element,
+    'label': LabelElement,
+    'image': ImageElement,
+    'image-box': ImageBoxElement,
+    'rect': RectangleElement,
+    'ellipse': EllipseElement,
+    'circle': EllipseElement,
+    'line': LineElement
+}

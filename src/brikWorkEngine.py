@@ -88,11 +88,20 @@ class PDFSection(Section):
         render = validateToggle,
         xMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         yMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
+        margin = validateManyStretch(xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
+           yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)),
         border = Section.validateNumber(units=('in', 'mm'), out=Unit),
         pageSize = Section.validatePageSize,
         orientation = Section.validateOrientation,
         contentOnly = validateToggle,
     ))
+
+    names = ChainMap({
+        'x-margin': 'xMargin',
+        'y-margin': 'yMargin',
+        'page-size': 'pageSize',
+        'content-only': 'contentOnly',
+    })
 
     @staticmethod
     def postGenerate(layout, sec):
@@ -220,11 +229,15 @@ def buildLayout(filename):
         layout.pdf = AttrDict()
 
         for prop, value in pdfProto.items():
-            if prop not in PDFSection.validators:
+            if prop in PDFSection.names:
+                trueProp = PDFSection.names[prop]
+            else:
+                trueProp = prop
+            if trueProp not in PDFSection.validators:
                 raise bWError("'{prop}' is not a known property",
                 prop=prop, elem='pdf')
-            func = PDFSection.validators[prop]
-            frame.prop = prop
+            func = PDFSection.validators[trueProp]
+            frame.prop = trueProp
             frame.value = value
             result = func(frame, layout.pdf)
             if not result:
@@ -278,8 +291,8 @@ class AssetPainter():
         self.layout = layout
         self.store = BrikStore()
         if layout.data is not None:
-            self.store.add('assetTotal', str(len(layout.data)))
-            self.store.add('rowTotal', str(layout.data[-1]['rowIndex']))
+            self.store.add('asset-total', str(len(layout.data)))
+            self.store.add('row-total', str(layout.data[-1]['row-index']))
        
         self.store.briks.update(self.layout.userBriks)
 
@@ -393,9 +406,9 @@ class AssetPainter():
         if assetAcross == 0 or assetDown == 0:
             raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
 
-        assetPages = len(self.images)/(assetAcross*assetDown)
-        if assetPages - int(assetPages) > 0:
-            assetPages = int(assetPages) + 1
+        assetPages, mod = divmod(len(self.images), assetAcross*assetDown)
+        if mod > 0:
+            assetPages += 1
         
         pdfWriter = QPdfWriter(pdf.name)
         self._pdf = pdfWriter
@@ -406,7 +419,7 @@ class AssetPainter():
         pdfPainter = QPainter()
         result = pdfPainter.begin(pdfWriter)
         if not result:
-            raise bWError("failed to render pdf, no reason could be found. Maybe jsut try again?", file=self.layout.filename)
+            raise bWError("failed to render pdf, is the file open elsewhere?", file=self.layout.filename)
 
         assetsSeen = 0
         #print(assetDown, assetAcross, assetPages)
@@ -458,56 +471,42 @@ class AssetPainter():
                 output=self.layout.output, layout=self.layout.filename)
         os.chdir(path)
 
+assetI = 'asset-index'
+assetT = 'asset-total'
+rowI = 'row-index'
+rowT = 'row-total'
+repeatI = 'repeat-index'
+repeatT = 'repeat-total'
+
 def parseData(data):
 
-    ##data = parseCSV(rows)
-    #parser = CSVParser(rows)
-    #data = parser.parseCSV()
     if data is None:
         return None
-        
+
     newData = []
 
     if 'repeat' in data[0]:
         assetIndex = 1
         rowIndex = 1
-        for row in data:
-            #I'm hard coding the names of the count and index
-            #briks here, not a fan of that really
+        for row in data: #change to enumerate?
             
             repeatTotal = row.pop('repeat')
             if repeatTotal == '1':
-                newData.append(dict(
-                    assetIndex=str(assetIndex),
-                    rowIndex=str(rowIndex),
-                    repeatIndex='1',
-                    repeatTotal=repeatTotal) | row
-                )
-            
+                counts = {assetI:str(assetIndex), rowI:str(rowIndex), repeatI:'1', repeatT:repeatTotal}
+                newData.append(row | counts)
+                assetIndex += 1
+                rowIndex += 1
             else:
                 for repeat in range(int(repeatTotal)):
-                    newData.append(dict(
-                        assetIndex=str(assetIndex),
-                        rowIndex=str(rowIndex),
-                        repeatIndex=str(repeat+1),
-                        repeatTotal=repeatTotal) | row
-                    )
+                    counts = {assetI:str(assetIndex), rowI:str(rowIndex), repeatI:str(repeat+1), repeatT:repeatTotal}
+                    newData.append(row | counts)
                     assetIndex += 1
                 rowIndex += 1
-                continue
-                #this continue is to avoid weird inc placement
-            
-            assetIndex += 1
-            rowIndex += 1
 
     else:
         for index, row in enumerate(data):
-            newData.append(dict(
-                assetIndex=str(index+1),
-                rowIndex=str(index+1),
-                repeatIndex='1',
-                repeatTotal='1') | row
-            )
+            counts = {assetI:str(index+1), rowI:str(index+1), repeatI:'1', repeatT:'1'}
+            newData.append(row | counts)
 
     return newData
 

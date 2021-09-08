@@ -7,8 +7,7 @@ briks {
 }
 portrait {
     type: image
-    x: center
-    y: center
+    position: center center
     source: images/[color][royal].png
 }
 #okay, these are chess pieces, and the jack is the knight, but I already had these
