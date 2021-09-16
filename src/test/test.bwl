@@ -1,7 +1,7 @@
 layout {
     width: 2.25in
     height: 3.1/2in
-    name: test[asset-index].png
+    #name: test[asset-index].png
     output: out/
     #data: test.csv
     dpi: 300
@@ -9,10 +9,15 @@ layout {
 
     template: template.bwl
 }
-pdf {
-    border: 0.01in
-    #margin: 1in
+export {
+    #pdf {
+        margin: 1in
+    #}
 }
+#pdf {
+#    border: 0.01in
+#    #margin: 1in
+#}
 
 defaults {
     #fontFamily: Times New Roman

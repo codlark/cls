@@ -35,7 +35,7 @@ class Section():
     @staticmethod
     def validateName(frame, sec):
         if '[' not in frame.value:
-            sec[frame.prop] = '[assetIndex]'+frame.value
+            sec[frame.prop] = '[asset-index]'+frame.value
         else:
             sec[frame.prop] = frame.value
         return True
@@ -110,16 +110,30 @@ class BulkExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
         name = 'asset.png',
     ))
-    validators = ExportSection.validators.new_child(dict())
+    validators = ExportSection.validators.new_child(dict(
+        name = Section.validateName,
+    ))
     names = ExportSection.names.new_child({})
 
     @staticmethod
     def postGenerate(layout, sec):
-        if sec.name == '':
-            sec.name = os.path.splitext(os.path.basename(layout.filename))[0] + '.png'
+        layout.assetName = sec.name
+    
+
+    @staticmethod
+    def export(painter, bulk):
+        try:
+            for image, name in painter.images:
+                print(name)
+                image.save(name)
+        except OSError:
+            #os.chdir(path)
+            raise bWError("failed to save image '{asset}' to {ouput}",
+                output=painter.layout.output, layout=painter.layout.filename, asset=name
+            )
         
 
-class PDFSection(ExportSection):
+class PDFExport(ExportSection):
 
     defaults = ExportSection.defaults.new_child(dict(
         xMargin = '.25in',
@@ -132,8 +146,10 @@ class PDFSection(ExportSection):
     validators = ExportSection.validators.new_child(dict(
         xMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         yMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        margin = validateManyStretch(xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
-           yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)),
+        margin = validateManyStretch(
+            xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
+           yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)
+        ),
         border = Section.validateNumber(units=('in', 'mm'), out=Unit),
         pageSize = Section.validatePageSize,
         orientation = Section.validateOrientation,
@@ -152,6 +168,96 @@ class PDFSection(ExportSection):
         
         if sec.name == '':
             sec.name = os.path.splitext(os.path.basename(layout.filename))[0] + '.pdf'
+    
+    @staticmethod
+    def export(painter, pdf):
+        
+        dpi = painter.layout.dpi
+        border = pdf.border.toInt(dpi=dpi)
+        #print(pdf)
+        
+        if pdf.xMargin.unit == 'in':
+            unit = QPageLayout.Inch
+        elif pdf.xMargin.unit == 'mm':
+            unit = QPageLayout.Millimeter
+
+        xMargin = pdf.xMargin.num
+        yMargin = pdf.yMargin.num
+        
+        pageLayout = QPageLayout()
+        pageLayout.setPageSize(QPageSize(pdf.pageSize))
+        pageLayout.setOrientation(pdf.orientation)
+        pageLayout.setUnits(unit)
+        pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
+
+        assetUnitWidth = painter.layout.widthUnit
+        assetUnitHeight = painter.layout.heightUnit
+        assetXOfs = 0
+        assetYOfs = 0
+
+        if pdf.contentOnly and 'content' in painter.layout.elements:
+            content = painter.layout.elements['content']
+            contentWidth = Unit.fromStr(content['width'])
+            contentHeight = Unit.fromStr(content['height'])
+            contentX = Unit.fromStr(content['x'])
+            contentY = Unit.fromStr(content['y'])
+            if None in (contentWidth, contentHeight, contentX, contentY):
+                raise bWError("content position and size can't use briks", layout=layout.filename)
+            if contentWidth.unit == contentHeight.unit:
+                assetUnitWidth = contentWidth
+                assetUnitHeight = contentHeight
+                assetXOfs = contentX.toInt(dpi=dpi)
+                assetYOfs = contentY.toInt(dpi=dpi)
+        
+        assetWidth = assetUnitWidth.toInt(dpi=dpi)
+        assetHeight = assetUnitHeight.toInt(dpi=dpi)
+        assetAcross = int(pageLayout.paintRectPixels(dpi).width() // assetWidth)
+        assetDown = int(pageLayout.paintRectPixels(dpi).height() // assetHeight)
+
+        if assetAcross == 0 or assetDown == 0:
+            raise bWError("failed to render PDF, asset too large for printable area", file=painter.layout.filename)
+
+        assetPages, mod = divmod(len(painter.images), assetAcross*assetDown)
+        if mod > 0:
+            assetPages += 1
+        
+        pdfWriter = QPdfWriter(pdf.name)
+        painter._pdf = pdfWriter
+        pdfWriter.setPageLayout(pageLayout)
+        pdfWriter.setResolution(dpi)
+        pdfWriter.setCreator('brikWork')
+
+        pdfPainter = QPainter()
+        result = pdfPainter.begin(pdfWriter)
+        if not result:
+            raise bWError("failed to render pdf, is the file open elsewhere?", file=painter.layout.filename)
+
+        assetsSeen = 0
+        #print(assetDown, assetAcross, assetPages)
+        limit = len(painter.images)
+        for page in range(assetPages):
+            for down in range(assetDown):
+                
+                for across in range(assetAcross):
+                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, painter.images[assetsSeen][0],
+                        assetXOfs, assetYOfs, assetWidth, assetHeight
+                    )
+                    if border > 0:
+                        pen = QPen()
+                        pen.setWidth(border)
+                        pdfPainter.setPen(pen)
+                        pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
+                    assetsSeen += 1
+                    if assetsSeen == limit:
+                        break #down
+                
+                if assetsSeen == limit:
+                    break #across
+            
+            if assetsSeen == limit:
+                break #page
+            
+            pdfWriter.newPage()
 
 class TTSExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
@@ -168,13 +274,20 @@ class TTSExport(ExportSection):
     ))
     names = ExportSection.names.new_child({})
 
+    @staticmethod
+    def postGenerate(layout, sec):
+        pass
+
+exportTypes = [
+    Collection(name='bulk', type=BulkExport),
+    Collection(name='pdf', type=PDFExport),
+]
 
 class LayoutSection(Section):
 
     defaults = ChainMap(dict(
         width = '1in',
         height = '1in',
-        name = 'asset.png',
         output = '',
         data = '',
         dpi = '300',
@@ -185,7 +298,6 @@ class LayoutSection(Section):
         width = Section.validateNumber(units=('in', 'mm'), out=Unit),
         height = Section.validateNumber(units=('in', 'mm'), out=Unit),
         size = validateMany(2, width=Section.validateNumber(units=('in', 'mm'), out=Unit), height=Section.validateNumber(units=('in', 'mm'), out=Unit)),
-        name = Section.validateName,
         output = Section.validateString,
         data = Section.validateString,
         dpi = Section.validateNumber(units=('px'), out=int),
@@ -278,32 +390,43 @@ def buildLayout(filename):
         
     else:
         layout.data = None
-        
-    #pdf
-    if 'pdf' in sections:
-        pdfProto = PDFSection.defaults.new_child(sections['pdf'])
-        frame = AttrDict()
-        layout.pdf = AttrDict()
 
-        for prop, value in pdfProto.items():
-            if prop in PDFSection.names:
-                trueProp = PDFSection.names[prop]
+    #export
+    if 'export' in sections:
+        exportSec = sections['export'].pop('children')
+        exportDefs = sections['export']
+    else:
+        exportSec = {}
+        exportDefs = {}
+    layout.export = exportSec
+    
+    for exporter in exportTypes:
+        if exporter.name in exportSec:
+            proto = exporter.type.defaults.new_child(exportSec[exporter.name])
+            proto.maps.insert(1, exportDefs)
+        else:
+            proto = exporter.type.defaults.new_child(exportDefs)
+        frame = AttrDict()
+        section = AttrDict()
+        exportSec[exporter.name] = section
+
+        for prop, value in proto.items():
+            if prop == 'children':
+                continue
+            if prop in exporter.type.names:
+                trueProp = exporter.type.names[prop]
             else:
                 trueProp = prop
-            if trueProp not in PDFSection.validators:
-                raise bWError("'{prop}' is not a known property",
-                prop=prop, elem='pdf')
-            func = PDFSection.validators[trueProp]
+            if trueProp not in exporter.type.validators:
+                continue
+            func = exporter.type.validators[trueProp]
             frame.prop = trueProp
             frame.value = value
-            result = func(frame, layout.pdf)
+            result = func(frame, section)
             if not result:
-                raise InvalidValueError('pdf', prop, value)
-
-        PDFSection.postGenerate(layout, layout.pdf)
-
-    else:
-        layout.pdf = None
+                raise InvalidValueError(exporter.name, prop, value)
+        exporter.type.postGenerate(layout, section)
+        
 
     #defaults
     if 'defaults' in sections:
@@ -398,14 +521,13 @@ class AssetPainter():
 
         return image
 
-    
 
     def paint(self):
         '''paint a set of assets based on the current layout and data file.'''
 
         if self.layout.data is None:
                 image = self.paintAsset()
-                name = self.store.parse(self.layout.name)
+                name = self.store.parse(self.layout.assetName)
                 self.images.append((image, name))
 
         else:
@@ -413,100 +535,9 @@ class AssetPainter():
                 #TODO figure out a better way to do this
                 self.store.briks.update(row)
                 image = self.paintAsset()
-                name = evalEscapes(self.store.parse(self.layout.name))
+                name = evalEscapes(self.store.parse(self.layout.assetName))
                 self.images.append((image, name))
                 #self.image.save(os.path.join(self.layout.output, name))
-
-
-    def makePdf(self):
-        # TODO put in PDFSection
-        pdf = self.layout.pdf
-        dpi = self.layout.dpi
-        border = pdf.border.toInt(dpi=dpi)
-        #print(pdf)
-        
-        if pdf.xMargin.unit == 'in':
-            unit = QPageLayout.Inch
-        elif pdf.xMargin.unit == 'mm':
-            unit = QPageLayout.Millimeter
-
-        xMargin = pdf.xMargin.num
-        yMargin = pdf.yMargin.num
-        
-        pageLayout = QPageLayout()
-        pageLayout.setPageSize(QPageSize(pdf.pageSize))
-        pageLayout.setOrientation(pdf.orientation)
-        pageLayout.setUnits(unit)
-        pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
-
-        assetUnitWidth = self.layout.widthUnit
-        assetUnitHeight = self.layout.heightUnit
-        assetXOfs = 0
-        assetYOfs = 0
-
-        if pdf.contentOnly and 'content' in self.layout.elements:
-            content = self.layout.elements['content']
-            contentWidth = Unit.fromStr(content['width'])
-            contentHeight = Unit.fromStr(content['height'])
-            contentX = Unit.fromStr(content['x'])
-            contentY = Unit.fromStr(content['y'])
-            if None in (contentWidth, contentHeight, contentX, contentY):
-                raise bWError("content position and size can't use briks", layout=layout.filename)
-            if contentWidth.unit == contentHeight.unit:
-                assetUnitWidth = contentWidth
-                assetUnitHeight = contentHeight
-                assetXOfs = contentX.toInt(dpi=dpi)
-                assetYOfs = contentY.toInt(dpi=dpi)
-        
-        assetWidth = assetUnitWidth.toInt(dpi=dpi)
-        assetHeight = assetUnitHeight.toInt(dpi=dpi)
-        assetAcross = int(pageLayout.paintRectPixels(dpi).width() // assetWidth)
-        assetDown = int(pageLayout.paintRectPixels(dpi).height() // assetHeight)
-
-        if assetAcross == 0 or assetDown == 0:
-            raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
-
-        assetPages, mod = divmod(len(self.images), assetAcross*assetDown)
-        if mod > 0:
-            assetPages += 1
-        
-        pdfWriter = QPdfWriter(pdf.name)
-        self._pdf = pdfWriter
-        pdfWriter.setPageLayout(pageLayout)
-        pdfWriter.setResolution(dpi)
-        pdfWriter.setCreator('brikWork')
-
-        pdfPainter = QPainter()
-        result = pdfPainter.begin(pdfWriter)
-        if not result:
-            raise bWError("failed to render pdf, is the file open elsewhere?", file=self.layout.filename)
-
-        assetsSeen = 0
-        #print(assetDown, assetAcross, assetPages)
-        limit = len(self.images)
-        for page in range(assetPages):
-            for down in range(assetDown):
-                
-                for across in range(assetAcross):
-                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0],
-                        assetXOfs, assetYOfs, assetWidth, assetHeight
-                    )
-                    if border > 0:
-                        pen = QPen()
-                        pen.setWidth(border)
-                        pdfPainter.setPen(pen)
-                        pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
-                    assetsSeen += 1
-                    if assetsSeen == limit:
-                        break #down
-                
-                if assetsSeen == limit:
-                    break #across
-            
-            if assetsSeen == limit:
-                break #page
-            
-            pdfWriter.newPage()
 
 
     def save(self):
@@ -530,6 +561,27 @@ class AssetPainter():
                 raise bWError('failed to save images to {ouput}',
                 output=self.layout.output, layout=self.layout.filename)
         os.chdir(path)
+    
+    def export(self, target='bulk'):
+        '''save the generated images.'''
+        path = os.getcwd()
+        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
+            try:
+                os.mkdir(self.layout.output)
+            except IOError:
+                os.chdir(path)
+                raise bWError("failed to make output directory", file=self.layout.filename)
+        os.chdir(os.path.realpath(self.layout.output))
+
+        try:
+            if target == 'bulk':
+                BulkExport.export(self, self.layout.export['bulk'])
+            elif target == 'pdf':
+                PDFExport.export(self, self.layout.export['pdf'])
+        finally:
+            os.chdir(path)
+
+        #os.chdir(path)
 
 assetI = 'asset-index'
 assetT = 'asset-total'

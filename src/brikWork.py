@@ -109,23 +109,6 @@ def saveFunc():
     else:
         window.textLog.append('unable to save, no layout is presnt')
 
-#@Slot()
-#def nextFunc():
-#    asset = state.asset + 1
-#    if state.painter is None:
-#        return
-#    if asset == len(state.painter.images):
-#        return
-#    state.asset = asset
-#    setImage()
-
-#@Slot()
-#def prevFunc():
-#    if state.asset == 0:
-#        return
-#    state.asset -= 1
-#    setImage()
-
 @Slot()
 def spinChangeFunc(val):
     if state.painter is None:
@@ -134,12 +117,19 @@ def spinChangeFunc(val):
     setImage()
 
 @Slot()
-def makePDF():
-    state.pdf = QPdfWriter("output.pdf")
-    state.pdf.setResolution(300)
-    state.pdf.setPageSize(QPageSize(QPageSize.Letter))
-    painter = QPainter(state.pdf)
-    painter.drawPixmap(QPoint(20,20), QPixmap.fromImage(state.painter.images[0][0]))
+def exportFunc():
+    if state.painter is not None:
+        app.setOverrideCursor(waitCursor)
+        try:
+            state.painter.export(state.exportChoice.currentText())
+        except bWError as e:
+            window.textLog.append(e.message)
+        else:
+            window.textLog.append(f"saved assets to {state.layout.output}")
+        finally:
+            app.setOverrideCursor(arrowCursor)
+    else:
+        window.textLog.append('unable to save, no layout is present')
     
 
 class MainWindow(QMainWindow):
@@ -180,9 +170,9 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(reloadAct)
         reloadAct.triggered.connect(reloadFunc)
 
-        saveAct = QAction('Save Assets', parent=self)
-        self.toolbar.addAction(saveAct)
-        saveAct.triggered.connect(saveFunc)
+        #saveAct = QAction('Save Assets', parent=self)
+        #self.toolbar.addAction(saveAct)
+        #saveAct.triggered.connect(saveFunc)
 
         self.toolbar.addWidget(QLabel("Current Asset ", parent=self))
 
@@ -191,9 +181,22 @@ class MainWindow(QMainWindow):
         state.assetSpin.valueChanged.connect(spinChangeFunc)
         state.assetSpin.setRange(1,1)
 
-        #printAct = QAction('print', parent=self)
-        #self.toolbar.addAction(printAct)
-        #printAct.triggered.connect(makePDF)
+        self.toolbar.addWidget(QLabel('Export Target '))
+
+        state.exportChoice = QComboBox(self)
+        self.toolbar.addWidget(state.exportChoice)
+        state.exportChoice.addItems(['bulk', 'pdf'])
+        state.exportChoice.setEditable(False)
+
+        exportAct = QAction('Export', parent=self)
+        self.toolbar.addAction(exportAct)
+        exportAct.triggered.connect(exportFunc)
+
+        #exportBulkAct = QAction('bulk', parent=self)
+        #self.toolbar.addAction(exportBulkAct)
+        #exportBulkAct.triggered.connect(exportFunc, 'bulk')
+
+
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
