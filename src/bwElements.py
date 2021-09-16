@@ -34,6 +34,14 @@ def validateToggle(frame, elem):
     elem[frame.prop] = value
     return True
 
+def validateChoices(choices):
+    def validator(frame, elem):
+        if frame.value.lower() not in choices:
+            return False
+        elem[frame.prop] = choices[frame.value.lower()]
+        return True
+    return validator
+
 def validateMany(min, **props):
     def validator(frame, elem):
         values = frame.value.split()
@@ -197,28 +205,6 @@ def validateDecoration(frame, elem):
             return False
     return True
 
-
-def validateLineJoin(frame, elem):
-    joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
-    if frame.value.lower() not in joins:
-        return False
-    elem[frame.prop] = joins[frame.value.lower()]
-    return True
-
-def validateLineCap(frame, elem):
-    caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
-    if frame.value.lower() not in caps:
-        return False
-    elem[frame.prop] = caps[frame.value.lower()]
-    return True
-
-def validateLineStyle(frame, elem):
-    styles = {'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dot': Qt.DotLine,
-    'dash-dot': Qt.DashDotLine, 'dot-dash': Qt.DashDotLine}
-    if frame.value.lower() not in styles:
-        return False
-    elem[frame.prop] = styles[frame.value.lower()]
-    return True
 
 class ElementProtoype(ChainMap):
     '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
@@ -428,16 +414,26 @@ class ImageElement():
         height = '0px',
         source = '',
         keepAspectRatio = 'yes',
+        scaleWidth = '0',
+        scaleHeight = '0'
     ))
 
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
+        scaleWidth = validateNumber(units=('', '%'), out=Unit),
+        scaleHeight = validateNumber(units=('','%'), out=Unit),
+        scale = validateManyStretch(
+            scaleWidth=validateNumber(units=('','%'), out=Unit),
+            scaleHeight=validateNumber(units=('','%'), out=Unit)
+        )
     ))
 
     names = Element.names.new_child({
         'keep-aspect-ratio': 'keepAspectRatio',
-        'keep-ratio': 'keepAspectRatio'
+        'keep-ratio': 'keepAspectRatio',
+        'scale-width': 'scaleWidth',
+        'scale-height': 'scaleHeight',
     })
 
     @staticmethod
@@ -453,6 +449,22 @@ class ImageElement():
             aspect = Qt.IgnoreAspectRatio
 
         if elem.width == 0 and elem.height == 0:
+
+            if elem.scaleWidth.num != 0 and elem.scaleHeight.num != 0:
+                width = elem.source.width()
+                height = elem.source.height()
+                if elem.scaleWidth.unit == '%':
+                    newWidth = elem.scaleWidth.toInt(whole=width)
+                else:
+                    newWidth = elem.scaleWidth.num * width
+                
+                if elem.scaleHeight.unit == '%':
+                    newHeight = elem.scaleHeight.toInt(whole=height)
+                else:
+                    newHeight = elem.scaleHeight.num * width
+
+                elem.source = elem.source.scaled(int(newWidth), int(newHeight), aspect, scaleMode)
+            
             elem.width = elem.source.width()
             elem.height = elem.source.height()
         elif elem.keepAspectRatio:
@@ -470,7 +482,6 @@ class ImageElement():
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
         
         elem.source = QPixmap.fromImage(elem.source)
-    
 
 class ImageBoxElement():
     defaults = ImageElement.defaults.new_child(dict(
@@ -484,12 +495,32 @@ class ImageBoxElement():
     ))
 
     names = ImageElement.names.new_child({
-        'align': 'alignment'
+        'align': 'alignment',
+        'h-align': 'hAlignment',
+        'v-align': 'vAlignment',
     })
     
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
-        painter.drawPixmap(upperLeft, elem.source)
+
+        widthDif = abs(elem.source.width()-elem.width)
+        heightDif = abs(elem.source.height()-elem.height)
+        
+        if elem.alignment & Qt.AlignLeft:
+            xOfs = 0
+        elif elem.alignment & Qt.AlignRight:
+            xOfs = widthDif
+        else: #center or justify
+            xOfs = widthDif/2
+        
+        if elem.alignment & Qt.AlignTop:
+            yOfs = 0
+        elif elem.alignment & Qt.AlignBottom:
+            yOfs = heightDif
+        else:
+            yOfs = heightDif/2
+
+        painter.drawPixmap(upperLeft+QPoint(xOfs, yOfs), elem.source)
     
     @staticmethod
     def midGenerate(elem):
@@ -499,35 +530,31 @@ class ImageBoxElement():
         else:
             aspect = Qt.IgnoreAspectRatio
 
+        if elem.scaleWidth.num != 0 and elem.scaleHeight.num != 0:
+            width = elem.source.width()
+            height = elem.source.height()
+            if elem.scaleWidth.unit == '%':
+                newWidth = elem.scaleWidth.toInt(whole=width)
+            else:
+                newWidth = elem.scaleWidth.num * width
+            
+            if elem.scaleHeight.unit == '%':
+                newHeight = elem.scaleHeight.toInt(whole=height)
+            else:
+                newHeight = elem.scaleHeight.num * width
+
+            elem.source = elem.source.scaled(int(newWidth), int(newHeight), aspect, scaleMode)
+
         if elem.source.width() > elem.width or elem.source.height() > elem.height:
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
 
         elem.source = QPixmap.fromImage(elem.source)
 
-    @staticmethod
-    def postGenerate(elem):
-        widthDif = abs(elem.source.width()-elem.width)
-        heightDif = abs(elem.source.height()-elem.height)
 
-        if elem.alignment & Qt.AlignLeft:
-            pass
-        elif elem.alignment & Qt.AlignRight:
-            elem.x += widthDif
-        else: #center or justify
-            elem.x += widthDif/2
-        
-        if elem.alignment & Qt.AlignTop:
-            pass
-        elif elem.alignment & Qt.AlignBottom:
-            elem.y += heightDif
-        else:
-            elem.y += heightDif/2
-        
-
-        elem.width = elem.source.width()
-        elem.height = elem.source.height()
-
-
+validateLineJoin = validateChoices({'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin})
+validateLineCap = validateChoices({'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap})
+validateLineStyle = validateChoices({'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dot': Qt.DotLine,
+    'dash-dot': Qt.DashDotLine, 'dot-dash': Qt.DashDotLine})
 
 class ShapeElement():
     defaults = Element.defaults.new_child(dict(

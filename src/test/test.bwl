@@ -10,7 +10,8 @@ layout {
     template: template.bwl
 }
 pdf {
-    margin: 1in
+    border: 0.01in
+    #margin: 1in
 }
 
 defaults {

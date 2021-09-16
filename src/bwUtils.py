@@ -364,8 +364,6 @@ class LayoutParser():
 
     def parseSection(self, elem):
         '''parses the contents of a section
-        if top is True the section is ended at end of string
-        if Flase, the default, the section is ended on }
         parsing includes both properties and sub sections
         don't call directly'''
         accum = []
@@ -521,6 +519,8 @@ class LayoutParser():
                     layout['sections'][name] = self.parseProps(name)
                 elif name == 'briks':
                     layout['sections'][name] = self.parseUserBriks()
+                elif name == 'export':
+                    layout['sections'][name] = self.parseSection(name)
                 elif name == 'data':
                     layout['sections'][name] = self.parseNil(name)
                 else:

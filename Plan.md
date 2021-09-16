@@ -5,7 +5,6 @@
 
 for 0.6 - elements and values
  - font from files
- - css style shortcut properties, like `radius = 5` to set both radii on rect
  - texture element type that allows you yo specify a specific area of the images to draw
  - list value - `(1, 2, 3, 4, 5)` `(1:2:3:4:5)`
  - - briks like `dup` and `in` can make use of this

@@ -41,6 +41,29 @@ class Section():
         return True
     
     @staticmethod
+    def validateRangeNumber(range, signs='+', units=('px', 'in', 'mm'), out=int):
+        def validate(frame, sec):
+            num = Unit.fromStr(frame.value, signs, units)
+            if num is None:
+                return False
+            else:
+                if out == int:
+                    value = num.toInt()
+                    if value < range[0] or value > range[1]:
+                        return False
+                elif out == float:
+                    value = num.toFloat()
+                    if value < range[0] or value > range[1]:
+                        return False
+                else:
+                    if num.num < range[0] or num.num > range[1]:
+                        return False
+                    value = num
+                sec[frame.prop] = value
+                return True
+        return validate
+
+    @staticmethod
     def validatePageSize(frame, sec):
         if frame.value.lower() == 'letter':
             sec[frame.prop] = QPageSize.Letter
@@ -70,22 +93,43 @@ class Section():
             sec[frame.prop] = frame.value.lower()
             return True
 
-class PDFSection(Section):
-
+class ExportSection():
     defaults = ChainMap(dict(
-        name = '',
-        render ='yes',
+        contentOnly = 'yes',
+        name='',
+    ))
+    validators = ChainMap(dict(
+        name = Section.validateString,
+        contentOnly = validateToggle,
+    ))
+    names = ChainMap({
+        'content-only': 'contentOnly'
+    })
+
+class BulkExport(ExportSection):
+    defaults = ExportSection.defaults.new_child(dict(
+        name = 'asset.png',
+    ))
+    validators = ExportSection.validators.new_child(dict())
+    names = ExportSection.names.new_child({})
+
+    @staticmethod
+    def postGenerate(layout, sec):
+        if sec.name == '':
+            sec.name = os.path.splitext(os.path.basename(layout.filename))[0] + '.png'
+        
+
+class PDFSection(ExportSection):
+
+    defaults = ExportSection.defaults.new_child(dict(
         xMargin = '.25in',
         yMargin = '.25in',
         border = '0.01in',
         pageSize = 'letter',
         orientation = 'portrait',
-        contentOnly = 'false',
     ))
 
-    validators = ChainMap(dict(
-        name = Section.validateString,
-        render = validateToggle,
+    validators = ExportSection.validators.new_child(dict(
         xMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         yMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         margin = validateManyStretch(xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
@@ -93,25 +137,37 @@ class PDFSection(Section):
         border = Section.validateNumber(units=('in', 'mm'), out=Unit),
         pageSize = Section.validatePageSize,
         orientation = Section.validateOrientation,
-        contentOnly = validateToggle,
     ))
 
-    names = ChainMap({
+    names = ExportSection.names.new_child({
         'x-margin': 'xMargin',
         'y-margin': 'yMargin',
         'page-size': 'pageSize',
-        'content-only': 'contentOnly',
     })
 
     @staticmethod
     def postGenerate(layout, sec):
         if sec.xMargin.unit != sec.yMargin.unit:
             raise bWError("pdf margins must use the same unit", file=layout.filename)
-        if layout.widthUnit.unit != sec.xMargin.unit:
-            raise bWError("magins and layout size must be defined in the same units", file=layout.filename)
         
         if sec.name == '':
             sec.name = os.path.splitext(os.path.basename(layout.filename))[0] + '.pdf'
+
+class TTSExport(ExportSection):
+    defaults = ExportSection.defaults.new_child(dict(
+        across = '10',
+        down = '7',
+    ))
+    validators = ExportSection.validators.new_child(dict(
+        across = Section.validateRangeNumber((2, 10), units=('',)),
+        down = Section.validateRangeNumber((2, 7), units=('',)),
+        size = validateMany(2,
+            across=Section.validateRangeNumber((2, 10), units=('',)), 
+            down=Section.validateRangeNumber((2, 7), units=('',))
+        )
+    ))
+    names = ExportSection.names.new_child({})
+
 
 class LayoutSection(Section):
 
@@ -128,6 +184,7 @@ class LayoutSection(Section):
     validators = ChainMap(dict(
         width = Section.validateNumber(units=('in', 'mm'), out=Unit),
         height = Section.validateNumber(units=('in', 'mm'), out=Unit),
+        size = validateMany(2, width=Section.validateNumber(units=('in', 'mm'), out=Unit), height=Section.validateNumber(units=('in', 'mm'), out=Unit)),
         name = Section.validateName,
         output = Section.validateString,
         data = Section.validateString,
@@ -362,7 +419,10 @@ class AssetPainter():
 
 
     def makePdf(self):
+        # TODO put in PDFSection
         pdf = self.layout.pdf
+        dpi = self.layout.dpi
+        border = pdf.border.toInt(dpi=dpi)
         #print(pdf)
         
         if pdf.xMargin.unit == 'in':
@@ -374,9 +434,9 @@ class AssetPainter():
         yMargin = pdf.yMargin.num
         
         pageLayout = QPageLayout()
-        pageLayout.setUnits(unit)
         pageLayout.setPageSize(QPageSize(pdf.pageSize))
         pageLayout.setOrientation(pdf.orientation)
+        pageLayout.setUnits(unit)
         pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
 
         assetUnitWidth = self.layout.widthUnit
@@ -390,18 +450,18 @@ class AssetPainter():
             contentHeight = Unit.fromStr(content['height'])
             contentX = Unit.fromStr(content['x'])
             contentY = Unit.fromStr(content['y'])
-            if contentWidth.unit == contentHeight.unit \
-              and contentWidth.unit == contentX.unit\
-              and contentWidth.unit == pdf.xMargin.unit:
+            if None in (contentWidth, contentHeight, contentX, contentY):
+                raise bWError("content position and size can't use briks", layout=layout.filename)
+            if contentWidth.unit == contentHeight.unit:
                 assetUnitWidth = contentWidth
                 assetUnitHeight = contentHeight
-                assetXOfs = contentX.toInt(dpi=self.layout.dpi)
-                assetYOfs = contentY.toInt(dpi=self.layout.dpi)
+                assetXOfs = contentX.toInt(dpi=dpi)
+                assetYOfs = contentY.toInt(dpi=dpi)
         
-        assetWidth = assetUnitWidth.toInt(dpi=self.layout.dpi)
-        assetHeight = assetUnitHeight.toInt(dpi=self.layout.dpi)
-        assetAcross = int(pageLayout.paintRect().width() // assetUnitWidth.num)
-        assetDown = int(pageLayout.paintRect().height() // assetUnitHeight.num)
+        assetWidth = assetUnitWidth.toInt(dpi=dpi)
+        assetHeight = assetUnitHeight.toInt(dpi=dpi)
+        assetAcross = int(pageLayout.paintRectPixels(dpi).width() // assetWidth)
+        assetDown = int(pageLayout.paintRectPixels(dpi).height() // assetHeight)
 
         if assetAcross == 0 or assetDown == 0:
             raise bWError("failed to render PDF, asset too large for printable area", file=self.layout.filename)
@@ -413,7 +473,7 @@ class AssetPainter():
         pdfWriter = QPdfWriter(pdf.name)
         self._pdf = pdfWriter
         pdfWriter.setPageLayout(pageLayout)
-        pdfWriter.setResolution(self.layout.dpi)
+        pdfWriter.setResolution(dpi)
         pdfWriter.setCreator('brikWork')
 
         pdfPainter = QPainter()
@@ -431,9 +491,9 @@ class AssetPainter():
                     pdfPainter.drawImage(across*assetWidth, down*assetHeight, self.images[assetsSeen][0],
                         assetXOfs, assetYOfs, assetWidth, assetHeight
                     )
-                    if pdf.border.num > 0:
+                    if border > 0:
                         pen = QPen()
-                        pen.setWidth(pdf.border.toInt(dpi=self.layout.dpi))
+                        pen.setWidth(border)
                         pdfPainter.setPen(pen)
                         pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
                     assetsSeen += 1
