@@ -4,8 +4,7 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from bwUtils import *
 
-__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",
-    "validateMany", "validateManyStretch"]
+__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
 
 def validateString(frame, elem):
     elem[frame.prop] = evalEscapes(frame.value)
@@ -39,43 +38,6 @@ def validateChoices(choices):
         if frame.value.lower() not in choices:
             return False
         elem[frame.prop] = choices[frame.value.lower()]
-        return True
-    return validator
-
-def validateMany(min, **props):
-    def validator(frame, elem):
-        values = frame.value.split()
-        if len(values) < min:
-            return False
-        for i, (prop, valid) in enumerate(props.items()):
-            frame.prop = prop
-            frame.value = values[i]
-            ret = valid(frame, elem)
-            if ret is False:
-                return False
-        return True
-        
-    return validator
-
-def validateManyStretch(**props):
-    def validator(frame, elem):
-        values = frame.value.split()
-        if len(values) == 1:
-            frame.value = values[0]
-            for prop, valid in props.items():
-                frame.prop = prop
-                ret = valid(frame, elem)
-                if ret is False:
-                    return False
-        elif len(values) == len(props):
-            for i, (prop, valid) in enumerate(props.items()):
-                frame.prop = prop
-                frame.value = values[i]
-                ret = valid(frame, elem)
-                if ret is False:
-                    return False
-        else:
-            return False
         return True
     return validator
 
@@ -152,25 +114,7 @@ def validateFontSize(frame, elem):
 alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
         'justify':Qt.AlignJustify,
         'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter}
-
-def validateAlignmentUpdate(frame, elem):
-    if 'alignment' not in elem:
-        elem.alignment = 0
-    if frame.value.lower() in alignments:
-        elem.alignment |= alignments[frame.value.lower()]
-        return True
-    return False
-
-def validateAlignmentSet(frame, elem):
-    terms = frame.value.lower().split()
-    result = 0
-    for term in terms:
-        if term not in alignments:
-            return False
-        else:
-            result |= alignments[term]
-    elem.alignment = result
-    return True
+validateAlignment = validateChoices(alignments)
 
 def validateDecoration(frame, elem):
     values = frame.value.split()
@@ -205,32 +149,51 @@ def validateDecoration(frame, elem):
             return False
     return True
 
+def countShortcut(min, *props):
+    def func(value):
+        values = commaSplit(value)
+        if len(values) < min:
+            return None
+        return {p: v for p, v in zip(props, values)}
+    return func
+
+def stretchShortcut(*props):
+    def func(value):
+        values = commaSplit(value)
+        if len(values) ==  1:
+            return {p: value for p in props}
+        elif len(values) >= len(props):
+            return {p: v for p, v in zip(props, values)}
+        else:
+            return None
+    return func
+
 
 class ElementProtoype(ChainMap):
     '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
-    def __init__(self, container, name, props:dict, defaults:dict, type_:"Element") -> None:
-        super().__init__(props, defaults, *type_.defaults.maps)
+    def __init__(self, container, name, props:dict, renames:dict, type_:"Element") -> None:
+        super().__init__(props, *type_.defaults.maps)
 
         self.container = container
         self.subelements = {}
         self.name = name
         self.type = type_
+        self.renames = renames
         if container is not None:
             self.qualName = f'{container}->{name}'
         else:
             self.qualName = name
     
     def validate(self, frame:AttrDict):
-        userProp = frame.prop
         value = frame.value
-        #trueProp = userProp
-        if userProp in self.type.names:
-            trueProp = self.type.names[userProp]
-            #print(userProp, trueProp)
+        trueProp = frame.prop
+        if trueProp in self.renames:
+            userProp = self.renames[trueProp]
         else:
-            trueProp = userProp
-        frame.prop = trueProp
+            userProp = trueProp
+
         #print(trueProp)
+        #after this no change lol
         if trueProp not in self.type.validators:
             return
         func = self.type.validators[trueProp]
@@ -255,7 +218,7 @@ class ElementProtoype(ChainMap):
         
         store.add('elementName', self.qualName)
         
-        xyProps = ['x', 'y', 'position', 'xy', 'start']
+        xyProps = ['x', 'y']
 
         for prop, value in self.items():
             if prop in xyProps:
@@ -306,17 +269,23 @@ class Element():
         draw = validateDraw,
         x = validateXY,
         y = validateXY,
-        position = validateMany(2, x=validateXY, y=validateXY),
         width = validateHeightWidth,
         height = validateHeightWidth,
-        size = validateMany(2, width=validateHeightWidth, height=validateHeightWidth),
         rotation = validateAngle,
     ))
+
+    shortcuts = ChainMap(dict(
+        position = stretchShortcut('position X', 'position Y'),
+        size = stretchShortcut('size WIDTH', 'size HEIGHT'),
+    ))
+
     names = ChainMap({
-        'xy': 'position',
-        'corner': 'position',
         'angle': 'rotation',
         'rotate': 'rotation',
+        'position X': 'x',
+        'position Y': 'y',
+        'size WIDTH': 'width',
+        'size HEIGHT': 'height',
     })
 
     @staticmethod
@@ -330,7 +299,8 @@ class LabelElement():
         fontSize = '22pt',
         fontColor = 'black',
         wordWrap = 'yes',
-        alignment = 'center top',
+        hAlign = 'center',
+        vAlign = 'top',
         italic = 'no',
         bold = 'no',
         overline = 'no',
@@ -344,17 +314,18 @@ class LabelElement():
         fontSize = validateFontSize,
         fontColor = validateString,
         wordWrap = validateToggle,
-        hAlignment = validateAlignmentUpdate,
-        vAlignment = validateAlignmentUpdate,
-        alignment = validateAlignmentSet,
+        vAlign = validateAlignment,
+        hAlign = validateAlignment,
         italic = validateToggle,
         bold = validateToggle,
         overline = validateToggle,
         underline = validateToggle,
         lineThrough = validateToggle,
         decoration = validateDecoration,
-        #font - family, size, color
-        #decoration - for bold, underline, etc
+    ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        align = countShortcut(2, 'align HORZ', 'align VERT')
     ))
 
     names = Element.names.new_child({
@@ -364,9 +335,10 @@ class LabelElement():
         'color': 'fontColor',
         'font-size': 'fontSize',
         'word-wrap': 'wordWrap',
-        'align': 'alignment',
-        'h-align': 'hAlignment',
-        'v-align': 'vAlignment',
+        'v-align': 'vAlign',
+        'align VERT': 'vAlign',
+        'h-align': 'hAlign',
+        'align HORZ': 'hAlign',
         'line-through': 'lineThrough',
         'line-thru': 'lineThrough',
     })
@@ -377,7 +349,7 @@ class LabelElement():
         label.setTextFormat(Qt.RichText)
         label.resize(size)
         label.setAttribute(Qt.WA_TranslucentBackground, True)
-        label.setAlignment(elem.alignment)
+        label.setAlignment(elem.vAlign|elem.hAlign)
         label.setWordWrap(elem.wordWrap)
         style = 'QLabel {\n'
         style += f'font-family: {elem.fontFamily};\n'
@@ -423,10 +395,11 @@ class ImageElement():
         keepAspectRatio = validateToggle,
         scaleWidth = validateNumber(units=('', '%'), out=Unit),
         scaleHeight = validateNumber(units=('','%'), out=Unit),
-        scale = validateManyStretch(
-            scaleWidth=validateNumber(units=('','%'), out=Unit),
-            scaleHeight=validateNumber(units=('','%'), out=Unit)
-        )
+        
+    ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        scale = stretchShortcut('scale WIDTH', 'scale HEIGHT')
     ))
 
     names = Element.names.new_child({
@@ -434,6 +407,8 @@ class ImageElement():
         'keep-ratio': 'keepAspectRatio',
         'scale-width': 'scaleWidth',
         'scale-height': 'scaleHeight',
+        'scale WIDTH': 'scaleWidth',
+        'scale HEIGHT': 'scaleHeight'
     })
 
     @staticmethod
@@ -485,19 +460,24 @@ class ImageElement():
 
 class ImageBoxElement():
     defaults = ImageElement.defaults.new_child(dict(
-        alignment = 'center middle',
+        hAlign = 'center',
+        vAlign = 'top',
     ))
 
     validators = ImageElement.validators.new_child(dict(
-        hAlignment = validateAlignmentUpdate,
-        vAlignment = validateAlignmentUpdate,
-        alignment = validateAlignmentSet,
+        vAlign = validateAlignment,
+        hAlign = validateAlignment,
+    ))
+
+    shortcuts = ImageElement.shortcuts.new_child(dict(
+        align = countShortcut(2, 'align HORZ', 'align VERT')
     ))
 
     names = ImageElement.names.new_child({
-        'align': 'alignment',
-        'h-align': 'hAlignment',
-        'v-align': 'vAlignment',
+        'v-align': 'vAlign',
+        'align VERT': 'vAlign',
+        'h-align': 'hAlign',
+        'align HORZ': 'hAlign',
     })
     
     @staticmethod
@@ -506,16 +486,16 @@ class ImageBoxElement():
         widthDif = abs(elem.source.width()-elem.width)
         heightDif = abs(elem.source.height()-elem.height)
         
-        if elem.alignment & Qt.AlignLeft:
+        if elem.hAlign & Qt.AlignLeft:
             xOfs = 0
-        elif elem.alignment & Qt.AlignRight:
+        elif elem.hAlign & Qt.AlignRight:
             xOfs = widthDif
         else: #center or justify
             xOfs = widthDif/2
         
-        if elem.alignment & Qt.AlignTop:
+        if elem.vAlign & Qt.AlignTop:
             yOfs = 0
-        elif elem.alignment & Qt.AlignBottom:
+        elif elem.vAlign & Qt.AlignBottom:
             yOfs = heightDif
         else:
             yOfs = heightDif/2
@@ -573,8 +553,10 @@ class ShapeElement():
         lineJoin = validateLineJoin,
         lineCap = validateLineCap,
         fillColor = validateString,
-        line = validateMany(3, lineStyle=validateLineStyle, lineWidth=validateNumber(), lineColor=validateString,
-            lineJoin=validateLineJoin, lineCap=validateLineCap)
+    ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        line = countShortcut(3, 'line STYLE', 'line WIDTH', 'line COLOR', 'line JOIN', 'line CAP')
     ))
 
     names = Element.names.new_child({
@@ -584,6 +566,11 @@ class ShapeElement():
         'line-join': 'lineJoin',
         'line-cap': 'lineCap',
         'fill-color': 'fillColor',
+        'line STYLE': 'lineStyle',
+        'line WIDTH': 'lineWidth',
+        'line COLOR': 'lineColor',
+        'line JOIN': 'lineJoin',
+        'line CAP': 'lineCap',
     })
 
     @staticmethod
@@ -610,11 +597,15 @@ class RectangleElement():
     validators = ShapeElement.validators.new_child(dict(
         xRadius = validateNumber(),
         yRadius = validateNumber(),
-        radius = validateManyStretch(xRadius=validateNumber(), yRadius=validateNumber()),
+    ))
+
+    shortcuts = ShapeElement.shortcuts.new_child(dict(
+        radius = stretchShortcut('radius X', 'radius Y')
     ))
 
     names = ShapeElement.names.new_child({
-        'rounding': 'radius'
+        'radius X': 'xRadius',
+        'radius Y': 'yRadius',
     })
 
     @staticmethod
@@ -625,8 +616,9 @@ class RectangleElement():
 class EllipseElement():
     defaults = ShapeElement.defaults.new_child()
     validators = ShapeElement.validators.new_child(dict(
-        diameter = validateManyStretch(width=validateHeightWidth, height=validateHeightWidth)
+        #diameter = validateManyStretch(width=validateHeightWidth, height=validateHeightWidth)
     ))
+
     names = ShapeElement.names.new_child()
     #radius - r*2 for width and height
     #diameter
@@ -653,13 +645,21 @@ class LineElement():
     validators = ShapeElement.validators.new_child(dict(
         x2 = validateXY,
         y2 = validateXY,
-        end = validateMany(2, x2=validateXY, y2=validateXY)
+        #end = validateMany(2, x2=validateXY, y2=validateXY)
+    ))
+
+    shortcuts = ShapeElement.shortcuts.new_child(dict(
+        start = stretchShortcut('start X', 'start y'),
+        end = stretchShortcut('end X', 'end Y')
     ))
 
     names = ShapeElement.names.new_child({
-        'start': 'position'
-    })
+        'start X': 'x',
+        'start Y': 'y',
+        'end X': 'x',
+        'end Y': 'y'
 
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):

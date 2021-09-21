@@ -33,6 +33,46 @@ class Section():
         return True
     
     @staticmethod
+    def validateMany(min, **props):
+        def validator(frame, elem):
+            values = commaSplit(frame.value)
+            if len(values) < min:
+                return False
+            for i, (prop, valid) in enumerate(props.items()):
+                frame.prop = prop
+                frame.value = values[i]
+                ret = valid(frame, elem)
+                if ret is False:
+                    return False
+            return True
+            
+        return validator
+
+    @staticmethod
+    def validateManyStretch(**props):
+        def validator(frame, elem):
+            values = commaSplit(frame.value)
+            if len(values) == 1:
+                frame.value = values[0]
+                for prop, valid in props.items():
+                    frame.prop = prop
+                    ret = valid(frame, elem)
+                    if ret is False:
+                        return False
+            elif len(values) == len(props):
+                for i, (prop, valid) in enumerate(props.items()):
+                    frame.prop = prop
+                    frame.value = values[i]
+                    ret = valid(frame, elem)
+                    if ret is False:
+                        return False
+            else:
+                return False
+            return True
+        return validator
+
+
+    @staticmethod
     def validateName(frame, sec):
         if '[' not in frame.value:
             sec[frame.prop] = '[asset-index]'+frame.value
@@ -109,6 +149,7 @@ class ExportSection():
 class BulkExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
         name = 'asset.png',
+        contentOnly = 'no',
     ))
     validators = ExportSection.validators.new_child(dict(
         name = Section.validateName,
@@ -122,15 +163,35 @@ class BulkExport(ExportSection):
 
     @staticmethod
     def export(painter, bulk):
+        dpi = painter.layout.dpi
+        content = False
+        if bulk.contentOnly and 'content' in painter.layout.elements:
+            content = painter.layout.elements['content']
+            contentWidth = Unit.fromStr(content['width'])
+            contentHeight = Unit.fromStr(content['height'])
+            contentX = Unit.fromStr(content['x'])
+            contentY = Unit.fromStr(content['y'])
+            if None in (contentWidth, contentHeight, contentX, contentY):
+                raise bWError("content position and size can't use briks", layout=painter.layout.filename)
+            content = True
+            contentRect = QRect(
+                contentX.toInt(dpi=dpi),
+                contentY.toInt(dpi=dpi),
+                contentWidth.toInt(dpi=dpi),
+                contentHeight.toInt(dpi=dpi),
+            )
+            print(contentRect)
         try:
             for image, name in painter.images:
-                print(name)
-                image.save(name)
+                if content:
+                    image.copy(contentRect).save(name)
+                else:
+                    image.save(name)
         except OSError:
-            #os.chdir(path)
             raise bWError("failed to save image '{asset}' to {ouput}",
                 output=painter.layout.output, layout=painter.layout.filename, asset=name
             )
+
         
 
 class PDFExport(ExportSection):
@@ -146,7 +207,7 @@ class PDFExport(ExportSection):
     validators = ExportSection.validators.new_child(dict(
         xMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         yMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        margin = validateManyStretch(
+        margin = Section.validateManyStretch(
             xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
            yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)
         ),
@@ -202,7 +263,7 @@ class PDFExport(ExportSection):
             contentX = Unit.fromStr(content['x'])
             contentY = Unit.fromStr(content['y'])
             if None in (contentWidth, contentHeight, contentX, contentY):
-                raise bWError("content position and size can't use briks", layout=layout.filename)
+                raise bWError("content position and size can't use briks", layout=painter.layout.filename)
             if contentWidth.unit == contentHeight.unit:
                 assetUnitWidth = contentWidth
                 assetUnitHeight = contentHeight
@@ -228,6 +289,7 @@ class PDFExport(ExportSection):
         pdfWriter.setCreator('brikWork')
 
         pdfPainter = QPainter()
+        pdfPainter.setRenderHint(QPainter.LosslessImageRendering, True)
         result = pdfPainter.begin(pdfWriter)
         if not result:
             raise bWError("failed to render pdf, is the file open elsewhere?", file=painter.layout.filename)
@@ -267,7 +329,7 @@ class TTSExport(ExportSection):
     validators = ExportSection.validators.new_child(dict(
         across = Section.validateRangeNumber((2, 10), units=('',)),
         down = Section.validateRangeNumber((2, 7), units=('',)),
-        size = validateMany(2,
+        size = Section.validateMany(2,
             across=Section.validateRangeNumber((2, 10), units=('',)), 
             down=Section.validateRangeNumber((2, 7), units=('',))
         )
@@ -297,7 +359,10 @@ class LayoutSection(Section):
     validators = ChainMap(dict(
         width = Section.validateNumber(units=('in', 'mm'), out=Unit),
         height = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        size = validateMany(2, width=Section.validateNumber(units=('in', 'mm'), out=Unit), height=Section.validateNumber(units=('in', 'mm'), out=Unit)),
+        size = Section.validateMany(2,
+            width=Section.validateNumber(units=('in', 'mm'), out=Unit),
+            height=Section.validateNumber(units=('in', 'mm'), out=Unit)
+        ),
         output = Section.validateString,
         data = Section.validateString,
         dpi = Section.validateNumber(units=('px'), out=int),
@@ -441,26 +506,45 @@ def buildLayout(filename):
         layout.userBriks = {}
 
     #elemnts
+    def fix(elemName, source, dest, type, renames):
+        for name, value in source.items():
+            if name == 'children': continue
+            if name in type.shortcuts:
+                values = type.shortcuts[name](value)
+                if values is None:
+                    raise InvalidValueError(elemName, name, value)
+                for sName, sValue in values.items():
+                    realName = type.names[sName]
+                    dest[realName] = sValue
+                    renames[realName] = sName
+            elif name in type.names:
+                realName = type.names[name]
+                dest[realName] = value
+                renames[realName] = name
+            else:
+                dest[name] = value
+                renames[name] = name
+        
+
     def makeElements(source, dest, container=None):
         for name, props in source.items():
 
-            if name in dest:
-                #if the template includes this element usurp it
-                proto = dest[name]
-                proto.maps.insert(0, props)
-                children = props.pop('children')
-                if len(children) > 0:
-                    makeElements(children, proto.subelements, proto.qualName)
-                    
-            else:
-                type_ = props.pop('type', 'none')
-                if type_ not in elemClasses:
-                    raise InvalidValueError(name, 'type', type_)
-                proto = ElementProtoype(container, name, props, layout.defaults, elemClasses[type_])
-                dest[name] = proto
-                children = props.pop('children')
-                if len(children) > 0:
-                    makeElements(children, proto.subelements, proto.qualName)
+            type_ = props.pop('type', 'none')
+            if type_ not in elemClasses:
+                raise InvalidValueError(name, 'type', type_)
+            type_ = elemClasses[type_]
+            newProps = {}
+            renames = {}
+            fix(name, layout.defaults, newProps, type_, renames)
+            fix(name, props, newProps, type_, renames)
+            proto = ElementProtoype(container, name, newProps, renames, type_)
+            dest[name] = proto
+
+            children = props.pop('children')
+            if len(children) > 0:
+                makeElements(children, proto.subelements, proto.qualName)
+
+
     layout.elements = {}
     makeElements(parsedLayout['elements'], layout.elements)
 
@@ -512,6 +596,7 @@ class AssetPainter():
         painter = QPainter(image)
         painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
         
         for element in elements.values():
             #painter.resetTransform()
@@ -624,11 +709,13 @@ def parseData(data):
 
 
 if __name__ == '__main__':
-    import pprint
+
+
+
     try:
-        layout = buildLayout(os.path.join(os.getcwd(), 'test.bwl'))
+        pass
     except bWError as e:
         print(e.message)
         import sys
         sys.exit()
-    print(pprint.pformat(layout.elements['icon'].subelements))
+    #print(pprint.pformat(layout.elements['icon'].subelements))

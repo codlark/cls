@@ -7,7 +7,7 @@ layout {
     dpi: 300
     #csv: excel
 
-    template: template.bwl
+    #template: template.bwl
 }
 export {
     #pdf {
@@ -70,12 +70,12 @@ bodyBorder {
     foo: bar
     #x: center
     #y: 1.5in
-    position: center 1.5in
+    position: center, 1.5in
     width: 1.75in
     #lineWidth: 0.01in
     height: 1.75in
     #xRadius: 1/8in; yRadius: 1/4in;
-    radius: 1/8in 
+    radius: 1/8in, 1/4in
 }
 body {
     type: label
