@@ -148,7 +148,7 @@ class ExportSection():
 
 class BulkExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
-        name = 'asset.png',
+        name = 'card.png',
         contentOnly = 'no',
     ))
     validators = ExportSection.validators.new_child(dict(
@@ -668,8 +668,8 @@ class AssetPainter():
 
         #os.chdir(path)
 
-assetI = 'asset-index'
-assetT = 'asset-total'
+assetI = 'card-index'
+assetT = 'card-total'
 rowI = 'row-index'
 rowT = 'row-total'
 repeatI = 'repeat-index'

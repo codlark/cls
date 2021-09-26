@@ -1,7 +1,7 @@
 layout {
     width: 2.25in
     height: 3.1/2in
-    #name: test[asset-index].png
+    #name: test[card-index].png
     output: out/
     #data: test.csv
     dpi: 300

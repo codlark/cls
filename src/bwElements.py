@@ -170,7 +170,7 @@ def stretchShortcut(*props):
 
 
 class ElementProtoype(ChainMap):
-    '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
+    '''This class acts as the prototype of an element, prototype:element::layout:card  '''
     def __init__(self, container, name, props:dict, renames:dict, type_:"Element") -> None:
         super().__init__(props, *type_.defaults.maps)
 
@@ -556,7 +556,7 @@ class ShapeElement():
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
-        line = countShortcut(3, 'line STYLE', 'line WIDTH', 'line COLOR', 'line JOIN', 'line CAP')
+        line = countShortcut(3, 'line WIDTH', 'line STYLE', 'line COLOR', 'line JOIN', 'line CAP')
     ))
 
     names = Element.names.new_child({

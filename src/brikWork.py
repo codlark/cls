@@ -103,7 +103,7 @@ def saveFunc():
             os.chdir(startingDir)
             window.textLog.append(e.message)
         else:
-            window.textLog.append(f"saved assets to {state.layout.output}")
+            window.textLog.append(f"saved cards to {state.layout.output}")
         finally:
             app.setOverrideCursor(arrowCursor)
     else:
@@ -125,7 +125,7 @@ def exportFunc():
         except bWError as e:
             window.textLog.append(e.message)
         else:
-            window.textLog.append(f"saved assets to {state.layout.output}")
+            window.textLog.append(f"saved cardss to {state.layout.output}")
         finally:
             app.setOverrideCursor(arrowCursor)
     else:
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
         #self.toolbar.addAction(saveAct)
         #saveAct.triggered.connect(saveFunc)
 
-        self.toolbar.addWidget(QLabel("Current Asset ", parent=self))
+        self.toolbar.addWidget(QLabel("Current Card ", parent=self))
 
         state.assetSpin = QSpinBox(parent=self)
         self.toolbar.addWidget(state.assetSpin)
@@ -218,7 +218,7 @@ commandParser.add_argument('file',
 commandParser.add_argument('-w', '--windowless',
     action='store_true',
     dest='windowless',
-    help='generate and save assets without displaying a window, FILE must be provided'
+    help='generate and save cards without displaying a window, FILE must be provided'
 )
 
 app = QApplication()
@@ -238,7 +238,7 @@ if args.file is not None and args.windowless:
         except bWError as e:
             print(e.message)
         else:
-            print(f"saved assets to {state.layout.output}")
+            print(f"saved cards to {state.layout.output}")
 
 elif not args.windowless:
     if args.file is not None:
