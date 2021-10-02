@@ -1,23 +1,19 @@
 layout {
-    width: 2.25in
-    height: 3.1/2in
-    #name: test[card-index].png
+    size: 2.25in, 3.5in
     output: out/
     #data: test.csv
     dpi: 300
     #csv: excel
 
-    #template: template.bwl
+    template: template.bwl
 }
 export {
-    #pdf {
-        margin: 1in
-    #}
+    pdf {
+        #margin: foo
+        name: yams
+    }
 }
-#pdf {
-#    border: 0.01in
-#    #margin: 1in
-#}
+
 
 defaults {
     #fontFamily: Times New Roman
@@ -86,7 +82,7 @@ body {
     text: [body]
     font-family: Cormorant
 }
-#banjo {draw: yes; lineColor: blue}
+banjo {draw: yes; lineColor: blue}
 
 
 lineHolder {

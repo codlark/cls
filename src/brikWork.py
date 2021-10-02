@@ -76,6 +76,8 @@ def openFunc(earlyOpen):
     
     state.filename = filename
     window.textLog.append('\n-----------')
+    window.textLog.append(filename)
+    window.textLog.append('-----------')
     
     shortFilename = os.path.split(state.filename)[1]
     window.setWindowTitle(f'{shortFilename} - brikWork')
@@ -93,23 +95,6 @@ def reloadFunc():
     window.textLog.append(message)
 
 @Slot()
-def saveFunc():
-    if state.painter is not None:
-        app.setOverrideCursor(waitCursor)
-        startingDir = os.getcwd()
-        try:
-            state.painter.save()
-        except bWError as e:
-            os.chdir(startingDir)
-            window.textLog.append(e.message)
-        else:
-            window.textLog.append(f"saved cards to {state.layout.output}")
-        finally:
-            app.setOverrideCursor(arrowCursor)
-    else:
-        window.textLog.append('unable to save, no layout is presnt')
-
-@Slot()
 def spinChangeFunc(val):
     if state.painter is None:
         return
@@ -125,7 +110,7 @@ def exportFunc():
         except bWError as e:
             window.textLog.append(e.message)
         else:
-            window.textLog.append(f"saved cardss to {state.layout.output}")
+            window.textLog.append(f"saved cards to {state.layout.output}")
         finally:
             app.setOverrideCursor(arrowCursor)
     else:
@@ -170,10 +155,6 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(reloadAct)
         reloadAct.triggered.connect(reloadFunc)
 
-        #saveAct = QAction('Save Assets', parent=self)
-        #self.toolbar.addAction(saveAct)
-        #saveAct.triggered.connect(saveFunc)
-
         self.toolbar.addWidget(QLabel("Current Card ", parent=self))
 
         state.assetSpin = QSpinBox(parent=self)
@@ -185,7 +166,7 @@ class MainWindow(QMainWindow):
 
         state.exportChoice = QComboBox(self)
         self.toolbar.addWidget(state.exportChoice)
-        state.exportChoice.addItems(['bulk', 'pdf'])
+        state.exportChoice.addItems(['bulk', 'pdf', 'tts'])
         state.exportChoice.setEditable(False)
 
         exportAct = QAction('Export', parent=self)

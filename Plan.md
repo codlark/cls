@@ -10,11 +10,9 @@ for 0.6 - elements and values
  - - briks like `dup` and `in` can make use of this
  - - parsing is gonna be a bitch, maybe pare out the items, then run the briks?
  - `[switch| key | match| result| match| result...]` brik
- - export {type: pdf|tts|images}
- - - would have the same props as pdf and somr from layout
  
  - rename label to textBox and add text as a direct write to the canvas, save label for an eventual imageMagick plugin
- 
+
  - polygons and polylines
  - better toggle handler
  - custom true and false values

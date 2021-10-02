@@ -48,7 +48,8 @@ def validateXY(frame, elem):
     else:
         dim = 'height'
     if frame.container == 'layout':
-        containerDim = frame.layout[dim]
+        containerDim = getattr(frame.layout.fullSize, dim)()
+        #containerDim = frame.layout[dim]
     else:
         containerDim = frame.container[dim]
 
@@ -72,7 +73,8 @@ def validateXY(frame, elem):
 
 def validateHeightWidth(frame, elem):
     if frame.container == 'layout':
-        containerDim = frame.layout[frame.prop]
+        containerDim = getattr(frame.layout.fullSize, frame.prop)()
+        #containerDim = frame.layout[frame.prop]
     else:
         containerDim = frame.container[frame.prop]
     value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))

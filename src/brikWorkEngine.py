@@ -71,11 +71,41 @@ class Section():
             return True
         return validator
 
+    @staticmethod
+    def validateLayoutSize(frame, sec):
+        values = commaSplit(frame.value)
+        if len(values) != 2:
+            return False
+        width = Unit.fromStr(values[0], signs='+')
+        if width is None:
+            return False
+        height = Unit.fromStr(values[1], signs='+')
+        if height is None:
+            return False
+        sec.widthUnit = width
+        sec.heightUnit = height
+        return True
+
+    @staticmethod
+    def validateBleed(frame, sec):
+        values= commaSplit(frame.value)
+        if len(values) != 2:
+            return False
+        width = Unit.fromStr(values[0], signs='+', units=('in', 'mm'))
+        if width is None:
+            return False
+        height = Unit.fromStr(values[1], signs='+', units=('in', 'mm'))
+        if height is None:
+            return False
+        sec.bleedWidth = width
+        sec.bleedHeight = height
+        return True
+
 
     @staticmethod
     def validateName(frame, sec):
         if '[' not in frame.value:
-            sec[frame.prop] = '[asset-index]'+frame.value
+            sec[frame.prop] = '[card-index]'+frame.value
         else:
             sec[frame.prop] = frame.value
         return True
@@ -135,21 +165,21 @@ class Section():
 
 class ExportSection():
     defaults = ChainMap(dict(
-        contentOnly = 'yes',
+        includeBleed = 'no',
         name='',
     ))
     validators = ChainMap(dict(
         name = Section.validateString,
-        contentOnly = validateToggle,
+        includeBleed = validateToggle,
     ))
     names = ChainMap({
-        'content-only': 'contentOnly'
+        'include-bleed': 'includeBleed'
     })
 
 class BulkExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
         name = 'card.png',
-        contentOnly = 'no',
+        includeBleed = 'yes',
     ))
     validators = ExportSection.validators.new_child(dict(
         name = Section.validateName,
@@ -163,72 +193,55 @@ class BulkExport(ExportSection):
 
     @staticmethod
     def export(painter, bulk):
-        dpi = painter.layout.dpi
-        content = False
-        if bulk.contentOnly and 'content' in painter.layout.elements:
-            content = painter.layout.elements['content']
-            contentWidth = Unit.fromStr(content['width'])
-            contentHeight = Unit.fromStr(content['height'])
-            contentX = Unit.fromStr(content['x'])
-            contentY = Unit.fromStr(content['y'])
-            if None in (contentWidth, contentHeight, contentX, contentY):
-                raise bWError("content position and size can't use briks", layout=painter.layout.filename)
-            content = True
-            contentRect = QRect(
-                contentX.toInt(dpi=dpi),
-                contentY.toInt(dpi=dpi),
-                contentWidth.toInt(dpi=dpi),
-                contentHeight.toInt(dpi=dpi),
-            )
-            print(contentRect)
+
         try:
             for image, name in painter.images:
-                if content:
-                    image.copy(contentRect).save(name)
-                else:
+                if bulk.includeBleed:
                     image.save(name)
+                else:
+                    image.copy(painter.layout.content).save(name)
+
         except OSError:
             raise bWError("failed to save image '{asset}' to {ouput}",
                 output=painter.layout.output, layout=painter.layout.filename, asset=name
             )
 
-        
-
 class PDFExport(ExportSection):
 
     defaults = ExportSection.defaults.new_child(dict(
-        xMargin = '.25in',
-        yMargin = '.25in',
+        margin = '.25in',
         border = '0.01in',
         pageSize = 'letter',
         orientation = 'portrait',
+        centerInPage = 'yes',
     ))
 
     validators = ExportSection.validators.new_child(dict(
-        xMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        yMargin = Section.validateNumber(units=('in', 'mm'), out=Unit),
         margin = Section.validateManyStretch(
             xMargin=Section.validateNumber(units=('in', 'mm'), out=Unit),
-           yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)
+            yMargin=Section.validateNumber(units=('in', 'mm'), out=Unit)
         ),
         border = Section.validateNumber(units=('in', 'mm'), out=Unit),
         pageSize = Section.validatePageSize,
         orientation = Section.validateOrientation,
+        centerInPage = validateToggle,
     ))
 
-    names = ExportSection.names.new_child({
-        'x-margin': 'xMargin',
-        'y-margin': 'yMargin',
+    names = ExportSection.names.new_child({ 
         'page-size': 'pageSize',
+        'center-in-page': 'centerInPage'
     })
 
     @staticmethod
     def postGenerate(layout, sec):
         if sec.xMargin.unit != sec.yMargin.unit:
             raise bWError("pdf margins must use the same unit", file=layout.filename)
-        
+
         if sec.name == '':
-            sec.name = os.path.splitext(os.path.basename(layout.filename))[0] + '.pdf'
+            sec.name = os.path.basename(layout.filename)
+        
+        sec.name = os.path.splitext(sec.name)[0]+'.pdf'
+
     
     @staticmethod
     def export(painter, pdf):
@@ -251,29 +264,26 @@ class PDFExport(ExportSection):
         pageLayout.setUnits(unit)
         pageLayout.setMargins(QMarginsF(xMargin, yMargin, xMargin, yMargin))
 
-        assetUnitWidth = painter.layout.widthUnit
-        assetUnitHeight = painter.layout.heightUnit
-        assetXOfs = 0
-        assetYOfs = 0
+        layout = painter.layout
+        if pdf.includeBleed:
+            bleedWidth = 0
+            bleedHeight = 0
+            assetWidth = layout.fullSize.width()
+            assetHeight = layout.fullSize.height()
+        else:
+            bleedWidth = layout.bleed.x()
+            bleedHeight = layout.bleed.y()
+            assetWidth = layout.cardSize.width()
+            assetHeight = layout.cardSize.height()
 
-        if pdf.contentOnly and 'content' in painter.layout.elements:
-            content = painter.layout.elements['content']
-            contentWidth = Unit.fromStr(content['width'])
-            contentHeight = Unit.fromStr(content['height'])
-            contentX = Unit.fromStr(content['x'])
-            contentY = Unit.fromStr(content['y'])
-            if None in (contentWidth, contentHeight, contentX, contentY):
-                raise bWError("content position and size can't use briks", layout=painter.layout.filename)
-            if contentWidth.unit == contentHeight.unit:
-                assetUnitWidth = contentWidth
-                assetUnitHeight = contentHeight
-                assetXOfs = contentX.toInt(dpi=dpi)
-                assetYOfs = contentY.toInt(dpi=dpi)
-        
-        assetWidth = assetUnitWidth.toInt(dpi=dpi)
-        assetHeight = assetUnitHeight.toInt(dpi=dpi)
-        assetAcross = int(pageLayout.paintRectPixels(dpi).width() // assetWidth)
-        assetDown = int(pageLayout.paintRectPixels(dpi).height() // assetHeight)
+        paintRect = pageLayout.paintRectPixels(dpi)
+        assetAcross, xofs = divmod(paintRect.width(), assetWidth)
+        assetDown, yofs = divmod(paintRect.height(), assetHeight)
+        xofs /= 2
+        yofs /= 2
+        if not pdf.centerInPage: 
+            xofs = 0
+            yofs = 0
 
         if assetAcross == 0 or assetDown == 0:
             raise bWError("failed to render PDF, asset too large for printable area", file=painter.layout.filename)
@@ -289,26 +299,28 @@ class PDFExport(ExportSection):
         pdfWriter.setCreator('brikWork')
 
         pdfPainter = QPainter()
-        pdfPainter.setRenderHint(QPainter.LosslessImageRendering, True)
         result = pdfPainter.begin(pdfWriter)
         if not result:
             raise bWError("failed to render pdf, is the file open elsewhere?", file=painter.layout.filename)
+        pdfPainter.setRenderHint(QPainter.LosslessImageRendering, True)
 
         assetsSeen = 0
         #print(assetDown, assetAcross, assetPages)
         limit = len(painter.images)
         for page in range(assetPages):
             for down in range(assetDown):
-                
+                leftovers = limit-assetsSeen
+                if leftovers < assetAcross and pdf.centerInPage:
+                    xofs = (paintRect.width()-leftovers*assetWidth)/2
                 for across in range(assetAcross):
-                    pdfPainter.drawImage(across*assetWidth, down*assetHeight, painter.images[assetsSeen][0],
-                        assetXOfs, assetYOfs, assetWidth, assetHeight
+                    pdfPainter.drawImage(across*assetWidth+xofs, down*assetHeight+yofs, painter.images[assetsSeen][0],
+                        bleedWidth, bleedHeight, assetWidth, assetHeight
                     )
                     if border > 0:
                         pen = QPen()
                         pen.setWidth(border)
                         pdfPainter.setPen(pen)
-                        pdfPainter.drawRect(across*assetWidth, down*assetHeight, assetWidth, assetHeight)
+                        pdfPainter.drawRect(across*assetWidth+xofs, down*assetHeight+yofs, assetWidth, assetHeight)
                     assetsSeen += 1
                     if assetsSeen == limit:
                         break #down
@@ -323,33 +335,94 @@ class PDFExport(ExportSection):
 
 class TTSExport(ExportSection):
     defaults = ExportSection.defaults.new_child(dict(
-        across = '10',
-        down = '7',
+        size= '5, 7',
     ))
     validators = ExportSection.validators.new_child(dict(
-        across = Section.validateRangeNumber((2, 10), units=('',)),
-        down = Section.validateRangeNumber((2, 7), units=('',)),
         size = Section.validateMany(2,
-            across=Section.validateRangeNumber((2, 10), units=('',)), 
-            down=Section.validateRangeNumber((2, 7), units=('',))
+            width=Section.validateRangeNumber((2, 10), units=('',)), 
+            height=Section.validateRangeNumber((2, 7), units=('',))
         )
     ))
     names = ExportSection.names.new_child({})
 
     @staticmethod
     def postGenerate(layout, sec):
-        pass
+        if sec.includeBleed:
+            width = layout.fullSize.width()
+        else:
+            width = layout.cardSize.width()
+        if width*sec.width > 4096:
+            raise bWError("generated image would be too large for Tabletop Simulator, reduce tts width", elem='tts')
+        if sec.name == '':
+            sec.name = os.path.basename(layout.filename)
+        name, ext = os.path.splitext(sec.name)
+        if ext != 'png':
+            sec.name = name+'.png'
+        
+    @staticmethod
+    def export(painter, tts):
+        layout = painter.layout
+        if tts.includeBleed:
+            bleedWidth = 0
+            bleedHeight = 0
+            assetWidth = -1
+            assetHeight = -1
+        else:
+            bleedWidth = layout.bleed.x()
+            bleedHeight = layout.bleed.y()
+            assetWidth = layout.cardSize.width()
+            assetHeight = layout.cardSize.height()
+    
+        perPage = tts.width * tts.height
+        assetPages, mod = divmod(len(painter.images), perPage)
+        if mod > 0:
+            assetPages += 1
 
-exportTypes = [
-    Collection(name='bulk', type=BulkExport),
-    Collection(name='pdf', type=PDFExport),
-]
+        tts.pages = {}
+        pageSize = QSize(tts.width*assetWidth, tts.height*assetHeight)
+
+        assetsSeen = 0
+        limit = len(painter.images)
+        for page in range(assetPages):
+            tts.pages[page] = QImage(pageSize, QImage.Format_ARGB32_Premultiplied)
+            pagePainter = QPainter()
+            pagePainter.begin(tts.pages[page])
+            
+            for down in range(tts.height):
+                for across in range(tts.width):
+                    pagePainter.drawImage(across*assetWidth, down*assetHeight, painter.images[assetsSeen][0],
+                        bleedWidth, bleedHeight, assetWidth, assetHeight
+                    )
+                    assetsSeen += 1
+                    if assetsSeen == limit: 
+                        break
+                if assetsSeen == limit: 
+                    break
+            if assetsSeen == limit: 
+                break
+        
+        try:
+            if len(tts.pages) == 1:
+                tts.pages[0].save(tts.name)
+            else:
+                for index, page in enumerate(tts.pages.values()):
+                    page.save(str(index+1)+tts.name)
+        except OSError:
+            raise bWError("failed to save Tabletop Simulator image to {output}",
+                output=painter.layout.output, layout=painter.layout.filename
+            )
+
+exportTypes = dict(
+    bulk = BulkExport,
+    pdf = PDFExport,
+    tts = TTSExport,
+)
 
 class LayoutSection(Section):
 
     defaults = ChainMap(dict(
-        width = '1in',
-        height = '1in',
+        size = '1in, 1in',
+        bleed = '0, 0',
         output = '',
         data = '',
         dpi = '300',
@@ -357,12 +430,8 @@ class LayoutSection(Section):
     ))
 
     validators = ChainMap(dict(
-        width = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        height = Section.validateNumber(units=('in', 'mm'), out=Unit),
-        size = Section.validateMany(2,
-            width=Section.validateNumber(units=('in', 'mm'), out=Unit),
-            height=Section.validateNumber(units=('in', 'mm'), out=Unit)
-        ),
+        size = Section.validateLayoutSize,
+        bleed = Section.validateBleed,
         output = Section.validateString,
         data = Section.validateString,
         dpi = Section.validateNumber(units=('px'), out=int),
@@ -413,13 +482,10 @@ def buildLayout(filename):
         if not result:
             raise InvalidValueError('layout', prop, value)
     
-    layout.widthUnit = layout.width
-    layout.width = layout.widthUnit.toInt(dpi=layout.dpi)
-    layout.heightUnit = layout.height
-    layout.height = layout.heightUnit.toInt(dpi=layout.dpi)
-    if layout.heightUnit.unit != layout.widthUnit.unit:
-        raise bWError("layout width and height must use the same unit",
-        file=filename)
+    layout.cardSize = QSize(layout.widthUnit.toInt(dpi=layout.dpi), layout.heightUnit.toInt(dpi=layout.dpi))
+    layout.bleed = QPoint(layout.bleedWidth.toInt(dpi=layout.dpi), layout.bleedHeight.toInt(dpi=layout.dpi))
+    layout.content = QRect(layout.bleed, layout.cardSize)
+    layout.fullSize = QSize(layout.cardSize.width()+layout.bleed.x()*2, layout.cardSize.height()+layout.bleed.y()*2)
 
     sections = parsedLayout['sections']
 
@@ -465,32 +531,32 @@ def buildLayout(filename):
         exportDefs = {}
     layout.export = exportSec
     
-    for exporter in exportTypes:
-        if exporter.name in exportSec:
-            proto = exporter.type.defaults.new_child(exportSec[exporter.name])
+    for exporterName, exporter in exportTypes.items():
+        if exporterName in exportSec:
+            proto = exporter.defaults.new_child(exportSec[exporterName])
             proto.maps.insert(1, exportDefs)
         else:
-            proto = exporter.type.defaults.new_child(exportDefs)
+            proto = exporter.defaults.new_child(exportDefs)
         frame = AttrDict()
         section = AttrDict()
-        exportSec[exporter.name] = section
+        exportSec[exporterName] = section
 
         for prop, value in proto.items():
             if prop == 'children':
                 continue
-            if prop in exporter.type.names:
-                trueProp = exporter.type.names[prop]
+            if prop in exporter.names:
+                trueProp = exporter.names[prop]
             else:
                 trueProp = prop
-            if trueProp not in exporter.type.validators:
+            if trueProp not in exporter.validators:
                 continue
-            func = exporter.type.validators[trueProp]
+            func = exporter.validators[trueProp]
             frame.prop = trueProp
             frame.value = value
             result = func(frame, section)
             if not result:
-                raise InvalidValueError(exporter.name, prop, value)
-        exporter.type.postGenerate(layout, section)
+                raise InvalidValueError(exporterName, prop, value)
+        exporter.postGenerate(layout, section)
         
 
     #defaults
@@ -591,12 +657,15 @@ class AssetPainter():
         elements = {}
         self.generate(self.layout.elements, elements)
 
-        image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
+        image = QImage(self.layout.fullSize, QImage.Format_ARGB32_Premultiplied)
+        #image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.white)
         painter = QPainter(image)
-        painter.setClipRect(0, 0, self.layout.width, self.layout.height)
+        painter.setClipRect(0, 0, self.layout.fullSize.width(), self.layout.fullSize.height())
+        #painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        painter.translate(self.layout.bleed)
         
         for element in elements.values():
             #painter.resetTransform()
@@ -625,27 +694,27 @@ class AssetPainter():
                 #self.image.save(os.path.join(self.layout.output, name))
 
 
-    def save(self):
-        '''save the generated images.'''
-        path = os.getcwd()
-        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
-            try:
-                os.mkdir(self.layout.output)
-            except IOError:
-                os.chdir(path)
-                raise bWError("failed to make output directory", file=self.layout.filename)
-        os.chdir(os.path.realpath(self.layout.output))
-        if self.layout.pdf != None and self.layout.pdf.render:
-            self.makePdf()
-        else:
-            try:
-                for image, name in self.images:
-                    image.save(name)
-            except OSError:
-                os.chdir(path)
-                raise bWError('failed to save images to {ouput}',
-                output=self.layout.output, layout=self.layout.filename)
-        os.chdir(path)
+    #def save(self):
+    #    '''save the generated images.'''
+    #    path = os.getcwd()
+    #    if  self.layout.output != '' and not os.path.isdir(self.layout.output):
+    #        try:
+    #            os.mkdir(self.layout.output)
+    #        except IOError:
+    #            os.chdir(path)
+    #            raise bWError("failed to make output directory", file=self.layout.filename)
+    #    os.chdir(os.path.realpath(self.layout.output))
+    #    if self.layout.pdf != None and self.layout.pdf.render:
+    #        self.makePdf()
+    #    else:
+    #        try:
+    #            for image, name in self.images:
+    #                image.save(name)
+    #        except OSError:
+    #            os.chdir(path)
+    #            raise bWError('failed to save images to {ouput}',
+    #            output=self.layout.output, layout=self.layout.filename)
+    #    os.chdir(path)
     
     def export(self, target='bulk'):
         '''save the generated images.'''
@@ -659,10 +728,12 @@ class AssetPainter():
         os.chdir(os.path.realpath(self.layout.output))
 
         try:
-            if target == 'bulk':
-                BulkExport.export(self, self.layout.export['bulk'])
-            elif target == 'pdf':
-                PDFExport.export(self, self.layout.export['pdf'])
+            if target in exportTypes:
+                exportTypes[target].export(self, self.layout.export[target])
+            #if target == 'bulk':
+            #    BulkExport.export(self, self.layout.export['bulk'])
+            #elif target == 'pdf':
+            #    PDFExport.export(self, self.layout.export['pdf'])
         finally:
             os.chdir(path)
 
