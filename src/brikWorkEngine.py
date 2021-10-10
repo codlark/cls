@@ -422,7 +422,7 @@ class LayoutSection(Section):
 
     defaults = ChainMap(dict(
         size = '1in, 1in',
-        bleed = '0, 0',
+        bleed = '0in, 0in',
         output = '',
         data = '',
         dpi = '300',
@@ -692,29 +692,6 @@ class AssetPainter():
                 name = evalEscapes(self.store.parse(self.layout.assetName))
                 self.images.append((image, name))
                 #self.image.save(os.path.join(self.layout.output, name))
-
-
-    #def save(self):
-    #    '''save the generated images.'''
-    #    path = os.getcwd()
-    #    if  self.layout.output != '' and not os.path.isdir(self.layout.output):
-    #        try:
-    #            os.mkdir(self.layout.output)
-    #        except IOError:
-    #            os.chdir(path)
-    #            raise bWError("failed to make output directory", file=self.layout.filename)
-    #    os.chdir(os.path.realpath(self.layout.output))
-    #    if self.layout.pdf != None and self.layout.pdf.render:
-    #        self.makePdf()
-    #    else:
-    #        try:
-    #            for image, name in self.images:
-    #                image.save(name)
-    #        except OSError:
-    #            os.chdir(path)
-    #            raise bWError('failed to save images to {ouput}',
-    #            output=self.layout.output, layout=self.layout.filename)
-    #    os.chdir(path)
     
     def export(self, target='bulk'):
         '''save the generated images.'''
@@ -730,10 +707,6 @@ class AssetPainter():
         try:
             if target in exportTypes:
                 exportTypes[target].export(self, self.layout.export[target])
-            #if target == 'bulk':
-            #    BulkExport.export(self, self.layout.export['bulk'])
-            #elif target == 'pdf':
-            #    PDFExport.export(self, self.layout.export['pdf'])
         finally:
             os.chdir(path)
 

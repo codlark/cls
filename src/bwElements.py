@@ -119,7 +119,7 @@ alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCent
 validateAlignment = validateChoices(alignments)
 
 def validateDecoration(frame, elem):
-    values = frame.value.split()
+    values = commaSplit(frame.value)
     for value in values:
         if value == 'italic':
             elem.italic = True
@@ -283,7 +283,6 @@ class Element():
 
     names = ChainMap({
         'angle': 'rotation',
-        'rotate': 'rotation',
         'position X': 'x',
         'position Y': 'y',
         'size WIDTH': 'width',
@@ -327,20 +326,22 @@ class LabelElement():
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
-        align = countShortcut(2, 'align HORZ', 'align VERT')
+        align = countShortcut(2, 'align H-ALIGN', 'align V-ALIGN'),
+        font = countShortcut(2, 'font FONT-SIZE', 'font FONT-FAMILY', 'font FONT-COLOR')
     ))
 
     names = Element.names.new_child({
         'font-family': 'fontFamily',
-        'font': 'fontFamily',
+        'font FONT-FAMILY': 'fontFamily',
         'font-color': 'fontColor',
-        'color': 'fontColor',
+        'font FONT-COLOR': 'fontColor',
         'font-size': 'fontSize',
+        'font FONT-SIZE': 'fontSize',
         'word-wrap': 'wordWrap',
         'v-align': 'vAlign',
-        'align VERT': 'vAlign',
+        'align V-ALIGN': 'vAlign',
         'h-align': 'hAlign',
-        'align HORZ': 'hAlign',
+        'align H-ALIGN': 'hAlign',
         'line-through': 'lineThrough',
         'line-thru': 'lineThrough',
     })
@@ -395,22 +396,21 @@ class ImageElement():
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
-        scaleWidth = validateNumber(units=('', '%'), out=Unit),
-        scaleHeight = validateNumber(units=('','%'), out=Unit),
+        scaleWidth = validateNumber(units=('%',), out=Unit),
+        scaleHeight = validateNumber(units=('%',), out=Unit),
         
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
-        scale = stretchShortcut('scale WIDTH', 'scale HEIGHT')
+        scale = stretchShortcut('scale SCALE-WIDTH', 'scale SCALE-HEIGHT')
     ))
 
     names = Element.names.new_child({
-        'keep-aspect-ratio': 'keepAspectRatio',
         'keep-ratio': 'keepAspectRatio',
         'scale-width': 'scaleWidth',
         'scale-height': 'scaleHeight',
-        'scale WIDTH': 'scaleWidth',
-        'scale HEIGHT': 'scaleHeight'
+        'scale SCALE-WIDTH': 'scaleWidth',
+        'scale SCALE-HEIGHT': 'scaleHeight'
     })
 
     @staticmethod
@@ -427,37 +427,28 @@ class ImageElement():
 
         if elem.width == 0 and elem.height == 0:
 
-            if elem.scaleWidth.num != 0 and elem.scaleHeight.num != 0:
+            if elem.scaleWidth.num != 0:
+                if elem.scaleHeight.num == 0:
+                    elem.scaleHeight = elem.scaleWidth
+        
                 width = elem.source.width()
                 height = elem.source.height()
-                if elem.scaleWidth.unit == '%':
-                    newWidth = elem.scaleWidth.toInt(whole=width)
-                else:
-                    newWidth = elem.scaleWidth.num * width
-                
-                if elem.scaleHeight.unit == '%':
-                    newHeight = elem.scaleHeight.toInt(whole=height)
-                else:
-                    newHeight = elem.scaleHeight.num * width
-
-                elem.source = elem.source.scaled(int(newWidth), int(newHeight), aspect, scaleMode)
+                newWidth = int(elem.scaleWidth.num/100 * width)
+                newHeight = int(elem.scaleHeight.num/100 * height)
+                elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
             
-            elem.width = elem.source.width()
-            elem.height = elem.source.height()
         elif elem.keepAspectRatio:
             if elem.width == 0:
                 elem.source = elem.source.scaledToHeight(elem.height, scaleMode)
-                elem.width = elem.source.width()
             elif elem.height == 0:
                 elem.source = elem.source.scaledToWidth(elem.width, scaleMode)
-                elem.height = elem.source.height()
             else:
                 elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
-                elem.width = elem.source.width()
-                elem.height = elem.source.height()
         else:
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
         
+        elem.width = elem.source.width()
+        elem.height = elem.source.height()
         elem.source = QPixmap.fromImage(elem.source)
 
 class ImageBoxElement():
@@ -477,9 +468,9 @@ class ImageBoxElement():
 
     names = ImageElement.names.new_child({
         'v-align': 'vAlign',
-        'align VERT': 'vAlign',
+        'align V-ALIGN': 'vAlign',
         'h-align': 'hAlign',
-        'align HORZ': 'hAlign',
+        'align H-ALIGN': 'hAlign',
     })
     
     @staticmethod
@@ -512,20 +503,16 @@ class ImageBoxElement():
         else:
             aspect = Qt.IgnoreAspectRatio
 
-        if elem.scaleWidth.num != 0 and elem.scaleHeight.num != 0:
+        if elem.scaleWidth.num != 0:
+            if elem.scaleHeight.num == 0:
+                elem.scaleHeight = elem.scaleWidth
             width = elem.source.width()
             height = elem.source.height()
-            if elem.scaleWidth.unit == '%':
-                newWidth = elem.scaleWidth.toInt(whole=width)
-            else:
-                newWidth = elem.scaleWidth.num * width
-            
-            if elem.scaleHeight.unit == '%':
-                newHeight = elem.scaleHeight.toInt(whole=height)
-            else:
-                newHeight = elem.scaleHeight.num * width
 
-            elem.source = elem.source.scaled(int(newWidth), int(newHeight), aspect, scaleMode)
+            newWidth = int(elem.scaleWidth.num/100 * width)
+            newHeight = int(elem.scaleHeight.num/100 * height)
+
+            elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
 
         if elem.source.width() > elem.width or elem.source.height() > elem.height:
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
@@ -535,7 +522,7 @@ class ImageBoxElement():
 
 validateLineJoin = validateChoices({'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin})
 validateLineCap = validateChoices({'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap})
-validateLineStyle = validateChoices({'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dot': Qt.DotLine,
+validateLineStyle = validateChoices({'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dots': Qt.DotLine,
     'dash-dot': Qt.DashDotLine, 'dot-dash': Qt.DashDotLine})
 
 class ShapeElement():
@@ -558,7 +545,7 @@ class ShapeElement():
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
-        line = countShortcut(3, 'line WIDTH', 'line STYLE', 'line COLOR', 'line JOIN', 'line CAP')
+        line = countShortcut(2, 'line LINE-WIDTH', 'line LINE-COLOR', 'line LINE-STYLE', 'line LINE-JOIN', 'line LINE-CAP')
     ))
 
     names = Element.names.new_child({
@@ -568,11 +555,11 @@ class ShapeElement():
         'line-join': 'lineJoin',
         'line-cap': 'lineCap',
         'fill-color': 'fillColor',
-        'line STYLE': 'lineStyle',
-        'line WIDTH': 'lineWidth',
-        'line COLOR': 'lineColor',
-        'line JOIN': 'lineJoin',
-        'line CAP': 'lineCap',
+        'line LINE-STYLE': 'lineStyle',
+        'line LINE-WIDTH': 'lineWidth',
+        'line LINE-COLOR': 'lineColor',
+        'line LINE-JOIN': 'lineJoin',
+        'line LINE-CAP': 'lineCap',
     })
 
     @staticmethod
@@ -602,12 +589,14 @@ class RectangleElement():
     ))
 
     shortcuts = ShapeElement.shortcuts.new_child(dict(
-        radius = stretchShortcut('radius X', 'radius Y')
+        radius = stretchShortcut('radius X-RADIUS', 'radius Y-RADIUS')
     ))
 
     names = ShapeElement.names.new_child({
-        'radius X': 'xRadius',
-        'radius Y': 'yRadius',
+        'x-radius': 'xRadius',
+        'y-radius': 'yRadius',
+        'radius X-RADIUS': 'xRadius',
+        'radius Y-RADIUS': 'yRadius',
     })
 
     @staticmethod
@@ -617,11 +606,16 @@ class RectangleElement():
 
 class EllipseElement():
     defaults = ShapeElement.defaults.new_child()
-    validators = ShapeElement.validators.new_child(dict(
+    validators = ShapeElement.validators.new_child()
+    shortcuts = ShapeElement.shortcuts.new_child(dict(
+        diameter = stretchShortcut('diameter WIDTH', 'diameter HEIGHT')
         #diameter = validateManyStretch(width=validateHeightWidth, height=validateHeightWidth)
     ))
 
-    names = ShapeElement.names.new_child()
+    names = ShapeElement.names.new_child({
+        'diameter WIDTH': 'width',
+        'diameter HEIGHT': 'height'
+    })
     #radius - r*2 for width and height
     #diameter
 
@@ -631,7 +625,7 @@ class EllipseElement():
         painter.drawEllipse(QRect(upperLeft, size))
 
     @staticmethod
-    def postGenerate(elem):
+    def midGenerate(elem):
         if elem.width == 0 and elem.height != 0:
             elem.width = elem.height
         elif elem.width != 0 and elem.height == 0:
@@ -642,6 +636,8 @@ class LineElement():
     defaults = ShapeElement.defaults.new_child(dict(
         x2 = '1/4in',
         y2 = '1/4in',
+        width = '0',
+        height = '0'
     ))
 
     validators = ShapeElement.validators.new_child(dict(
@@ -651,27 +647,32 @@ class LineElement():
     ))
 
     shortcuts = ShapeElement.shortcuts.new_child(dict(
-        start = stretchShortcut('start X', 'start y'),
+        start = stretchShortcut('start X', 'start Y'),
         end = stretchShortcut('end X', 'end Y')
     ))
 
     names = ShapeElement.names.new_child({
         'start X': 'x',
         'start Y': 'y',
-        'end X': 'x',
-        'end Y': 'y'
+        'end X': 'x2',
+        'end Y': 'y2'
 
     })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
         ShapeElement.readyPainter(elem, painter)
-        painter.resetTransform()
-        painter.drawLine(elem.x, elem.y, elem.x2, elem.y2)
+        painter.drawLine(0, 0, elem.x2-elem.x, elem.y2-elem.y)
+
+    @staticmethod
+    def midGenerate(elem):
+        elem.width = 0
+        elem.height = 0
+        elem.rotation = 0
 
 elemClasses = {
     'none': Element,
-    'label': LabelElement,
+    'text': LabelElement,
     'image': ImageElement,
     'image-box': ImageBoxElement,
     'rect': RectangleElement,

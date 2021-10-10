@@ -8,6 +8,7 @@ layout {
     template: template.bwl
 }
 export {
+    include-bleed: no
     pdf {
         #margin: foo
         name: yams
@@ -20,7 +21,7 @@ defaults {
 }
 
 title {
-    type: label
+    type: text
     x: center
     y: .25in
     width: 1.75in
@@ -33,11 +34,11 @@ icon {
     type: image
     x: .5in
     y: 7/8in
-    rotation: 0
+    angle: 0
     source: res/[img]
-    
+
     caption {
-        type: label
+        type: text
         text: a face
         x: center
         y: .25in
@@ -52,7 +53,7 @@ rotator {
     y: 7/8in
     width: 3/4in
     height: 3/8in
-    rotate: 180
+    angle: 180
     rotated {
         type: rect
         x: 0
@@ -74,7 +75,7 @@ bodyBorder {
     radius: 1/8in, 1/4in
 }
 body {
-    type: label
+    type: text
     x: center
     y: 1.625in
     width: 1.5in
@@ -82,7 +83,22 @@ body {
     text: [body]
     font-family: Cormorant
 }
-banjo {draw: yes; lineColor: blue}
+
+round {
+    type: circle
+    draw: no
+    diameter: 1in, 1/2in
+    fill-color: transparent
+}
+
+banjo {
+    start: 0, 0
+    end: 1.25in, 7/8in
+    draw: yes
+    line: 5px, blue
+    #x2: 1.25in
+    #y2: 7/8in
+}
 
 
 lineHolder {
