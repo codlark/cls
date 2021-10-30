@@ -700,6 +700,7 @@ class AssetPainter():
 
         if self.layout.data is None:
                 image = self.paintAsset()
+                self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
                 name = self.store.parse(self.layout.assetName)
                 self.images.append((image, name))
 
@@ -708,6 +709,7 @@ class AssetPainter():
                 #TODO figure out a better way to do this
                 self.store.briks.update(row)
                 image = self.paintAsset()
+                self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
                 name = evalEscapes(self.store.parse(self.layout.assetName))
                 self.images.append((image, name))
                 #self.image.save(os.path.join(self.layout.output, name))
