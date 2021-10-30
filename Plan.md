@@ -3,15 +3,19 @@
 *note* to build, run `python setup.py build`
 
 
-for 0.6 - elements and values
+ - clear image cache
  - font from files
+ - take escapes out of parsing non values
+ - briks for `[dup| ]` to conditionally render text depending on repeat
+ - - like `[1st| |\s]` would return `[]` on the first go thru and `\s` after
+ - - `[first| TRUE | FALSE ]` `[last| TRUE | FALSE ]` would cover it  I think
  - texture element type that allows you yo specify a specific area of the images to draw
  - list value - `(1, 2, 3, 4, 5)` `(1:2:3:4:5)`
  - - briks like `dup` and `in` can make use of this
  - - parsing is gonna be a bitch, maybe pare out the items, then run the briks?
  - `[switch| key | match| result| match| result...]` brik
  
- - rename label to textBox and add text as a direct write to the canvas, save label for an eventual imageMagick plugin
+ - `x` unit for scale, values under 1x make an image smaller, values over 1x make an image bigger.
 
  - polygons and polylines
  - better toggle handler

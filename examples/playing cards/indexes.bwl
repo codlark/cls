@@ -1,8 +1,11 @@
 layout {
-    width: 2.5in
-    height: 3.5in
+    size: 2.5in, 3.5in
+}
+export {
     output: cards/
-    name: [suit][rank].png
+    bulk {
+        name: [suit][rank].png
+    }
 }
 briks {
     red = #ff1569
@@ -12,42 +15,40 @@ briks {
     rank = 0
     #place holder
 }
-upperLeftNumber {
-    type: label
-    position: 1/8in 1/8in
-    size: 0.3in 0.3in
-    text: [rank]
-    font-family: Consolas
-    font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
-    font-size: 1/4in
-    align: center top
+upper-left-index {
+    position: 1/8in, 1/8in
+    size: .3in, .6in
+    number {
+        type: text
+        size: .3in, .3in
+        font: 1/4in, Consolas
+        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        align: center, top
+        text: [rank]
+    }
+    pip {
+        type: image
+        position: center, .3in
+        source: images/[suit]-small.png
+    }
 }
-upperLeftPip {
-    type: image-box
-    position: 1/8in [=| 1/8 + 0.3]in
-    #the math brik allows us to position this element right below the number
-    size: 0.3in 0.3in
-    align: center top
-    #because the image won't be the same size we use the image-box to align it properly
-    source: images/[suit]-small.png
-}
-lowerRightNumber {
-    type: label
-    position: ^1/8in ^1/8in
-    size: 0.3in 0.3in
-    rotate: 180
-    text: [rank]
-    font-family: Consolas
-    font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
-    font-size: 1/4in
-}
-lowerRightPip {
-    type: image-box
-    position: ^1/8in ^[=|1/8 + 0.3]in
-    size: 0.3in 0.3in
-    rotate: 180
-    align: center bottom
-    source: images/[suit]-small.png
+lower-right-index {
+    position: ^1/8in, ^1/8in
+    size: .3in, .6in
+    angle: 180
+    number {
+        type: text
+        size: .3in, .3in
+        font: 1/4in, Consolas
+        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        align: center, top
+        text: [rank]
+    }
+    pip {
+        type: image
+        position: center, .3in
+        source: images/[suit]-small.png
+    }
 }
 
 data{

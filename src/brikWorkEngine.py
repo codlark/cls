@@ -29,7 +29,10 @@ class Section():
     
     @staticmethod
     def validateString(frame, sec):
-        sec[frame.prop] = frame.value
+        if frame.value == '[]':
+            sec[frame.prop] = ''
+        else:
+            sec[frame.prop] = evalEscapes(frame.value)
         return True
     
     @staticmethod
@@ -89,14 +92,17 @@ class Section():
     @staticmethod
     def validateBleed(frame, sec):
         values= commaSplit(frame.value)
-        if len(values) != 2:
+        if len(values) == 0:
             return False
         width = Unit.fromStr(values[0], signs='+', units=('in', 'mm'))
         if width is None:
             return False
-        height = Unit.fromStr(values[1], signs='+', units=('in', 'mm'))
-        if height is None:
-            return False
+        if len(values) == 1:
+            height = width
+        else:
+            height = Unit.fromStr(values[1], signs='+', units=('in', 'mm'))
+            if height is None:
+                return False
         sec.bleedWidth = width
         sec.bleedHeight = height
         return True
@@ -167,10 +173,12 @@ class ExportSection():
     defaults = ChainMap(dict(
         includeBleed = 'no',
         name='',
+        output = '',
     ))
     validators = ChainMap(dict(
         name = Section.validateString,
         includeBleed = validateToggle,
+        output = Section.validateString,
     ))
     names = ChainMap({
         'include-bleed': 'includeBleed'
@@ -423,7 +431,6 @@ class LayoutSection(Section):
     defaults = ChainMap(dict(
         size = '1in, 1in',
         bleed = '0in, 0in',
-        output = '',
         data = '',
         dpi = '300',
         csv = 'brikWork',
@@ -432,7 +439,6 @@ class LayoutSection(Section):
     validators = ChainMap(dict(
         size = Section.validateLayoutSize,
         bleed = Section.validateBleed,
-        output = Section.validateString,
         data = Section.validateString,
         dpi = Section.validateNumber(units=('px'), out=int),
         csv = Section.validateCSV,
@@ -566,10 +572,19 @@ def buildLayout(filename):
         layout.defaults = {}
 
     #briks
+    def makeBrik(value):
+        def func(context, *args):
+            newStore = context.store.copy()
+            newStore.add('arg-total', str(len(args)))
+            for num, arg in enumerate(args):
+                newStore.add(str(num+1), arg)
+            return newStore.parse(value)
+        return func
+    layout.userBriks = {}
     if 'briks' in sections:
-        layout.userBriks = sections['briks']
-    else:
-        layout.userBriks = {}
+        briks = sections['briks']
+        for name, value in briks.items():
+            layout.userBriks[name] = (makeBrik(value), (0, 99))
 
     #elemnts
     def fix(elemName, source, dest, type, renames):
@@ -580,9 +595,13 @@ def buildLayout(filename):
                 if values is None:
                     raise InvalidValueError(elemName, name, value)
                 for sName, sValue in values.items():
-                    realName = type.names[sName]
-                    dest[realName] = sValue
-                    renames[realName] = sName
+                    if sName in type.names:
+                        realName = type.names[sName]
+                        dest[realName] = sValue
+                        renames[realName] = sName
+                    else:
+                        dest[sName] = sValue
+                        renames[sName] = sName
             elif name in type.names:
                 realName = type.names[name]
                 dest[realName] = value
@@ -696,17 +715,21 @@ class AssetPainter():
     def export(self, target='bulk'):
         '''save the generated images.'''
         path = os.getcwd()
-        if  self.layout.output != '' and not os.path.isdir(self.layout.output):
+        if target not in exportTypes:
+            raise bWError("illegal error, unknown export target", file=self.layout.filename)
+        exportType = exportTypes[target]
+        exportSection = self.layout.export[target]
+        outputPath = exportSection.output
+        if  outputPath != '' and not os.path.isdir(outputPath):
             try:
-                os.mkdir(self.layout.output)
+                os.mkdir(outputPath)
             except IOError:
                 os.chdir(path)
                 raise bWError("failed to make output directory", file=self.layout.filename)
-        os.chdir(os.path.realpath(self.layout.output))
+        os.chdir(os.path.realpath(outputPath))
 
         try:
-            if target in exportTypes:
-                exportTypes[target].export(self, self.layout.export[target])
+            exportType.export(self, exportSection)
         finally:
             os.chdir(path)
 

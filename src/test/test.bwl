@@ -1,6 +1,5 @@
 layout {
     size: 2.25in, 3.5in
-    output: out/
     #data: test.csv
     dpi: 300
     #csv: excel
@@ -8,6 +7,7 @@ layout {
     template: template.bwl
 }
 export {
+    output: out/
     include-bleed: no
     pdf {
         #margin: foo
@@ -15,6 +15,10 @@ export {
     }
 }
 
+briks {
+    yum = foo
+    bar = [1] is good
+}
 
 defaults {
     #fontFamily: Times New Roman
@@ -22,13 +26,12 @@ defaults {
 
 title {
     type: text
-    x: center
-    y: .25in
+    position: center, 1/4in
     width: 1.75in
     height: 2in
     text: [title]
     font-size: 30pt
-    #decoration: italic underline
+    decoration: italic, underline
 }
 icon {
     type: image
@@ -40,6 +43,7 @@ icon {
     caption {
         type: text
         text: a face
+        decoration: no-word-wrap
         x: center
         y: .25in
         #alignment: no

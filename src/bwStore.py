@@ -252,7 +252,6 @@ def repeatBrik(context, times, value):
     unit = Unit.fromStr(nTimes, signs='+0', units=('',))
     if unit is None:
         raise InvalidArgError(context.elem, context.prop, 'dup', 'TIMES', nTimes)
-    #times = asNum(times, err=)
     times = unit.toInt()
     ofs = 0 if unit.sign == '0' else 1
     result = []

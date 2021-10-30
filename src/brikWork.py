@@ -110,7 +110,10 @@ def exportFunc():
         except bWError as e:
             window.textLog.append(e.message)
         else:
-            window.textLog.append(f"saved cards to {state.layout.output}")
+            export = state.layout.export[state.exportChoice.currentText()].output
+            if export == '':
+                export = os.path.split(os.getcwd())[1]
+            window.textLog.append(f"saved cards to {export}")
         finally:
             app.setOverrideCursor(arrowCursor)
     else:

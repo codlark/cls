@@ -118,38 +118,18 @@ alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCent
         'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter}
 validateAlignment = validateChoices(alignments)
 
-def validateDecoration(frame, elem):
-    values = commaSplit(frame.value)
+def shortcutDecoration(value):
+    values = commaSplit(value)
+    decos = ['italic', 'bold', 'underline', 'overline', 'word-wrap', 'line-thru', 'line-though']
+    res = {}
     for value in values:
-        if value == 'italic':
-            elem.italic = True
-        elif value == 'bold':
-            elem.bold = True
-        elif value == 'underline':
-            elem.underline = True
-        elif value == 'overline':
-            elem.overline = True
-        elif value in ['wrap', 'word-wrap']:
-            elem.wordWrap = True
-        elif value in ['thru', 'through', 'line-thru', 'line-through']:
-            elem.lineThrough = True
-        
-        elif value == 'no-italic':
-            elem.italic = False
-        elif value == 'no-bold':
-            elem.bold = False
-        elif value == 'no-underline':
-            elem.underline = False
-        elif value == 'no-overline':
-            elem.overline = False
-        elif value in ['no-wrap', 'no-word-wrap']:
-            elem.wordWrap = False
-        elif value in ['no-thru', 'no-through', 'no-line-thru', 'no-line-through']:
-            elem.lineThrough = False
-
+        if value in decos:
+            res[value] = 'on'
+        elif value[0:3] == 'no-' and value[3:] in decos:
+            res[value[3:]] = 'off'
         else:
-            return False
-    return True
+            return None
+    return res
 
 def countShortcut(min, *props):
     def func(value):
@@ -322,12 +302,12 @@ class LabelElement():
         overline = validateToggle,
         underline = validateToggle,
         lineThrough = validateToggle,
-        decoration = validateDecoration,
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
         align = countShortcut(2, 'align H-ALIGN', 'align V-ALIGN'),
-        font = countShortcut(2, 'font FONT-SIZE', 'font FONT-FAMILY', 'font FONT-COLOR')
+        font = countShortcut(2, 'font FONT-SIZE', 'font FONT-FAMILY', 'font FONT-COLOR'),
+        decoration = shortcutDecoration,
     ))
 
     names = Element.names.new_child({
@@ -545,7 +525,7 @@ class ShapeElement():
     ))
 
     shortcuts = Element.shortcuts.new_child(dict(
-        line = countShortcut(2, 'line LINE-WIDTH', 'line LINE-COLOR', 'line LINE-STYLE', 'line LINE-JOIN', 'line LINE-CAP')
+        line = countShortcut(2, 'line LINE-WIDTH', 'line LINE-COLOR', 'line LINE-STYLE', 'line LINE-CAP', 'line LINE-JOIN')
     ))
 
     names = Element.names.new_child({
@@ -588,15 +568,15 @@ class RectangleElement():
         yRadius = validateNumber(),
     ))
 
-    shortcuts = ShapeElement.shortcuts.new_child(dict(
-        radius = stretchShortcut('radius X-RADIUS', 'radius Y-RADIUS')
-    ))
+    shortcuts = ShapeElement.shortcuts.new_child({
+        'corner-radius': stretchShortcut('corner-radius X-CORNER-RADIUS', 'corner-radius Y-CORNER-RADIUS')
+    })
 
     names = ShapeElement.names.new_child({
-        'x-radius': 'xRadius',
-        'y-radius': 'yRadius',
-        'radius X-RADIUS': 'xRadius',
-        'radius Y-RADIUS': 'yRadius',
+        'x-corner-radius': 'xRadius',
+        'y-corner-radius': 'yRadius',
+        'corner-radius X-CORNER-RADIUS': 'xRadius',
+        'corner-radius Y-CORNER-RADIUS': 'yRadius',
     })
 
     @staticmethod
