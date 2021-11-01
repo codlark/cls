@@ -4,7 +4,7 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from bwUtils import *
 
-__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle"]
+__all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
 
 def validateString(frame, elem):
     elem[frame.prop] = evalEscapes(frame.value)
@@ -33,6 +33,14 @@ def validateToggle(frame, elem):
     elem[frame.prop] = value
     return True
 
+def validateChoices(choices):
+    def validator(frame, elem):
+        if frame.value.lower() not in choices:
+            return False
+        elem[frame.prop] = choices[frame.value.lower()]
+        return True
+    return validator
+
 def validateXY(frame, elem):
     #also handles x2 and y2
     if frame.prop[0] == 'x':
@@ -40,7 +48,8 @@ def validateXY(frame, elem):
     else:
         dim = 'height'
     if frame.container == 'layout':
-        containerDim = frame.layout[dim]
+        containerDim = getattr(frame.layout.fullSize, dim)()
+        #containerDim = frame.layout[dim]
     else:
         containerDim = frame.container[dim]
 
@@ -64,7 +73,8 @@ def validateXY(frame, elem):
 
 def validateHeightWidth(frame, elem):
     if frame.container == 'layout':
-        containerDim = frame.layout[frame.prop]
+        containerDim = getattr(frame.layout.fullSize, frame.prop)()
+        #containerDim = frame.layout[frame.prop]
     else:
         containerDim = frame.container[frame.prop]
     value = Unit.fromStr(frame.value, units=('px', 'in', 'mm', '%'))
@@ -83,7 +93,6 @@ def validateAngle(frame, elem):
         return False
     elem[frame.prop] = value.toInt() % 360
     return True
-
 
 def validateDraw(frame, elem):
     value = asBool(frame.value)
@@ -104,58 +113,75 @@ def validateFontSize(frame, elem):
     elem[frame.prop] = value, frame.layout.dpi
     return True
 
-def validateAlignment(frame, elem):
-    horz = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
-        'justify':Qt.AlignJustify}
-    vert = {'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter,}
-    terms = frame.value.lower().split()
-    if terms[0] in horz:
-        result = horz[terms[0]]
-    else:
-        return False
-    if terms[1] in vert:
-         result |= vert[terms[1]]
-    else:
-        return False
-    elem[frame.prop] = result
-    return True
+alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
+        'justify':Qt.AlignJustify,
+        'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter}
+validateAlignment = validateChoices(alignments)
 
-def validateLineJoin(frame, elem):
-    joins = {'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin}
-    if frame.value.lower() not in joins:
-        return False
-    elem[frame.prop] = joins[frame.value.lower()]
-    return True
+def shortcutDecoration(value):
+    values = commaSplit(value)
+    decos = ['italic', 'bold', 'underline', 'overline', 'word-wrap', 'line-thru', 'line-though']
+    res = {}
+    for value in values:
+        if value in decos:
+            res[value] = 'on'
+        elif value[0:3] == 'no-' and value[3:] in decos:
+            res[value[3:]] = 'off'
+        else:
+            return None
+    return res
 
-def validateLineCap(frame, elem):
-    caps = {'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap}
-    if frame.value.lower() not in caps:
-        return False
-    elem[frame.prop] = caps[frame.value.lower()]
-    return True
+def countShortcut(min, *props):
+    def func(value):
+        values = commaSplit(value)
+        if len(values) < min:
+            return None
+        return {p: v for p, v in zip(props, values)}
+    return func
+
+def stretchShortcut(*props):
+    def func(value):
+        values = commaSplit(value)
+        if len(values) ==  1:
+            return {p: value for p in props}
+        elif len(values) >= len(props):
+            return {p: v for p, v in zip(props, values)}
+        else:
+            return None
+    return func
+
 
 class ElementProtoype(ChainMap):
-    '''This class acts as the prototype of an element, prototype:element::layout:asset  '''
-    def __init__(self, container, name, props:dict, defaults:dict, type_:"Element") -> None:
-        super().__init__(props, defaults, *type_.defaults.maps)
+    '''This class acts as the prototype of an element, prototype:element::layout:card  '''
+    def __init__(self, container, name, props:dict, renames:dict, type_:"Element") -> None:
+        super().__init__(props, *type_.defaults.maps)
 
         self.container = container
         self.subelements = {}
         self.name = name
         self.type = type_
+        self.renames = renames
         if container is not None:
             self.qualName = f'{container}->{name}'
         else:
             self.qualName = name
     
     def validate(self, frame:AttrDict):
-        if frame.prop not in self.type.validators:
+        value = frame.value
+        trueProp = frame.prop
+        if trueProp in self.renames:
+            userProp = self.renames[trueProp]
+        else:
+            userProp = trueProp
+
+        #print(trueProp)
+        #after this no change lol
+        if trueProp not in self.type.validators:
             return
-            #raise bWError("'{name}' is not a known property", name=frame.prop, elem=frame.name)
-        func = self.type.validators[frame.prop]
+        func = self.type.validators[trueProp]
         result = func(frame, frame.elem)
         if not result:
-            raise InvalidValueError(frame.elem.name, frame.prop, frame.value)
+            raise InvalidValueError(frame.elem.name, userProp, value)
         else:
             return
 
@@ -174,8 +200,10 @@ class ElementProtoype(ChainMap):
         
         store.add('elementName', self.qualName)
         
+        xyProps = ['x', 'y']
+
         for prop, value in self.items():
-            if prop in ['x', 'y']:
+            if prop in xyProps:
                 continue
             if frame.container != 'layout' and prop in frame.container:
                 frame.containerValue = frame.container[prop]
@@ -191,7 +219,9 @@ class ElementProtoype(ChainMap):
         if hasattr(self.type, 'midGenerate'):
             self.type.midGenerate(elem)
 
-        for prop in ['x', 'y']:
+        for prop in xyProps:
+            if prop not in self:
+                continue
             #x and y need to be validated after width and height
             value = self[prop]
             if frame.container != 'layout' and prop in frame.container:
@@ -223,8 +253,21 @@ class Element():
         y = validateXY,
         width = validateHeightWidth,
         height = validateHeightWidth,
-        rotation = validateAngle
+        rotation = validateAngle,
     ))
+
+    shortcuts = ChainMap(dict(
+        position = stretchShortcut('position X', 'position Y'),
+        size = stretchShortcut('size WIDTH', 'size HEIGHT'),
+    ))
+
+    names = ChainMap({
+        'angle': 'rotation',
+        'position X': 'x',
+        'position Y': 'y',
+        'size WIDTH': 'width',
+        'size HEIGHT': 'height',
+    })
 
     @staticmethod
     def paint(elem, painter, upperLect, size):
@@ -235,9 +278,10 @@ class LabelElement():
         text = '',
         fontFamily = 'Verdana',
         fontSize = '22pt',
-        color = 'black',
+        fontColor = 'black',
         wordWrap = 'yes',
-        alignment = 'center top',
+        hAlign = 'center',
+        vAlign = 'top',
         italic = 'no',
         bold = 'no',
         overline = 'no',
@@ -249,16 +293,38 @@ class LabelElement():
         text = validateString,
         fontFamily = validateString,
         fontSize = validateFontSize,
-        color = validateString,
+        fontColor = validateString,
         wordWrap = validateToggle,
-        alignment = validateAlignment,
+        vAlign = validateAlignment,
+        hAlign = validateAlignment,
         italic = validateToggle,
         bold = validateToggle,
         overline = validateToggle,
         underline = validateToggle,
         lineThrough = validateToggle,
-
     ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        align = countShortcut(2, 'align H-ALIGN', 'align V-ALIGN'),
+        font = countShortcut(2, 'font FONT-SIZE', 'font FONT-FAMILY', 'font FONT-COLOR'),
+        decoration = shortcutDecoration,
+    ))
+
+    names = Element.names.new_child({
+        'font-family': 'fontFamily',
+        'font FONT-FAMILY': 'fontFamily',
+        'font-color': 'fontColor',
+        'font FONT-COLOR': 'fontColor',
+        'font-size': 'fontSize',
+        'font FONT-SIZE': 'fontSize',
+        'word-wrap': 'wordWrap',
+        'v-align': 'vAlign',
+        'align V-ALIGN': 'vAlign',
+        'h-align': 'hAlign',
+        'align H-ALIGN': 'hAlign',
+        'line-through': 'lineThrough',
+        'line-thru': 'lineThrough',
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -266,7 +332,7 @@ class LabelElement():
         label.setTextFormat(Qt.RichText)
         label.resize(size)
         label.setAttribute(Qt.WA_TranslucentBackground, True)
-        label.setAlignment(elem.alignment)
+        label.setAlignment(elem.vAlign|elem.hAlign)
         label.setWordWrap(elem.wordWrap)
         style = 'QLabel {\n'
         style += f'font-family: {elem.fontFamily};\n'
@@ -275,10 +341,10 @@ class LabelElement():
             fontUnit = fontSize.unit
             fontSize = fontSize.num
         else:
-            fontUnit = fontSize.unit
+            fontUnit = 'px'
             fontSize = fontSize.toInt(dpi=dpi)
         style += f'font-size: {fontSize}{fontUnit};\n'
-        style += f'color: {elem.color};\n'
+        style += f'color: {elem.fontColor};\n'
         if elem.italic: style += 'font-style: italic;\n'
         if elem.bold: style += 'font-weight: bold;\n'
         if elem.overline: style += 'text-decoration: overline;\n'
@@ -289,7 +355,6 @@ class LabelElement():
         label.setText(re.sub(r'\n', '<br>', elem.text))
         painter.drawPixmap(upperLeft, label.grab())
 
-        # - should I allow pt and px? (extra validation)
 
 imageCache = {}
 def validateImage(frame, elem):
@@ -304,12 +369,29 @@ class ImageElement():
         height = '0px',
         source = '',
         keepAspectRatio = 'yes',
+        scaleWidth = '0',
+        scaleHeight = '0'
     ))
 
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
+        scaleWidth = validateNumber(units=('%',), out=Unit),
+        scaleHeight = validateNumber(units=('%',), out=Unit),
+        
     ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        scale = stretchShortcut('scale SCALE-WIDTH', 'scale SCALE-HEIGHT')
+    ))
+
+    names = Element.names.new_child({
+        'keep-ratio': 'keepAspectRatio',
+        'scale-width': 'scaleWidth',
+        'scale-height': 'scaleHeight',
+        'scale SCALE-WIDTH': 'scaleWidth',
+        'scale SCALE-HEIGHT': 'scaleHeight'
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -324,37 +406,74 @@ class ImageElement():
             aspect = Qt.IgnoreAspectRatio
 
         if elem.width == 0 and elem.height == 0:
-            elem.width = elem.source.width()
-            elem.height = elem.source.height()
+
+            if elem.scaleWidth.num != 0:
+                if elem.scaleHeight.num == 0:
+                    elem.scaleHeight = elem.scaleWidth
+        
+                width = elem.source.width()
+                height = elem.source.height()
+                newWidth = int(elem.scaleWidth.num/100 * width)
+                newHeight = int(elem.scaleHeight.num/100 * height)
+                elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
+            
         elif elem.keepAspectRatio:
             if elem.width == 0:
                 elem.source = elem.source.scaledToHeight(elem.height, scaleMode)
-                elem.width = elem.source.width()
             elif elem.height == 0:
                 elem.source = elem.source.scaledToWidth(elem.width, scaleMode)
-                elem.height = elem.source.height()
             else:
                 elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
-                elem.width = elem.source.width()
-                elem.height = elem.source.height()
         else:
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
         
+        elem.width = elem.source.width()
+        elem.height = elem.source.height()
         elem.source = QPixmap.fromImage(elem.source)
-    
 
 class ImageBoxElement():
     defaults = ImageElement.defaults.new_child(dict(
-        alignment = 'center middle'
+        hAlign = 'center',
+        vAlign = 'top',
     ))
 
     validators = ImageElement.validators.new_child(dict(
-        alignment = validateAlignment
+        vAlign = validateAlignment,
+        hAlign = validateAlignment,
     ))
+
+    shortcuts = ImageElement.shortcuts.new_child(dict(
+        align = countShortcut(2, 'align HORZ', 'align VERT')
+    ))
+
+    names = ImageElement.names.new_child({
+        'v-align': 'vAlign',
+        'align V-ALIGN': 'vAlign',
+        'h-align': 'hAlign',
+        'align H-ALIGN': 'hAlign',
+    })
     
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
-        painter.drawPixmap(upperLeft, elem.source)
+
+        widthDif = abs(elem.source.width()-elem.width)
+        heightDif = abs(elem.source.height()-elem.height)
+        
+        if elem.hAlign & Qt.AlignLeft:
+            xOfs = 0
+        elif elem.hAlign & Qt.AlignRight:
+            xOfs = widthDif
+        else: #center or justify
+            xOfs = widthDif/2
+        
+        if elem.vAlign & Qt.AlignTop:
+            yOfs = 0
+        elif elem.vAlign & Qt.AlignBottom:
+            yOfs = heightDif
+        else:
+            yOfs = heightDif/2
+
+        painter.drawPixmap(upperLeft+QPoint(xOfs, yOfs), elem.source)
     
     @staticmethod
     def midGenerate(elem):
@@ -364,36 +483,33 @@ class ImageBoxElement():
         else:
             aspect = Qt.IgnoreAspectRatio
 
+        if elem.scaleWidth.num != 0:
+            if elem.scaleHeight.num == 0:
+                elem.scaleHeight = elem.scaleWidth
+            width = elem.source.width()
+            height = elem.source.height()
+
+            newWidth = int(elem.scaleWidth.num/100 * width)
+            newHeight = int(elem.scaleHeight.num/100 * height)
+
+            elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
+
         if elem.source.width() > elem.width or elem.source.height() > elem.height:
             elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
 
         elem.source = QPixmap.fromImage(elem.source)
 
-    @staticmethod
-    def postGenerate(elem):
-        widthDif = abs(elem.source.width()-elem.width)
-        heightDif = abs(elem.source.height()-elem.height)
 
-        if elem.alignment & Qt.AlignLeft:
-            pass
-        elif elem.alignment & Qt.AlignRight:
-            elem.x += widthDif
-        else: #center or justify
-            elem.x += widthDif/2
-        
-        if elem.alignment & Qt.AlignTop:
-            pass
-        elif elem.alignment & Qt.AlignBottom:
-            elem.y += heightDif
-        else:
-            elem.y += heightDif/2
-
-
+validateLineJoin = validateChoices({'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin})
+validateLineCap = validateChoices({'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap})
+validateLineStyle = validateChoices({'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dots': Qt.DotLine,
+    'dash-dot': Qt.DashDotLine, 'dot-dash': Qt.DashDotLine})
 
 class ShapeElement():
     defaults = Element.defaults.new_child(dict(
         lineColor = 'black',
         lineWidth = '0.01in',
+        lineStyle = 'solid',
         lineJoin = 'miter',
         lineCap = 'flat',
         fillColor = 'white',
@@ -401,11 +517,30 @@ class ShapeElement():
 
     validators = Element.validators.new_child(dict(
         lineColor = validateString,
+        lineStyle = validateLineStyle,
         lineWidth = validateNumber(),
         lineJoin = validateLineJoin,
         lineCap = validateLineCap,
         fillColor = validateString,
     ))
+
+    shortcuts = Element.shortcuts.new_child(dict(
+        line = countShortcut(2, 'line LINE-WIDTH', 'line LINE-COLOR', 'line LINE-STYLE', 'line LINE-CAP', 'line LINE-JOIN')
+    ))
+
+    names = Element.names.new_child({
+        'line-color': 'lineColor',
+        'line-width': 'lineWidth',
+        'line-style': 'lineStyle',
+        'line-join': 'lineJoin',
+        'line-cap': 'lineCap',
+        'fill-color': 'fillColor',
+        'line LINE-STYLE': 'lineStyle',
+        'line LINE-WIDTH': 'lineWidth',
+        'line LINE-COLOR': 'lineColor',
+        'line LINE-JOIN': 'lineJoin',
+        'line LINE-CAP': 'lineCap',
+    })
 
     @staticmethod
     def readyPainter(elem, painter:QPainter):
@@ -416,6 +551,7 @@ class ShapeElement():
             pen.setWidth(elem.lineWidth)
         pen.setCapStyle(elem.lineCap)
         pen.setJoinStyle(elem.lineJoin)
+        pen.setStyle(elem.lineStyle)
         painter.setPen(pen)
         painter.setBrush(QBrush(QColor(elem.fillColor)))
 
@@ -423,12 +559,25 @@ class RectangleElement():
     defaults = ShapeElement.defaults.new_child(dict(
         xRadius = '0px',
         yRadius = '0px',
+        #rename these
+        #corner radius: one value for both OR two values for x and y
     ))
 
     validators = ShapeElement.validators.new_child(dict(
         xRadius = validateNumber(),
         yRadius = validateNumber(),
     ))
+
+    shortcuts = ShapeElement.shortcuts.new_child({
+        'corner-radius': stretchShortcut('corner-radius X-CORNER-RADIUS', 'corner-radius Y-CORNER-RADIUS')
+    })
+
+    names = ShapeElement.names.new_child({
+        'x-corner-radius': 'xRadius',
+        'y-corner-radius': 'yRadius',
+        'corner-radius X-CORNER-RADIUS': 'xRadius',
+        'corner-radius Y-CORNER-RADIUS': 'yRadius',
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
@@ -438,6 +587,17 @@ class RectangleElement():
 class EllipseElement():
     defaults = ShapeElement.defaults.new_child()
     validators = ShapeElement.validators.new_child()
+    shortcuts = ShapeElement.shortcuts.new_child(dict(
+        diameter = stretchShortcut('diameter WIDTH', 'diameter HEIGHT')
+        #diameter = validateManyStretch(width=validateHeightWidth, height=validateHeightWidth)
+    ))
+
+    names = ShapeElement.names.new_child({
+        'diameter WIDTH': 'width',
+        'diameter HEIGHT': 'height'
+    })
+    #radius - r*2 for width and height
+    #diameter
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
@@ -445,7 +605,7 @@ class EllipseElement():
         painter.drawEllipse(QRect(upperLeft, size))
 
     @staticmethod
-    def postGenerate(elem):
+    def midGenerate(elem):
         if elem.width == 0 and elem.height != 0:
             elem.width = elem.height
         elif elem.width != 0 and elem.height == 0:
@@ -456,27 +616,47 @@ class LineElement():
     defaults = ShapeElement.defaults.new_child(dict(
         x2 = '1/4in',
         y2 = '1/4in',
+        width = '0',
+        height = '0'
     ))
 
     validators = ShapeElement.validators.new_child(dict(
         x2 = validateXY,
         y2 = validateXY,
+        #end = validateMany(2, x2=validateXY, y2=validateXY)
     ))
 
+    shortcuts = ShapeElement.shortcuts.new_child(dict(
+        start = stretchShortcut('start X', 'start Y'),
+        end = stretchShortcut('end X', 'end Y')
+    ))
+
+    names = ShapeElement.names.new_child({
+        'start X': 'x',
+        'start Y': 'y',
+        'end X': 'x2',
+        'end Y': 'y2'
+
+    })
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft, size):
         ShapeElement.readyPainter(elem, painter)
-        painter.resetTransform()
-        painter.drawLine(elem.x, elem.y, elem.x2, elem.y2)
+        painter.drawLine(0, 0, elem.x2-elem.x, elem.y2-elem.y)
 
-elemClasses = dict(
-    none = Element,
-    label = LabelElement,
-    image = ImageElement,
-    imageBox = ImageBoxElement,
-    rect = RectangleElement,
-    ellipse = EllipseElement,
-    circle = EllipseElement,
-    line = LineElement
-)
+    @staticmethod
+    def midGenerate(elem):
+        elem.width = 0
+        elem.height = 0
+        elem.rotation = 0
+
+elemClasses = {
+    'none': Element,
+    'text': LabelElement,
+    'image': ImageElement,
+    'image-box': ImageBoxElement,
+    'rect': RectangleElement,
+    'ellipse': EllipseElement,
+    'circle': EllipseElement,
+    'line': LineElement
+}

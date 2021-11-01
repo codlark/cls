@@ -1,36 +1,40 @@
 layout {
-    name: [name].png
     template: indexes.bwl
 }
 
-upperLeftNumber {
-    text: [b|J]oker
-    width: .5in
-    height: .5in
-    color: [color]
-    alignment: left top
+export {
+    bulk {
+        name: [name].png
+    }
 }
 
-upperLeftPip {
-    draw: no
+upper-left-index {
+    number {
+        size: .75in, .5in
+        font-color: [color]
+        align: center, top
+        text: [b|J]oker
+    }
+    pip {
+        draw: off
+    }
 }
 
-lowerRightNumber {
-    text: [b|J]oker
-    width: .5in
-    height: .5in
-    color: [color]
-    alignment: left top
-}
-
-lowerRightPip {
-    draw: no
+lower-right-index {
+    number {
+        size: .75in, .5in
+        font-color: [color]
+        align: center, top
+        text: [b|J]oker
+    }
+    pip {
+        draw: off
+    }
 }
 
 portrait {
     type: image
-    x: center
-    y: center
+    position: center, center
     source: images/[name].png
 }
 

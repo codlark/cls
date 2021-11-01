@@ -1,8 +1,11 @@
 layout {
-    width: 2.5in
-    height: 3.5in
+    size: 2.5in, 3.5in
+}
+export {
     output: cards/
-    name: [suit][rank].png
+    bulk {
+        name: [suit][rank].png
+    }
 }
 briks {
     red = #ff1569
@@ -12,42 +15,40 @@ briks {
     rank = 0
     #place holder
 }
-upperLeftNumber {
-    type: label
-    x: .15in
-    y: .15in
-    width: .2in
-    height: .2in
-    text: [rank]
-    color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
-    fontFamily: Consolas
-    fontSize: 36 
+upper-left-index {
+    position: 1/8in, 1/8in
+    size: .3in, .6in
+    number {
+        type: text
+        size: .3in, .3in
+        font: 1/4in, Consolas
+        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        align: center, top
+        text: [rank]
+    }
+    pip {
+        type: image
+        position: center, .3in
+        source: images/[suit]-small.png
+    }
 }
-upperLeftPip {
-    type: image
-    x: .185in
-    y: .35in
-    source: images/[suit]Small.png
-}
-lowerRightNumber {
-    type: label
-    x: ^.15in
-    y: ^.15in
-    #The math macro is a convinient way to position something relative to the far corner from 0,0
-    rotation: 180
-    width: .2in
-    height: .2in
-    text: [rank]
-    color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
-    fontFamily: Consolas
-    fontSize: 36
-}
-lowerRightPip {
-    type: image
-    x: ^.185in
-    y: ^.35in
-    rotation: 180
-    source: images/[suit]Small.png
+lower-right-index {
+    position: ^1/8in, ^1/8in
+    size: .3in, .6in
+    angle: 180
+    number {
+        type: text
+        size: .3in, .3in
+        font: 1/4in, Consolas
+        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        align: center, top
+        text: [rank]
+    }
+    pip {
+        type: image
+        position: center, .3in
+        source: images/[suit]-small.png
+    }
 }
 
 data{

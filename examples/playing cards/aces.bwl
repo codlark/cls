@@ -6,8 +6,7 @@ briks {
 }
 ace {
     type: image
-    x: center
-    y: center
-    source: images/[suit]Big.png
+    position: center, center
+    source: images/[suit]-big.png
 }
 #data is pulled from the template

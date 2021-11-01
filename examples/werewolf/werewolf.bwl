@@ -1,44 +1,68 @@
-layout {
-    width: 2.5in
-    height: 3.5in
-    name: [role][repeatIndex].png
-    output: out/
-}
-briks {
-    bloodRed = #a32b1d
-    #maybe a little dark, but readability is important
-}
-titleBorder {
+boarder {
+    draw: yes
     type: rect
-    x: center
-    y: .5in
-    width: 1.5in
-    height: .25in
-    lineWidth: 6
-    xRadius: .125in
-    yRadius: .125in
+    position: 0,0
+    size: 100%, 100%
+    line: 4px, lightgray
 }
-title {
-    type: label
-    x: center
-    y: .5in
-    width: 1.5in
-    height: .25in
-    text: [capitalize| [role] ]
-    color: [if| [eq| [role] | werewolf ] | [bloodRed] | black ]
-    alignment: center middle
-    fontSize: 36
-    fontFamily: Palatino Linotype
-}
-icon {
-    type: image
-    x: center
-    y: 1in
-    source: images/[role].png
-}
-data {
-repeat, role
-2, werewolf
-4, villager
-1, seer
-}
+
+    layout {
+        size: 2.5in, 3.5in
+    }
+
+    export {
+        output: cards
+        bulk {
+            name: [role][repeat-index].png
+        }
+    }
+
+    briks {
+        dark-red = #a32b1d
+    }
+
+    defaults {
+        font-family: Palatino Linotype
+    }
+
+    role-container{
+        position: center, .5in
+        size: 1.5in, .25in
+        
+        border {
+            type: rect
+            size: 100%, 100%
+            corner-radius: .1in
+        }
+        
+        role {
+            type: text
+            size: 100%, 100%
+            font: 36pt, Palatino Linotype
+            font-color: [if| [eq| [role] | werewolf ] | [dark-red] | black ]
+            align: center, middle
+            text: [capitalize| [role] ]
+        }
+    }
+
+    icon {
+        type: image
+        position: center, 1in
+        source: images/[role].png
+    }
+
+    description {
+        type: text
+        position: center, ^.5in
+        size: 2in, .30in
+        font-family: Palatino Linotype
+        align: center, middle
+        text: [description]
+    }
+
+    data {
+    repeat, role, description
+    2, werewolf, You may kill one player per night.
+    1, seer, You may find out the role of one player per night.
+    4, villager, You have no abilities.
+    }

@@ -31,7 +31,7 @@ class bWError(Exception):
 
 class InvalidValueError(bWError):
     def __init__(self, elem, prop, value):
-        super().__init__("'{value}' is not a valid value for this property",
+        super().__init__("'{value}' is not a valid value for '{prop}' property",
         elem=elem, prop=prop, value=value
         )
 
@@ -43,7 +43,7 @@ class InvalidArgError(bWError):
 
 class UnclosedBrikError(bWError):
     def __init__(self, elem, prop, source):
-        super().__init__("'{source}' has an unclosed brik",
+        super().__init__("'{source}' has an unclosed brik in '{prop}' property",
         elem=elem, prop=prop, source=source
         )
         
@@ -133,8 +133,8 @@ class Unit():
         unitRe = r'(?P<unit>(?:' + '|'.join(units) + r')?)$'
         whole = signs + r'(?P<num>\d+)' + unitRe
         flt = signs + r'(?P<num>\d*\.\d+)' + unitRe
-        frac = signs + r'(?P<whole>\d+)[/.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
-        fracOnly = signs + r'[/.]?(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        frac = signs + r'(?P<whole>\d+)[ \.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        fracOnly = signs + r'(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
 
         if (match := re.match(whole, string)) or (match := re.match(flt, string)):
             sign = match.group('sign')
@@ -202,6 +202,8 @@ def evalEscapes(string:str) -> str:
     
     return build(accum)
 
+
+
 def deepUpdate(self:Mapping, other:Mapping):
     '''like update, but if a given index is a mapping in both self and other we recurse'''
     for k, v in other.items():
@@ -217,6 +219,25 @@ def deepUpdate(self:Mapping, other:Mapping):
 def build(accum:list) -> str:
     '''collapse a string builder'''
     return ''.join(accum).strip()
+
+def commaSplit(string):
+    accum = []
+    ret = []
+    pos = 0
+    char = ''
+    while pos < len(string):
+        char = string[pos]
+        if char == '\\':
+            accum.append(string[pos:pos+2])
+            pos += 1
+        elif char == ',':
+            ret.append(build(accum))
+            accum = []
+        else:
+            accum.append(char)
+        pos += 1
+    ret.append(build(accum))
+    return ret
 
 class CSVParser():
     '''Parse a csv file'''
@@ -364,8 +385,6 @@ class LayoutParser():
 
     def parseSection(self, elem):
         '''parses the contents of a section
-        if top is True the section is ended at end of string
-        if Flase, the default, the section is ended on }
         parsing includes both properties and sub sections
         don't call directly'''
         accum = []
@@ -521,6 +540,8 @@ class LayoutParser():
                     layout['sections'][name] = self.parseProps(name)
                 elif name == 'briks':
                     layout['sections'][name] = self.parseUserBriks()
+                elif name == 'export':
+                    layout['sections'][name] = self.parseSection(name)
                 elif name == 'data':
                     layout['sections'][name] = self.parseNil(name)
                 else:

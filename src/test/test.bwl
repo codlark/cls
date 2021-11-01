@@ -1,15 +1,23 @@
 layout {
-    width: 2.25in
-    height: 3.1/2in
-    name: test[assetIndex].png
-    output: out/
+    size: 2.25in, 3.5in
     #data: test.csv
     dpi: 300
     #csv: excel
 
-    #template: template.bwl
+    template: template.bwl
 }
-pdf {
+export {
+    output: out/
+    include-bleed: no
+    pdf {
+        #margin: foo
+        name: yams
+    }
+}
+
+briks {
+    yum = foo
+    bar = [1] is good
 }
 
 defaults {
@@ -17,24 +25,25 @@ defaults {
 }
 
 title {
-    type: label
-    x: center
-    y: .25in
+    type: text
+    position: center, 1/4in
     width: 1.75in
     height: 2in
     text: [title]
-    fontSize: 30pt
+    font-size: 30pt
+    decoration: italic, underline
 }
 icon {
     type: image
     x: .5in
     y: 7/8in
-    rotation: 0
+    angle: 0
     source: res/[img]
-    
+
     caption {
-        type: label
+        type: text
         text: a face
+        decoration: no-word-wrap
         x: center
         y: .25in
         #alignment: no
@@ -48,7 +57,7 @@ rotator {
     y: 7/8in
     width: 3/4in
     height: 3/8in
-    rotation: 180
+    angle: 180
     rotated {
         type: rect
         x: 0
@@ -59,23 +68,41 @@ rotator {
 }
 bodyBorder {
     type: rect
-    x: center
-    y: 1.5in
+    foo: bar
+    #x: center
+    #y: 1.5in
+    position: center, 1.5in
     width: 1.75in
     #lineWidth: 0.01in
     height: 1.75in
-    xRadius: 1/8in; yRadius: 1/4in;
+    #xRadius: 1/8in; yRadius: 1/4in;
+    radius: 1/8in, 1/4in
 }
 body {
-    type: label
+    type: text
     x: center
     y: 1.625in
     width: 1.5in
     height: 1.25in
     text: [body]
-    fontFamily: Cormorant
+    font-family: Cormorant
 }
-#banjo {draw: yes; lineColor: blue}
+
+round {
+    type: circle
+    draw: no
+    diameter: 1in, 1/2in
+    fill-color: transparent
+}
+
+banjo {
+    start: 0, 0
+    end: 1.25in, 7/8in
+    draw: yes
+    line: 5px, blue
+    #x2: 1.25in
+    #y2: 7/8in
+}
 
 
 lineHolder {

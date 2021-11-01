@@ -26,9 +26,10 @@ state.painter = None
 state.asset = 0
 
 def openFile(filename):
-    dir = os.getcwd()
+    startingDir = os.getcwd()
     directory, filename = os.path.split(os.path.realpath(filename))
     os.chdir(directory)
+    app.setOverrideCursor(waitCursor)
     try:
         #layoutText = _openFile(filename)
         layout = buildLayout(filename)
@@ -37,7 +38,7 @@ def openFile(filename):
         #state.asset = 0        
 
     except bWError as e:
-        os.chdir(dir)
+        os.chdir(startingDir)
         #state.layout = None
         #state.painter = None
         #state.assetSpin.setValue(1)
@@ -51,6 +52,9 @@ def openFile(filename):
             state.assetSpin.setValue(1)
             state.assetSpin.setRange(1, len(state.painter.images))
         return True, f'generated {len(state.painter.images)} assets'
+    
+    finally:
+        app.setOverrideCursor(arrowCursor)
 
 def setImage():
     if state.painter is None:
@@ -72,6 +76,8 @@ def openFunc(earlyOpen):
     
     state.filename = filename
     window.textLog.append('\n-----------')
+    window.textLog.append(filename)
+    window.textLog.append('-----------')
     
     shortFilename = os.path.split(state.filename)[1]
     window.setWindowTitle(f'{shortFilename} - brikWork')
@@ -89,35 +95,6 @@ def reloadFunc():
     window.textLog.append(message)
 
 @Slot()
-def saveFunc():
-    if state.painter is not None:
-        try:
-            state.painter.save()
-        except bWError as e:
-            window.textLog.append(e.message)
-        else:
-            window.textLog.append(f"saved assets to {state.layout.output}")
-    else:
-        window.textLog.append('unable to save, no layout is presnt')
-
-#@Slot()
-#def nextFunc():
-#    asset = state.asset + 1
-#    if state.painter is None:
-#        return
-#    if asset == len(state.painter.images):
-#        return
-#    state.asset = asset
-#    setImage()
-
-#@Slot()
-#def prevFunc():
-#    if state.asset == 0:
-#        return
-#    state.asset -= 1
-#    setImage()
-
-@Slot()
 def spinChangeFunc(val):
     if state.painter is None:
         return
@@ -125,12 +102,22 @@ def spinChangeFunc(val):
     setImage()
 
 @Slot()
-def makePDF():
-    state.pdf = QPdfWriter("output.pdf")
-    state.pdf.setResolution(300)
-    state.pdf.setPageSize(QPageSize(QPageSize.Letter))
-    painter = QPainter(state.pdf)
-    painter.drawPixmap(QPoint(20,20), QPixmap.fromImage(state.painter.images[0][0]))
+def exportFunc():
+    if state.painter is not None:
+        app.setOverrideCursor(waitCursor)
+        try:
+            state.painter.export(state.exportChoice.currentText())
+        except bWError as e:
+            window.textLog.append(e.message)
+        else:
+            export = state.layout.export[state.exportChoice.currentText()].output
+            if export == '':
+                export = os.path.split(os.getcwd())[1]
+            window.textLog.append(f"saved cards to {export}")
+        finally:
+            app.setOverrideCursor(arrowCursor)
+    else:
+        window.textLog.append('unable to save, no layout is present')
     
 
 class MainWindow(QMainWindow):
@@ -171,20 +158,29 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(reloadAct)
         reloadAct.triggered.connect(reloadFunc)
 
-        saveAct = QAction('Save Assets', parent=self)
-        self.toolbar.addAction(saveAct)
-        saveAct.triggered.connect(saveFunc)
-
-        self.toolbar.addWidget(QLabel("Current Asset ", parent=self))
+        self.toolbar.addWidget(QLabel("Current Card ", parent=self))
 
         state.assetSpin = QSpinBox(parent=self)
         self.toolbar.addWidget(state.assetSpin)
         state.assetSpin.valueChanged.connect(spinChangeFunc)
         state.assetSpin.setRange(1,1)
 
-        #printAct = QAction('print', parent=self)
-        #self.toolbar.addAction(printAct)
-        #printAct.triggered.connect(makePDF)
+        self.toolbar.addWidget(QLabel('Export Target '))
+
+        state.exportChoice = QComboBox(self)
+        self.toolbar.addWidget(state.exportChoice)
+        state.exportChoice.addItems(['bulk', 'pdf', 'tts'])
+        state.exportChoice.setEditable(False)
+
+        exportAct = QAction('Export', parent=self)
+        self.toolbar.addAction(exportAct)
+        exportAct.triggered.connect(exportFunc)
+
+        #exportBulkAct = QAction('bulk', parent=self)
+        #self.toolbar.addAction(exportBulkAct)
+        #exportBulkAct.triggered.connect(exportFunc, 'bulk')
+
+
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -206,13 +202,16 @@ commandParser.add_argument('file',
 commandParser.add_argument('-w', '--windowless',
     action='store_true',
     dest='windowless',
-    help='generate and save assets without displaying a window, FILE must be provided'
+    help='generate and save cards without displaying a window, FILE must be provided'
 )
 
 app = QApplication()
 window = MainWindow()
-        
 args = commandParser.parse_args()
+
+waitCursor = QCursor(Qt.WaitCursor)
+arrowCursor = QCursor()
+
 
 if args.file is not None and args.windowless:
     result, message = openFile(args.file)
@@ -223,7 +222,7 @@ if args.file is not None and args.windowless:
         except bWError as e:
             print(e.message)
         else:
-            print(f"saved assets to {state.layout.output}")
+            print(f"saved cards to {state.layout.output}")
 
 elif not args.windowless:
     if args.file is not None:
