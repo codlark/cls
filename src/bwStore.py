@@ -190,8 +190,7 @@ class BrikStore():
 ## BEGIN STDLIB
 ###############################################################################
 
-#Most things don't neeed *args, I should make the arg definition more exact
-
+ 
 @BrikStore.addStdlib('if', (2,3))
 def ifBrik(context, test, true, false=''):
 
@@ -222,9 +221,9 @@ def neBrik(context, left, right):
 
 @BrikStore.addStdlib('in', (2, 99))
 def inBrik(context, value, *args):
-    parsed = context.parse(value)
+    parsed = evalEscapes(context.parse(value))
     for arg in args:
-        if parsed == context.parse(arg):
+        if parsed == evalEscapes(context.parse(arg)):
             return 'true'
     return 'false'
 
@@ -410,7 +409,9 @@ def makeOp(op):
 def mathBrik(context, value):
     '''makes use of dijkstra's shunting yard algorithm to conver to
     reverse polish notation, then parses the rpn'''
-    tokens = context.parse(value).split()
+    #tokens = context.parse(value).split()
+
+    tokens = re.split("\s+(\+|-|\*|\%|/|\(|\))\s+", context.parse(value))
 
     rpn = deque()
     opStack = []
@@ -493,8 +494,22 @@ def fileBrik(context, filename):
         with open(name, encoding='utf-8') as file:
             fileContents = file.read()
     except OSError:
-        raise bWError("Could not open '{filename}'", elem=context.elem, prop=context.prop)
+        raise bWError("Could not open '{filename}'", elem=context.elem, prop=context.prop, filename=filename)
     return fileContents
+
+@BrikStore.addStdlib('switch', (3, 99))
+def switchBrik(context, sentinal, *args):
+    if len(args)% 2 != 0:
+        raise bWError("case and results are not balanced in brik [switch| ]", elem=context.elem, prop=context.prop)
+    test = evalEscapes(context.parse(sentinal))
+    for pair in range(len(args)//2):
+        case = pair*2
+        if case+2 == len(args):
+            if args[case] == 'default':
+                return args[case+1]
+        if test == evalEscapes(context.parse(args[case])):
+            return args[case+1]
+    return ''
 
 if __name__ == '__main__':
     context = AttrDict(elem='<test>', prop='<test>', name='=.', parse=(lambda x: x))

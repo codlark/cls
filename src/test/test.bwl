@@ -39,6 +39,7 @@ icon {
     y: 7/8in
     angle: 0
     source: res/[img]
+    scale: 50%
 
     caption {
         type: text
@@ -88,12 +89,7 @@ body {
     font-family: Cormorant
 }
 
-round {
-    type: circle
-    draw: no
-    diameter: 1in, 1/2in
-    fill-color: transparent
-}
+
 
 banjo {
     start: 0, 0
@@ -104,25 +100,13 @@ banjo {
     #y2: 7/8in
 }
 
-
-lineHolder {
-    type: rect
-    x:0
-    y:0in
-    width:1in
-    height: 1in
-    draw: no
-    line {
-        type: rect
-        x: 0
-        y: 150%
-        width: 50%
-        height:50%
-        x2: center
-        y2: 100
-    }
+calc {
+    type: text
+    x: 1/8in
+    width: 100%
+    align: left, top
+    text: [switch| foo| bar|1 | bif|2 | baz|3]
 }
-
 
 data {
 title, img, body

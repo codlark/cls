@@ -376,8 +376,8 @@ class ImageElement():
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
-        scaleWidth = validateNumber(units=('%',), out=Unit),
-        scaleHeight = validateNumber(units=('%',), out=Unit),
+        scaleWidth = validateNumber(units=('%', 'x'), out=Unit),
+        scaleHeight = validateNumber(units=('%', 'x'), out=Unit),
         
     ))
 
@@ -413,8 +413,14 @@ class ImageElement():
         
                 width = elem.source.width()
                 height = elem.source.height()
-                newWidth = int(elem.scaleWidth.num/100 * width)
-                newHeight = int(elem.scaleHeight.num/100 * height)
+                if elem.scaleWidth.unit == '%':
+                    newWidth = int(elem.scaleWidth.num/100 * width)
+                else:
+                    newWidth = int(elem.scaleWidth.num*width)
+                if elem.scaleHeight.unit == '%':
+                    newHeight = int(elem.scaleHeight.num/100 * height)
+                else:
+                    newHeight = int(elem.scaleHeight.num*height)
                 elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
             
         elif elem.keepAspectRatio:
@@ -489,8 +495,14 @@ class ImageBoxElement():
             width = elem.source.width()
             height = elem.source.height()
 
-            newWidth = int(elem.scaleWidth.num/100 * width)
-            newHeight = int(elem.scaleHeight.num/100 * height)
+            if elem.scaleWidth.unit == '%':
+                newWidth = int(elem.scaleWidth.num/100 * width)
+            else:
+                newWidth = int(elem.scaleWidth.num*width)
+            if elem.scaleHeight.unit == '%':
+                newHeight = int(elem.scaleHeight.num/100 * height)
+            else:
+                newHeight = int(elem.scaleHeight.num*height)
 
             elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
 
