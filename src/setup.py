@@ -28,7 +28,7 @@ if sys.platform == 'win32':
 
 setup(
     name='brikWork',
-    version='0.6',
+    version='7',
     description='brikWork app',
     options = dict(build_exe=build_options),
     executables=[Executable("brikWork.py", icon="../logo.ico", base=base)]

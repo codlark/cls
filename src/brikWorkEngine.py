@@ -181,7 +181,9 @@ class ExportSection():
         output = Section.validateString,
     ))
     names = ChainMap({
-        'include-bleed': 'includeBleed'
+        'include-bleed': 'includeBleed',
+        'dest': 'output',
+        'destination': 'output'
     })
 
 class BulkExport(ExportSection):
@@ -491,7 +493,9 @@ def buildLayout(filename):
     layout.cardSize = QSize(layout.widthUnit.toInt(dpi=layout.dpi), layout.heightUnit.toInt(dpi=layout.dpi))
     layout.bleed = QPoint(layout.bleedWidth.toInt(dpi=layout.dpi), layout.bleedHeight.toInt(dpi=layout.dpi))
     layout.content = QRect(layout.bleed, layout.cardSize)
-    layout.fullSize = QSize(layout.cardSize.width()+layout.bleed.x()*2, layout.cardSize.height()+layout.bleed.y()*2)
+    widthFull = layout.widthUnit.toFloat(dpi=layout.dpi) + layout.bleedWidth.toFloat(dpi=layout.dpi) * 2
+    heightFull = layout.heightUnit.toFloat(dpi=layout.dpi) + layout.bleedHeight.toFloat(dpi=layout.dpi) * 2
+    layout.fullSize = QSize(int(widthFull), int(heightFull))
 
     sections = parsedLayout['sections']
 
@@ -578,6 +582,7 @@ def buildLayout(filename):
             newStore.add('arg-total', str(len(args)))
             for num, arg in enumerate(args):
                 newStore.add(str(num+1), arg)
+            newStore.add('args', makeList(args))
             return newStore.parse(value)
         return func
     layout.userBriks = {}
@@ -588,8 +593,11 @@ def buildLayout(filename):
 
     #elemnts
     def fix(elemName, source, dest, type, renames):
+        '''users can describe properties a few different ways
+        this function standardizes property names, and holds on to the name the user used'''
         for name, value in source.items():
-            if name == 'children': continue
+            if name == 'children':
+                continue
             if name in type.shortcuts:
                 values = type.shortcuts[name](value)
                 if values is None:
@@ -635,7 +643,7 @@ def buildLayout(filename):
 
     return layout
 
-class AssetPainter():
+class CardGenerator():
     def __init__(self, layout):
         self.layout = layout
         self.store = BrikStore()
@@ -647,18 +655,18 @@ class AssetPainter():
 
         self.images = []
 
-    def generate(self, source:dict[str, ElementProtoype], dest, container=None):
-        
+    def compile(self, source:dict[str, ElementProtoype], dest, container=None):
+        '''turn a dict of element prototypes into a dict of compiled elements'''
         for name, proto in source.items():
-            elem = proto.generate(container, self.store, self.layout)
+            elem = proto.compile(container, self.store, self.layout)
             if elem.draw:
                 dest[name] = elem
                 elem.subelements = {}
                 if len(proto.subelements) > 0:
-                    self.generate(proto.subelements, elem.subelements, elem)
+                    self.compile(proto.subelements, elem.subelements, elem)
 
-    def paintElement(self, elem, painter:QPainter):
-        '''Paint a given element'''
+    def renderElment(self, elem, painter:QPainter):
+        '''render a given element'''
         painter.save()
         mid = QPoint(elem.width/2, elem.height/2)
         painter.translate(QPoint(elem.x, elem.y)+mid)
@@ -667,39 +675,36 @@ class AssetPainter():
         if len(elem.subelements) > 0:
             painter.translate(-mid)
             for subelem in elem.subelements.values():
-                self.paintElement(subelem, painter)
+                self.renderElment(subelem, painter)
 
         painter.restore()
 
-    def paintAsset(self):
-        '''paint the layout and the contained elements'''
+    def renderCard(self):
+        '''render the layout and the contained elements'''
         elements = {}
-        self.generate(self.layout.elements, elements)
+        self.compile(self.layout.elements, elements)
 
         image = QImage(self.layout.fullSize, QImage.Format_ARGB32_Premultiplied)
-        #image = QImage(self.layout.width, self.layout.height, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.white)
         painter = QPainter(image)
         painter.setClipRect(0, 0, self.layout.fullSize.width(), self.layout.fullSize.height())
-        #painter.setClipRect(0, 0, self.layout.width, self.layout.height)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
         painter.translate(self.layout.bleed)
         
         for element in elements.values():
-            #painter.resetTransform()
             painter.setPen(Qt.black)
             painter.setBrush(Qt.white)
-            self.paintElement(element, painter)
+            self.renderElment(element, painter)
 
         return image
 
 
-    def paint(self):
+    def render(self):
         '''paint a set of assets based on the current layout and data file.'''
 
         if self.layout.data is None:
-                image = self.paintAsset()
+                image = self.renderCard()
                 self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
                 name = self.store.parse(self.layout.assetName)
                 self.images.append((image, name))
@@ -707,8 +712,9 @@ class AssetPainter():
         else:
             for row in  self.layout.data:
                 #TODO figure out a better way to do this
+                #unless this is the good way
                 self.store.briks.update(row)
-                image = self.paintAsset()
+                image = self.renderCard()
                 self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
                 name = evalEscapes(self.store.parse(self.layout.assetName))
                 self.images.append((image, name))
@@ -745,7 +751,8 @@ repeatI = 'repeat-index'
 repeatT = 'repeat-total'
 
 def parseData(data):
-
+    #adds the counts to the roes as if they were columns
+    #this should maybe be moved to the csv parser
     if data is None:
         return None
 

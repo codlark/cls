@@ -33,8 +33,8 @@ def openFile(filename):
     try:
         #layoutText = _openFile(filename)
         layout = buildLayout(filename)
-        painter = AssetPainter(layout)
-        painter.paint()
+        painter = CardGenerator(layout)
+        painter.render()
         #state.asset = 0        
 
     except bWError as e:
@@ -118,7 +118,10 @@ def exportFunc():
             app.setOverrideCursor(arrowCursor)
     else:
         window.textLog.append('unable to save, no layout is present')
-    
+
+@Slot()
+def clearCacheFunc():
+    ImageGetter.clearCache()
 
 class MainWindow(QMainWindow):
     
@@ -165,6 +168,8 @@ class MainWindow(QMainWindow):
         state.assetSpin.valueChanged.connect(spinChangeFunc)
         state.assetSpin.setRange(1,1)
 
+        self.toolbar.addSeparator()
+
         self.toolbar.addWidget(QLabel('Export Target '))
 
         state.exportChoice = QComboBox(self)
@@ -176,11 +181,14 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(exportAct)
         exportAct.triggered.connect(exportFunc)
 
-        #exportBulkAct = QAction('bulk', parent=self)
-        #self.toolbar.addAction(exportBulkAct)
-        #exportBulkAct.triggered.connect(exportFunc, 'bulk')
+        
+        self.toolbar2 = QToolBar(self)
+        self.addToolBar(Qt.BottomToolBarArea, self.toolbar2)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextOnly)
 
-
+        clearAct = QAction('Clear Image Cache', parent=self)
+        self.toolbar2.addAction(clearAct)
+        clearAct.triggered.connect(exportFunc)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)

@@ -2,7 +2,7 @@ layout {
     size: 2.5in, 3.5in
 }
 export {
-    output: cards/
+    destination: cards/
     bulk {
         name: [suit][rank].png
     }

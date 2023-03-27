@@ -18,6 +18,9 @@ export {
 briks {
     yum = foo
     bar = [1] is good
+    $fire = fire_img
+    $water = water_img
+    cost = [for-each| [1]| [/| \[$[item]\] ] ]
 }
 
 defaults {
@@ -85,7 +88,7 @@ body {
     y: 1.625in
     width: 1.5in
     height: 1.25in
-    text: [body]
+    text: [body] [cost| (fire: water)]
     font-family: Cormorant
 }
 
@@ -105,7 +108,7 @@ calc {
     x: 1/8in
     width: 100%
     align: left, top
-    text: [switch| foo| bar|1 | bif|2 | baz|3]
+    text: [for-each| (foo:bar:baz)| \syes [item]]
 }
 
 data {

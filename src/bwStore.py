@@ -12,6 +12,8 @@ class BrikStore():
 
     @classmethod
     def addStdlib(cls, name:str, value:Union[int, str]):
+        '''with two strings, add text brik
+        with a string and an int, use as a decorator to add a function'''
         def inner(func:Callable):
             if type(func) == str:
                 cls.stdlib[name] = func
@@ -27,11 +29,14 @@ class BrikStore():
         self.briks = ChainMap({}, self.stdlib)
 
     def copy(self):
+        '''make a copy of this BrikStore'''
         new = BrikStore()
         new.briks = self.briks.new_child()
         return new
 
     def add(self, name:str, value:Union[list[int], str]):
+        '''with two strings, add text brik
+        with a string and an int, use as a decorator to add a function'''
         def inner(func:Callable):
             if type(func) == str:
                 self.briks[name] = func
@@ -45,6 +50,7 @@ class BrikStore():
             return inner
 
     def call(self, name:str, context:Collection, args:str) -> str:
+        '''call a brik by name'''
         #print(f'{name!r} : {args!r}')
         if name in self.briks:
             brik = self.briks[name]
@@ -108,6 +114,13 @@ class BrikStore():
 
 
     def evalBrik(self, ps) -> str:
+        '''evalBrik parses out a brik then calls it with its arguments and context
+        context includes:
+         - store - this brikStore object
+         - parse - a reference to the parse method of this object
+         - source - the string the brik was found in, used for errors
+         - prop - the property this brik was found in, used for errors
+         - elem - the element this brik was found in, used for errors'''
         nameB = []
         args = []
         char = ''
@@ -222,11 +235,15 @@ def neBrik(context, left, right):
 @BrikStore.addStdlib('in', (2, 99))
 def inBrik(context, value, *args):
     parsed = evalEscapes(context.parse(value))
-    for arg in args:
+    if len(args) == 0:
+        return 'false'
+    parsedList = ListParser(args[0]).parse()
+    if parsedList == None:
+        parsedList = args
+    for arg in parsedList:
         if parsed == evalEscapes(context.parse(arg)):
             return 'true'
     return 'false'
-
 
 @BrikStore.addStdlib('i', 1)
 def italicBrik(context, string):
@@ -259,7 +276,20 @@ def repeatBrik(context, times, value):
         newStore.add('d', str(i+ofs))
         result.append(newStore.parse(value))
     return ''.join(result)
-    
+
+@BrikStore.addStdlib('for-each', 2)
+def forBrik(context, lst, body):
+    lst = context.parse(lst)
+    parsedList = ListParser(lst).parse()
+    if parsedList == None:
+        raise InvalidArgError(context.elem, context.prop, 'for-each', 'LIST', lst)
+    result = []
+    newStore = context.store.copy()
+    for item in parsedList:
+        newStore.add('item', item)
+        result.append(newStore.parse(body))
+    return ''.join(result)
+
 @BrikStore.addStdlib('capitalize', 1)
 def capitalizeBrik(context, value):
     value = context.parse(value)
@@ -282,29 +312,9 @@ def upperBrik(context, value):
         return m.group(1).lower()
     return re.sub(r'(?<!\\)([A-Z])', repl, value)
 
-@BrikStore.addStdlib('substr', 3)
-def subBrik(context, value, start, length):
-    value = context.parse(value)
-    
-    start = context.parse(start)
-    startUnit = Unit.fromStr(context.parse(start), signs='+0', units=('',))
-    if startUnit is None:
-        raise InvalidArgError(context.elem, context.prop, 'substr', 'START', start)
-    start = startUnit.toInt()
-    if startUnit.sign != '0':
-        start -= 1
-    
-    length = context.parse(length)
-    lengthUnit = Unit.fromStr(context.parse(length), signs='+0', units=('',))
-    if lengthUnit is None:
-        raise InvalidArgError(context.elem, context.prop, 'substr', 'LENGTH', length)
-    length = lengthUnit.toInt()
-    
-    return value[start:start+length]
-
 @BrikStore.addStdlib('slice', (2, 3))
 def sliceBrik(context, value, start, stop=None):
-    value = context.parse(value)
+    value = context.parse(value)   
 
     start = context.parse(start)
     startUnit = Unit.fromStr(context.parse(start), signs='+-0', units=('',))
@@ -323,7 +333,20 @@ def sliceBrik(context, value, start, stop=None):
         if stopUnit.sign in ('+', ''):
             stop -= 1
         
-    return value[start:stop]
+    parsedList = ListParser(value).parse()
+    if parsedList is not None:
+        return makeList(parsedList[start:stop])
+    else:
+        return value[start:stop]
+
+@BrikStore.addStdlib('length', 1)
+def lengthBrik(context, value):
+    parsedValue = evalEscapes(context.parse(value))
+    parsedList = ListParser(context.parse(value)).parse()
+    if parsedList is not None:
+        return len(parsedList)
+    else:
+        return len(parsedValue)
 
 @BrikStore.addStdlib('rnd', (1,2))
 def randomBrik(context, start, stop=None):
@@ -411,7 +434,7 @@ def mathBrik(context, value):
     reverse polish notation, then parses the rpn'''
     #tokens = context.parse(value).split()
 
-    tokens = re.split("\s+(\+|-|\*|\%|/|\(|\))\s+", context.parse(value))
+    tokens = re.split(r"\s+(\+|\-|\*|\%|/|\(|\))\s+", context.parse(value.strip()))
 
     rpn = deque()
     opStack = []
@@ -512,6 +535,6 @@ def switchBrik(context, sentinal, *args):
     return ''
 
 if __name__ == '__main__':
-    context = AttrDict(elem='<test>', prop='<test>', name='=.', parse=(lambda x: x))
-    print(mathBrik(context, '2.1/4 - 2/3 '))
+    context = AttrDict(elem='<test>', prop='<test>', name='=', parse=(lambda x: x))
+    print(mathBrik(context, '2.1/4 - 2/3 ' ))
     #print(mathBrik(context, ''))
