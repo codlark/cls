@@ -6,7 +6,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
-from brikWorkEngine import *
+from CLSRenderer import *
 
 def getResource(filename):
     if getattr(sys, "frozen", False):
@@ -33,11 +33,11 @@ def openFile(filename):
     try:
         #layoutText = _openFile(filename)
         layout = buildLayout(filename)
-        painter = AssetPainter(layout)
-        painter.paint()
+        painter = CardRenderer(layout)
+        painter.render()
         #state.asset = 0        
 
-    except bWError as e:
+    except CLSError as e:
         os.chdir(startingDir)
         #state.layout = None
         #state.painter = None
@@ -69,7 +69,7 @@ def openFunc(earlyOpen):
     if earlyOpen:
         filename = state.filename
     else:
-        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.bwl)')
+        filename, filter = QFileDialog.getOpenFileName(window, 'Open Layout File', '.', 'Layout Files (*.cls)')
 
     if not os.path.isfile(filename):
         return
@@ -80,7 +80,7 @@ def openFunc(earlyOpen):
     window.textLog.append('-----------')
     
     shortFilename = os.path.split(state.filename)[1]
-    window.setWindowTitle(f'{shortFilename} - brikWork')
+    window.setWindowTitle(f'{shortFilename} - CLS Renderer')
     
     result, message = openFile(filename)
     if result:
@@ -107,7 +107,7 @@ def exportFunc():
         app.setOverrideCursor(waitCursor)
         try:
             state.painter.export(state.exportChoice.currentText())
-        except bWError as e:
+        except CLSError as e:
             window.textLog.append(e.message)
         else:
             export = state.layout.export[state.exportChoice.currentText()].output
@@ -118,14 +118,17 @@ def exportFunc():
             app.setOverrideCursor(arrowCursor)
     else:
         window.textLog.append('unable to save, no layout is present')
-    
+
+@Slot()
+def clearCacheFunc():
+    ImageGetter.clearCache()
 
 class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle('brikWork')
+        self.setWindowTitle('CLS Renderer')
         iconPath = getResource('logo.ico')
         icon = QIcon(iconPath)
         self.setWindowIcon(icon)
@@ -165,6 +168,8 @@ class MainWindow(QMainWindow):
         state.assetSpin.valueChanged.connect(spinChangeFunc)
         state.assetSpin.setRange(1,1)
 
+        self.toolbar.addSeparator()
+
         self.toolbar.addWidget(QLabel('Export Target '))
 
         state.exportChoice = QComboBox(self)
@@ -176,11 +181,14 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(exportAct)
         exportAct.triggered.connect(exportFunc)
 
-        #exportBulkAct = QAction('bulk', parent=self)
-        #self.toolbar.addAction(exportBulkAct)
-        #exportBulkAct.triggered.connect(exportFunc, 'bulk')
+        
+        self.toolbar2 = QToolBar(self)
+        self.addToolBar(Qt.BottomToolBarArea, self.toolbar2)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextOnly)
 
-
+        clearAct = QAction('Clear Image Cache', parent=self)
+        self.toolbar2.addAction(clearAct)
+        clearAct.triggered.connect(exportFunc)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -188,7 +196,7 @@ class MainWindow(QMainWindow):
 
 
 commandParser = argparse.ArgumentParser(
-    description='brikwork command line app',
+    description='CLS Renderer command line app',
     add_help=True,
 )
 commandParser.add_argument('file', 
@@ -196,13 +204,13 @@ commandParser.add_argument('file',
     nargs='?',
     default=None,
     type=os.path.realpath,
-    help='optional, a layout file to open and generate at startup'
+    help='optional, a layout file to open and render at startup'
 )
 
 commandParser.add_argument('-w', '--windowless',
     action='store_true',
     dest='windowless',
-    help='generate and save cards without displaying a window, FILE must be provided'
+    help='render and save cards without displaying a window, FILE must be provided'
 )
 
 app = QApplication()
@@ -219,7 +227,7 @@ if args.file is not None and args.windowless:
     if result:
         try:
             state.painter.save()
-        except bWError as e:
+        except CLSError as e:
             print(e.message)
         else:
             print(f"saved cards to {state.layout.output}")

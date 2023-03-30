@@ -2,7 +2,7 @@ import re
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from bwUtils import *
+from CLSUtils import *
 
 __all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
 
@@ -48,7 +48,7 @@ def validateXY(frame, elem):
     else:
         dim = 'height'
     if frame.container == 'layout':
-        containerDim = getattr(frame.layout.fullSize, dim)()
+        containerDim = getattr(frame.layout.cardSize, dim)()
         #containerDim = frame.layout[dim]
     else:
         containerDim = frame.container[dim]
@@ -173,9 +173,9 @@ class ElementProtoype(ChainMap):
             userProp = self.renames[trueProp]
         else:
             userProp = trueProp
+        #trueProp is the coannonical name of a property
+        #userProp is the name the user used
 
-        #print(trueProp)
-        #after this no change lol
         if trueProp not in self.type.validators:
             return
         func = self.type.validators[trueProp]
@@ -185,8 +185,9 @@ class ElementProtoype(ChainMap):
         else:
             return
 
-    def generate(self, container, store, layout):
-
+    def compile(self, container, store, layout):
+        '''turn a element protopye into a rendered element, ready for rendering
+        stored as a dictionary'''
         frame = AttrDict(name=self.qualName)
         frame.layout = layout.copy()
         if container is None:
@@ -216,8 +217,8 @@ class ElementProtoype(ChainMap):
             self.validate(frame)
 
         
-        if hasattr(self.type, 'midGenerate'):
-            self.type.midGenerate(elem)
+        if hasattr(self.type, 'midCompile'):
+            self.type.midCompile(elem)
 
         for prop in xyProps:
             if prop not in self:
@@ -255,11 +256,15 @@ class Element():
         height = validateHeightWidth,
         rotation = validateAngle,
     ))
+    #validate functions are missnamed, they actually set the associated property
+    #on the reified element, then return true or false depending on success
 
     shortcuts = ChainMap(dict(
         position = stretchShortcut('position X', 'position Y'),
         size = stretchShortcut('size WIDTH', 'size HEIGHT'),
     ))
+    #shortcut functions take a compound value and split that value, pairing each
+    #sub value with it's name
 
     names = ChainMap({
         'angle': 'rotation',
@@ -270,7 +275,7 @@ class Element():
     })
 
     @staticmethod
-    def paint(elem, painter, upperLect, size):
+    def paint(elem, painter, upperLeft, size):
         pass
 
 class LabelElement():
@@ -356,11 +361,10 @@ class LabelElement():
         painter.drawPixmap(upperLeft, label.grab())
 
 
-imageCache = {}
+
 def validateImage(frame, elem):
-    if frame.value not in imageCache:
-        imageCache[frame.value] = QImage(frame.value)
-    elem[frame.prop] = imageCache[frame.value]
+
+    elem[frame.prop] = ImageGetter.getImage(frame.value)
     return True
 
 class ImageElement():
@@ -376,8 +380,8 @@ class ImageElement():
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
-        scaleWidth = validateNumber(units=('%',), out=Unit),
-        scaleHeight = validateNumber(units=('%',), out=Unit),
+        scaleWidth = validateNumber(units=('%', 'x'), out=Unit),
+        scaleHeight = validateNumber(units=('%', 'x'), out=Unit),
         
     ))
 
@@ -398,7 +402,7 @@ class ImageElement():
         painter.drawPixmap(upperLeft, elem.source)
 
     @staticmethod
-    def midGenerate(elem):
+    def midCompile(elem):
         scaleMode = Qt.SmoothTransformation
         if elem.keepAspectRatio:
             aspect = Qt.KeepAspectRatio
@@ -413,8 +417,14 @@ class ImageElement():
         
                 width = elem.source.width()
                 height = elem.source.height()
-                newWidth = int(elem.scaleWidth.num/100 * width)
-                newHeight = int(elem.scaleHeight.num/100 * height)
+                if elem.scaleWidth.unit == '%':
+                    newWidth = int(elem.scaleWidth.num/100 * width)
+                else:
+                    newWidth = int(elem.scaleWidth.num*width)
+                if elem.scaleHeight.unit == '%':
+                    newHeight = int(elem.scaleHeight.num/100 * height)
+                else:
+                    newHeight = int(elem.scaleHeight.num*height)
                 elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
             
         elif elem.keepAspectRatio:
@@ -443,7 +453,7 @@ class ImageBoxElement():
     ))
 
     shortcuts = ImageElement.shortcuts.new_child(dict(
-        align = countShortcut(2, 'align HORZ', 'align VERT')
+        align = countShortcut(2, 'align H-ALIGN', 'align V-ALIGN')
     ))
 
     names = ImageElement.names.new_child({
@@ -476,7 +486,7 @@ class ImageBoxElement():
         painter.drawPixmap(upperLeft+QPoint(xOfs, yOfs), elem.source)
     
     @staticmethod
-    def midGenerate(elem):
+    def midCompile(elem):
         scaleMode = Qt.SmoothTransformation
         if elem.keepAspectRatio:
             aspect = Qt.KeepAspectRatio
@@ -489,8 +499,14 @@ class ImageBoxElement():
             width = elem.source.width()
             height = elem.source.height()
 
-            newWidth = int(elem.scaleWidth.num/100 * width)
-            newHeight = int(elem.scaleHeight.num/100 * height)
+            if elem.scaleWidth.unit == '%':
+                newWidth = int(elem.scaleWidth.num/100 * width)
+            else:
+                newWidth = int(elem.scaleWidth.num*width)
+            if elem.scaleHeight.unit == '%':
+                newHeight = int(elem.scaleHeight.num/100 * height)
+            else:
+                newHeight = int(elem.scaleHeight.num*height)
 
             elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
 
@@ -605,7 +621,7 @@ class EllipseElement():
         painter.drawEllipse(QRect(upperLeft, size))
 
     @staticmethod
-    def midGenerate(elem):
+    def midCompile(elem):
         if elem.width == 0 and elem.height != 0:
             elem.width = elem.height
         elif elem.width != 0 and elem.height == 0:
@@ -645,7 +661,7 @@ class LineElement():
         painter.drawLine(0, 0, elem.x2-elem.x, elem.y2-elem.y)
 
     @staticmethod
-    def midGenerate(elem):
+    def midCompile(elem):
         elem.width = 0
         elem.height = 0
         elem.rotation = 0

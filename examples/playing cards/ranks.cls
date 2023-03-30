@@ -1,7 +1,7 @@
 layout {
-    template: indexes.bwl
+    template: indexes.cls
 }
-briks {
+macros {
     rank = [=| [repeat-index] + 1]
 }
 #pips are named for their position in a grid, 7 rows, 3 columns

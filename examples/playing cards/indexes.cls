@@ -2,14 +2,13 @@ layout {
     size: 2.5in, 3.5in
 }
 export {
-    output: cards/
+    destination: cards/
     bulk {
         name: [suit][rank].png
     }
 }
-briks {
+macros {
     red = #ff1569
-    #could pass for magenta in a pinch
     black = #1a1a5e
     #more of a midnight blue really
     rank = 0

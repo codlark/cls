@@ -12,7 +12,7 @@ export {
 
     }
 }
-briks {
+macros {
 
 }
 defaults {

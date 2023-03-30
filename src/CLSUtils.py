@@ -2,13 +2,14 @@
 from dataclasses import dataclass
 import re
 from collections.abc import Mapping
-from collections import ChainMap
 from types import SimpleNamespace
 from typing import *
 
+from PySide6.QtGui import QImage
 
-class bWError(Exception):
-    '''base class for errors raised by brikWork'''
+
+class CLSError(Exception):
+    '''base class for errors raised by CLS'''
     def __init__(self, msg:str, /, **kwargs):
         '''msg will be formated with kwargs'''
         if 'origin' in kwargs:
@@ -29,25 +30,25 @@ class bWError(Exception):
     def message(self):
         return self.msg.format(**self.kwargs)
 
-class InvalidValueError(bWError):
+class InvalidValueError(CLSError):
     def __init__(self, elem, prop, value):
         super().__init__("'{value}' is not a valid value for '{prop}' property",
         elem=elem, prop=prop, value=value
         )
 
-class InvalidArgError(bWError):
-    def __init__(self, elem, prop, brik, arg, value):
-        super().__init__("'{value}' is not a valid {arg} argument for brik [{brik}| ]",
-        elem=elem, prop=prop, brik=brik, arg=arg, value=value
+class InvalidArgError(CLSError):
+    def __init__(self, elem, prop, macro, arg, value):
+        super().__init__("'{value}' is not a valid {arg} argument for macro [{macro}| ]",
+        elem=elem, prop=prop, macro=macro, arg=arg, value=value
         )
 
-class UnclosedBrikError(bWError):
+class UnclosedMacroError(CLSError):
     def __init__(self, elem, prop, source):
-        super().__init__("'{source}' has an unclosed brik in '{prop}' property",
+        super().__init__("'{source}' has an unclosed macro in '{prop}' property",
         elem=elem, prop=prop, source=source
         )
         
-class bWSyntaxError(bWError):
+class CLSSyntaxError(CLSError):
     def __init__(self, msg, /, **kwargs):
         if 'origin' in kwargs:
             self.msg = "syntax error in {origin}:\n\t"+msg
@@ -59,12 +60,12 @@ class bWSyntaxError(bWError):
             self.msg = "syntax error from unknown source:\n\t"+msg
         self.kwargs = kwargs
 
-class NoValueError(bWSyntaxError):
+class NoValueError(CLSSyntaxError):
     def __init__(self, file, elem, name):
         super().__init__("'{name}' has no value or section",
         file=file, elem=elem, name=name)
 
-class UnexpectedEOFError(bWSyntaxError):
+class UnexpectedEOFError(CLSSyntaxError):
     def __init__(self, file, name):
         super.__init__("unexpected EOF in '{name}'",
         file=file, name=name)
@@ -77,6 +78,7 @@ class Collection(SimpleNamespace):
         return self.__dict__[name]
 
 class AttrDict():
+    """AttrDict maps item access to its attributes"""
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
     def __repr__(self):
@@ -90,11 +92,24 @@ class AttrDict():
     def items(self):
         return self.__dict__.items()
     def copy(self):
+        "return a shallow copy of this AttrDict"
         copy = AttrDict()
         copy.__dict__.update(self.__dict__)
         return copy
 
-
+class ImageGetter():
+    """A static class that holds a cache of images"""
+    cache = {}
+    
+    @staticmethod
+    def getImage(name) -> QImage:
+        if name not in ImageGetter.cache:
+            ImageGetter.cache[name] = QImage(name)
+        return ImageGetter.cache[name]
+    
+    @staticmethod
+    def clearCache():
+        ImageGetter.cache = {}
 
 @dataclass
 class Unit():
@@ -102,7 +117,7 @@ class Unit():
     sign: str
     num: int
     unit: str
-    def toFloat(self, **data):
+    def toFloat(self, **data) -> float:
         'return the number as an int according to type'
         if self.unit == 'in':
             if 'dpi' in data:
@@ -121,19 +136,24 @@ class Unit():
                 return self.num
         else:
             return self.num
-    def toInt(self, **data):
-        return int(self.toFloat(**data))
     
+    def toInt(self, **data) -> int:
+        return int(self.toFloat(**data))
+
     @staticmethod
     def fromStr(string, signs='-+', units=('px', 'in', 'mm')):
+        """Generate a Unit from a string.
+        Passing the string 'all' to units will allow the number to match any unit
+        """
+        #TODO use the string "any" for units to match anything
         if units == 'all':
-            units = ('px', 'pt', 'in', 'mm', '%')
+            units = ('px', 'pt', 'in', 'mm', '%', 'x', 'deg')
 
         signs = r'^(?P<sign>['+signs+r']?)'
         unitRe = r'(?P<unit>(?:' + '|'.join(units) + r')?)$'
         whole = signs + r'(?P<num>\d+)' + unitRe
         flt = signs + r'(?P<num>\d*\.\d+)' + unitRe
-        frac = signs + r'(?P<whole>\d+)[ \.](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
+        frac = signs + r'(?P<whole>\d+)[\./ ](?P<numer>\d+)/(?P<denom>\d+)' + unitRe
         fracOnly = signs + r'(?P<numer>\d+)/(?P<denom>\d+)' + unitRe
 
         if (match := re.match(whole, string)) or (match := re.match(flt, string)):
@@ -165,7 +185,7 @@ class Unit():
 trues = 'yes on true'.split()
 falses = 'no off false 0'.split()
 falses.extend((0, ''))
-def asBool(string:str, err:bWError = False) -> Union[bool, Literal[None]]:
+def asBool(string:str, err:CLSError = False) -> Union[bool, Literal[None]]:
     '''tries to turn a toggle into a bool
     if a toggle isn't found raise an error if present else return None'''
     folded = string.lower()
@@ -185,6 +205,7 @@ expansions = {
 }
 
 def evalEscapes(string:str) -> str:
+    '''converts the escape sequences in a string into their unescaped counterparts'''
     pos = 0
     accum = []
     while pos < len(string):
@@ -220,7 +241,7 @@ def build(accum:list) -> str:
     '''collapse a string builder'''
     return ''.join(accum).strip()
 
-def commaSplit(string):
+def commaSplit(string) -> str:
     accum = []
     ret = []
     pos = 0
@@ -248,6 +269,8 @@ class CSVParser():
 
     def processEscape(self, line, pos):
         char = line[pos+1]
+        #commas get unescaped, where as all others get passed through
+        #this is basically why lists don't use commas in macros
         if char == ',':
             return char
         else:
@@ -311,7 +334,8 @@ class CSVParser():
         rows = []
 
         for line in lines:
-            if re.match(r'\s*#', line):
+            #skip blank lines and commas
+            if re.match(r'^\s*#', line):
                 continue
             elif re.match(r'^\s*$', line):
                 continue
@@ -415,7 +439,7 @@ class LayoutParser():
             
             elif char == '=':
                 name = build(accum)
-                raise bWSyntaxError("'{elem}' section can not define briks",
+                raise CLSSyntaxError("'{elem}' section can not define macros",
                 elem=elem, file=self.filename)
         
             else:
@@ -440,7 +464,7 @@ class LayoutParser():
                 section[name] = self.parseValue(name)
             
             elif char == '{':
-                raise bWSyntaxError("'{elem}' cannot contain subsections",
+                raise CLSSyntaxError("'{elem}' cannot contain subsections",
                 file=self.filename, elem=elem)
             
             elif char == '}':
@@ -451,7 +475,7 @@ class LayoutParser():
             
             elif char == '=':
                 name = build(accum)
-                raise bWSyntaxError("'{elem}' section can not define briks",
+                raise CLSSyntaxError("'{elem}' section can not define macros",
                 elem=elem, file=self.filename)
             
             else:
@@ -462,7 +486,7 @@ class LayoutParser():
         raise UnexpectedEOFError(self.filename, elem)
         
 
-    def parseUserBriks(self):
+    def parseUserMacros(self):
 
         names = {}
         accum = []
@@ -480,23 +504,23 @@ class LayoutParser():
             elif char == '}':
                 name = build(accum)
                 if name != '':
-                    raise NoValueError(self.filename, 'briks', name)
+                    raise NoValueError(self.filename, 'macros', name)
                 return names
             
             elif char == ':':
-                raise bWSyntaxError("'{elem}' cannot conaint properties",
-                file=self.filename, elem='briks')
+                raise CLSSyntaxError("'{elem}' cannot conaint properties",
+                file=self.filename, elem='macros')
             
             elif char == '{':
-                raise bWSyntaxError("'{elem}' cannot contain subsections",
-                file=self.filename, elem='briks')
+                raise CLSSyntaxError("'{elem}' cannot contain subsections",
+                file=self.filename, elem='macros')
 
             else:
                 accum.append(char)
             
             self.pos += 1
         
-        raise UnexpectedEOFError(self.filename, 'briks')
+        raise UnexpectedEOFError(self.filename, 'macros')
 
     def parseNil(self, elem):
         '''parse nothing, return a string'''
@@ -521,7 +545,12 @@ class LayoutParser():
         raise UnexpectedEOFError(self.filename, elem)
 
 
-    def parseLayoutFile(self):
+    def parseLayoutFile(self) -> dict:
+        """returns a parsed layout file as a dict with three items
+        ['props'] holds the properties of the layout section
+        ['sections'] holds the special sections
+        ['elements'] holes the elements
+        """
 
         accum = []
         layout = dict(props={}, elements={}, sections={})
@@ -536,10 +565,10 @@ class LayoutParser():
                 accum = []
                 if name == 'layout':
                     layout['props'] = self.parseProps(name)
-                elif name in ('defaults', 'pdf', 'csv'):
+                elif name in ('defaults', 'csv'):
                     layout['sections'][name] = self.parseProps(name)
-                elif name == 'briks':
-                    layout['sections'][name] = self.parseUserBriks()
+                elif name == 'macros':
+                    layout['sections'][name] = self.parseUserMacros()
                 elif name == 'export':
                     layout['sections'][name] = self.parseSection(name)
                 elif name == 'data':
@@ -548,11 +577,15 @@ class LayoutParser():
                     layout['elements'][name] = self.parseSection(name)
 
             elif char == ':':
-                raise bWSyntaxError("properties not allow at the top level of a layout file",
+                raise CLSSyntaxError("properties not allowed at the top level of a layout file",
+                file=self.filename, name=build(accum))
+
+            elif char == '=':
+                raise CLSSyntaxError("macro definitions not allowed at the top level of a layout file",
                 file=self.filename, name=build(accum))
             
             elif char == '}':
-                raise bWSyntaxError("unexpected }} near '{name}'",
+                raise CLSSyntaxError("unexpected }} near '{name}'",
                 file=self.filename, name=build(accum))
             
             else:
@@ -561,12 +594,75 @@ class LayoutParser():
             self.pos += 1
         
         if len(build(accum)) > 0:
-            raise bWSyntaxError("'{elem}' has no section",
+            raise CLSSyntaxError("'{elem}' has no section",
             file=self.filename, elem=build(accum))
         
         return layout
 
+class ListParser():
+    '''parse a list'''
+
+    def __init__(self, source):
+        
+        self.string = source.strip()
+        self.pos = 1
+
+    def parseItem(self):
+        accum = []
+        innerStack = []
+
+        while self.pos < len(self.string):
+            char = self.string[self.pos]
+
+            if char == '\\':
+                accum.append(self.string[self.pos:self.pos+2])
+                self.pos += 1
+
+            elif char == '(':
+                innerStack.append(self.pos)
+                accum.append(char)
+
+            elif char in ':)':
+                if len(innerStack) == 0:
+                    return build(accum)
+                else:
+                    #we preserve nested lists
+                    if char == ')':
+                        innerStack.pop()
+                    accum.append(char)
+
+            else:
+                accum.append(char)
+
+            self.pos += 1
+        #return build(accum)
+        raise CLSError("list '{list}' failed to propperly parse", list=self.string)
+
+    def parse(self):
+        '''turn a CLS list into a python list, nested lists are left as text'''
+        if self.string == ':':
+            return []
+        if self.string[0] != '(' or self.string[-1] != ')':
+            return None
+        ret = []
+
+        while self.pos < len(self.string):
+            ret.append(self.parseItem())
+            self.pos += 1
+
+        return ret
+
+def makeList(lst):
+    '''turn a python list into a CLS list'''
+    if lst == []:
+        return ':'
+    else:
+        return "({})".format(':'.join(lst))
 
 if __name__ == '__main__':
 
-    pass
+    test = '(asdf: 564564()654: bad)'
+
+    result = ListParser(test).parse()
+
+    print(result)

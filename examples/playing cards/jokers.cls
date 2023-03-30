@@ -1,5 +1,5 @@
 layout {
-    template: indexes.bwl
+    template: indexes.cls
 }
 
 export {

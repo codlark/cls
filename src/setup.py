@@ -1,9 +1,9 @@
-'''brikWork command line setup script
+'''cls command line setup script
 
 '''
 
 import sys
-from cx_Freeze import executable, setup, Executable
+from cx_Freeze import setup, Executable
 
 build_options = dict(excludes=[
     'tkinter',
@@ -14,12 +14,9 @@ build_options = dict(excludes=[
     'pydoc',
     'pdb',
 
-#], includes=[
-
 ], include_files=[
     ('res/logo.ico', 'res/logo.ico')
 ],
-
 )
 
 base = None
@@ -27,9 +24,11 @@ if sys.platform == 'win32':
     base = 'Win32GUI'
 
 setup(
-    name='brikWork',
-    version='0.6',
-    description='brikWork app',
+    name='CLS Renderer',
+    version='1.0',
+    description='Renderer for Card Layout Script',
+    author='Gia Bamrud',
+    author_email='codlark@gmail.com',
     options = dict(build_exe=build_options),
-    executables=[Executable("brikWork.py", icon="../logo.ico", base=base)]
+    executables=[Executable("app.py", icon="res/logo.ico", base=base, target_name="CLS Renderer")]
     )
