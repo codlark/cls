@@ -1,7 +1,7 @@
 layout {
-    template: indexes.bwl
+    template: indexes.cls
 }
-briks {
+macros {
     rank = A
 }
 ace {

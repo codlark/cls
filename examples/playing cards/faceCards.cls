@@ -1,8 +1,8 @@
 layout {
-    template: indexes.bwl
+    template: indexes.cls
 }
-briks {
-    rank = [substr| [royal]| 1| 1]
+macros {
+    rank = [slice| [royal]| 1| 1]
     #grab the first character of [royal]
 }
 portrait {
@@ -10,7 +10,6 @@ portrait {
     position: center, center
     source: images/[color][royal].png
 }
-#okay, these are chess pieces, and the jack is the knight, but I already had these
 
 data {
 suit, color, royal

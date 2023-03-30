@@ -3,16 +3,16 @@ import re
 import random
 from collections import ChainMap, deque
 from typing import Union, Callable, Collection
-from bwUtils import *
+from CLSUtils import *
 import operator
 
-class BrikStore():
+class MacroStore():
 
     stdlib = {'': ''}
 
     @classmethod
     def addStdlib(cls, name:str, value:Union[int, str]):
-        '''with two strings, add text brik
+        '''with two strings, add text macro
         with a string and an int, use as a decorator to add a function'''
         def inner(func:Callable):
             if type(func) == str:
@@ -26,22 +26,22 @@ class BrikStore():
             return inner
 
     def __init__(self):
-        self.briks = ChainMap({}, self.stdlib)
+        self.macros = ChainMap({}, self.stdlib)
 
     def copy(self):
-        '''make a copy of this BrikStore'''
-        new = BrikStore()
-        new.briks = self.briks.new_child()
+        '''make a copy of this MacroStore'''
+        new = MacroStore()
+        new.macros = self.macros.new_child()
         return new
 
     def add(self, name:str, value:Union[list[int], str]):
-        '''with two strings, add text brik
+        '''with two strings, add text macro
         with a string and an int, use as a decorator to add a function'''
         def inner(func:Callable):
             if type(func) == str:
-                self.briks[name] = func
+                self.macros[name] = func
             else:
-                self.briks[name] = (func, value)
+                self.macros[name] = (func, value)
             return func
 
         if type(value) == str:
@@ -50,38 +50,38 @@ class BrikStore():
             return inner
 
     def call(self, name:str, context:Collection, args:str) -> str:
-        '''call a brik by name'''
+        '''call a macro by name'''
         #print(f'{name!r} : {args!r}')
-        if name in self.briks:
-            brik = self.briks[name]
-            if type(brik) == str:
-                return brik
+        if name in self.macros:
+            macro = self.macros[name]
+            if type(macro) == str:
+                return macro
             else:
-                func, signature = brik
+                func, signature = macro
                 if type(signature) is int:
                     if len(args) != signature:
-                        raise bWError('wrong number of arguments for [{brik}| ], expected {num} got {badnum}',
-                        elem=context.elem, prop=context.prop, brik=name, num=signature, badnum=len(args)
+                        raise CLSError('wrong number of arguments for [{macro}| ], expected {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, macro=name, num=signature, badnum=len(args)
                         )
                     return func(context, *args)
 
                 else:
                     min, max = signature
                     if len(args) < min:
-                        raise bWError('too few arguments for [{brik}| ], expected at least {num} got {badnum}',
-                        elem=context.elem, prop=context.prop, brik=name, num=min, badnum=len(args)
+                        raise CLSError('too few arguments for [{macro}| ], expected at least {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, macro=name, num=min, badnum=len(args)
                         )
                     elif len(args) > max:
-                        raise bWError('too many arguments for [{brik}| ], expected at most {num} got {badnum}',
-                        elem=context.elem, prop=context.prop, brik=name, num=max, badnum=len(args)
+                        raise CLSError('too many arguments for [{macro}| ], expected at most {num} got {badnum}',
+                        elem=context.elem, prop=context.prop, macro=name, num=max, badnum=len(args)
                         )
                     return func(context, *args)
         else:
             return ''
         
-    def parseBrikArg(self, ps, context) -> str:
+    def parseMacroArg(self, ps, context) -> str:
         argB = []
-        brikStack = []
+        macroStack = []
         char = ''
 
         while ps.pos < len(ps.string):
@@ -92,16 +92,16 @@ class BrikStore():
                 ps.pos += 1
 
             elif char == '[':
-                brikStack.append(ps.pos)
+                macroStack.append(ps.pos)
                 argB.append(char)
             
             elif char in '|]':
-                if len(brikStack) == 0:
+                if len(macroStack) == 0:
                     ps.pos -= 1
                     return ''.join(argB).strip()
                 else:
                     if char == ']':
-                        brikStack.pop()
+                        macroStack.pop()
                     argB.append(char)
             
             else:
@@ -109,18 +109,17 @@ class BrikStore():
 
             ps.pos += 1
         
-        print('parseBrikArg')
-        raise UnclosedBrikError(context.elem, context.prop, ps.string)
+        raise UnclosedMacroError(context.elem, context.prop, ps.string)
 
 
-    def evalBrik(self, ps) -> str:
-        '''evalBrik parses out a brik then calls it with its arguments and context
+    def evalMacro(self, ps) -> str:
+        '''evalMacro parses out a macro then calls it with its arguments and context
         context includes:
-         - store - this brikStore object
+         - store - this macroStore object
          - parse - a reference to the parse method of this object
-         - source - the string the brik was found in, used for errors
-         - prop - the property this brik was found in, used for errors
-         - elem - the element this brik was found in, used for errors'''
+         - source - the string the macro was found in, used for errors
+         - prop - the property this macro was found in, used for errors
+         - elem - the element this macro was found in, used for errors'''
         nameB = []
         args = []
         char = ''
@@ -129,8 +128,8 @@ class BrikStore():
             store=self,
             parse=self.parse,
             source=ps.string,
-            prop = self.briks['propertyName'],
-            elem = self.briks['elementName']
+            prop = self.macros['propertyName'],
+            elem = self.macros['elementName']
         )
         while ps.pos < len(ps.string):
             char = ps.string[ps.pos]
@@ -140,7 +139,7 @@ class BrikStore():
                 
             elif char == '|':
                 ps.pos += 1
-                args.append(self.parseBrikArg(ps, context))
+                args.append(self.parseMacroArg(ps, context))
             
             elif char == ']':
                 name = build(nameB)
@@ -151,8 +150,7 @@ class BrikStore():
                 nameB.append(char)
 
             ps.pos += 1
-        print('evalBrik')
-        raise UnclosedBrikError(context.elem, context.prop, ps.string)
+        raise UnclosedMacroError(context.elem, context.prop, ps.string)
 
     def evalValue(self, string:str) -> str:
         ps = Collection()
@@ -172,7 +170,7 @@ class BrikStore():
         
             elif char == '[':
                 ps.pos += 1
-                result.append(self.evalBrik(ps))
+                result.append(self.evalMacro(ps))
         
             else:
                 result.append(char)
@@ -183,10 +181,10 @@ class BrikStore():
 
     def parse(self, string:str) -> str:
         '''parse() turns a value into a real usable object, and evalValue
-        processes the top layer of briks, this function does the dirty work
-        to make sure that there are no more briks left in the string before
-        the final validation passes. It's also used by briks to get values
-        that don't have anymore briks, but still have escapes incase of more
+        processes the top layer of macros, this function does the dirty work
+        to make sure that there are no more macros left in the string before
+        the final validation passes. It's also used by macros to get values
+        that don't have anymore macros, but still have escapes incase of more
         square brackets.
         '''
         while True:
@@ -204,8 +202,8 @@ class BrikStore():
 ###############################################################################
 
  
-@BrikStore.addStdlib('if', (2,3))
-def ifBrik(context, test, true, false=''):
+@MacroStore.addStdlib('if', (2,3))
+def ifMacro(context, test, true, false=''):
 
     if test[0] == '?' :
         b = asBool(comparisonMacro(context, test[1:]))
@@ -218,22 +216,22 @@ def ifBrik(context, test, true, false=''):
     else:
         return false
 
-@BrikStore.addStdlib('eq', 2)
-def eqBrik(context, left, right):
+@MacroStore.addStdlib('eq', 2)
+def eqMacro(context, left, right):
     if context.parse(left) == context.parse(right):
         return 'true'
     else:
         return 'false'
 
-@BrikStore.addStdlib('ne', 2)
-def neBrik(context, left, right):
+@MacroStore.addStdlib('ne', 2)
+def neMacro(context, left, right):
     if context.parse(left) != context.parse(right):
         return 'true'
     else:
         return 'false'
 
-@BrikStore.addStdlib('in', (2, 99))
-def inBrik(context, value, *args):
+@MacroStore.addStdlib('in', (2, 99))
+def inMacro(context, value, *args):
     parsed = evalEscapes(context.parse(value))
     if len(args) == 0:
         return 'false'
@@ -245,25 +243,25 @@ def inBrik(context, value, *args):
             return 'true'
     return 'false'
 
-@BrikStore.addStdlib('i', 1)
-def italicBrik(context, string):
+@MacroStore.addStdlib('i', 1)
+def italicMacro(context, string):
     return f'<i>{string}</i>'
 
-@BrikStore.addStdlib('b', 1)
-def boldBrik(context, string):
+@MacroStore.addStdlib('b', 1)
+def boldMacro(context, string):
     return f'<b>{string}</b>'
 
-@BrikStore.addStdlib('s', 1)
-def strikedBrik(context, string):
+@MacroStore.addStdlib('s', 1)
+def strikedMacro(context, string):
     return f'<s>{string}</s>'
 
-@BrikStore.addStdlib('u', 1)
-def underlineBrik(context, string):
+@MacroStore.addStdlib('u', 1)
+def underlineMacro(context, string):
     return f'<u>{string}</u>'
 
 
-@BrikStore.addStdlib('dup', 2)
-def repeatBrik(context, times, value):
+@MacroStore.addStdlib('dup', 2)
+def repeatMacro(context, times, value):
     nTimes = context.parse(times)
     unit = Unit.fromStr(nTimes, signs='+0', units=('',))
     if unit is None:
@@ -277,8 +275,8 @@ def repeatBrik(context, times, value):
         result.append(newStore.parse(value))
     return ''.join(result)
 
-@BrikStore.addStdlib('for-each', 2)
-def forBrik(context, lst, body):
+@MacroStore.addStdlib('for-each', 2)
+def forMacro(context, lst, body):
     lst = context.parse(lst)
     parsedList = ListParser(lst).parse()
     if parsedList == None:
@@ -290,30 +288,30 @@ def forBrik(context, lst, body):
         result.append(newStore.parse(body))
     return ''.join(result)
 
-@BrikStore.addStdlib('capitalize', 1)
-def capitalizeBrik(context, value):
+@MacroStore.addStdlib('capitalize', 1)
+def capitalizeMacro(context, value):
     value = context.parse(value)
     value = value[0].upper()+value[1:]
     def repl(m):
         return m.group(1).upper() + m.group(2)
     return re.sub(r'\b([a-z])(\w{3,})\b', repl, value)
 
-@BrikStore.addStdlib('upper', 1)
-def upperBrik(context, value):
+@MacroStore.addStdlib('upper', 1)
+def upperMacro(context, value):
     value = context.parse(value)
     def repl(m):
         return m.group(1).upper()
     return re.sub(r'(?<!\\)([a-z])', repl, value)
     
-@BrikStore.addStdlib('lower', 1)
-def upperBrik(context, value):
+@MacroStore.addStdlib('lower', 1)
+def upperMacro(context, value):
     value = context.parse(value)
     def repl(m):
         return m.group(1).lower()
     return re.sub(r'(?<!\\)([A-Z])', repl, value)
 
-@BrikStore.addStdlib('slice', (2, 3))
-def sliceBrik(context, value, start, stop=None):
+@MacroStore.addStdlib('slice', (2, 3))
+def sliceMacro(context, value, start, stop=None):
     value = context.parse(value)   
 
     start = context.parse(start)
@@ -339,8 +337,8 @@ def sliceBrik(context, value, start, stop=None):
     else:
         return value[start:stop]
 
-@BrikStore.addStdlib('length', 1)
-def lengthBrik(context, value):
+@MacroStore.addStdlib('length', 1)
+def lengthMacro(context, value):
     parsedValue = evalEscapes(context.parse(value))
     parsedList = ListParser(context.parse(value)).parse()
     if parsedList is not None:
@@ -348,8 +346,8 @@ def lengthBrik(context, value):
     else:
         return len(parsedValue)
 
-@BrikStore.addStdlib('rnd', (1,2))
-def randomBrik(context, start, stop=None):
+@MacroStore.addStdlib('rnd', (1,2))
+def randomMacro(context, start, stop=None):
     if stop == None:
         start, stop = '+1', start
     startUnit = Unit.fromStr(start, signs='+-0', units=('',))
@@ -367,19 +365,18 @@ def randomBrik(context, start, stop=None):
     return str(num)
 
 
-@BrikStore.addStdlib('/', 1)
+@MacroStore.addStdlib('/', 1)
 def expansionMacro(context, value):
     value = context.parse(value)
     return evalEscapes(value)
 
-@BrikStore.addStdlib('?', 1)
+@MacroStore.addStdlib('?', 1)
 def comparisonMacro(context, value):
-    prop = context.store.briks['']
     nValue = context.parse(value)
     try:
         left, op, right = re.split(r'(==|!=|<=?|>=?)', nValue, maxsplit=1)
     except ValueError as e:
-        raise bWError("'{value}' does not contain a valid comparison",
+        raise CLSError("'{value}' does not contain a valid comparison",
         prop=context.prop, elem=context.elem, value=value
         )
     leftUnit = Unit.fromStr(left.strip(), units='all')
@@ -404,7 +401,7 @@ def comparisonMacro(context, value):
     elif op == '<=':
         final = left <= right
     else:
-        raise bWError("'{value}' does not contain a valid comparison",
+        raise CLSError("'{value}' does not contain a valid comparison",
         prop=context.prop, elem=context.elem, value=value
         )
     if final:
@@ -428,8 +425,8 @@ def makeOp(op):
     elif op == '(':
         return AttrDict(prec=0, op=(lambda x, y: None), name=op)
 
-@BrikStore.addStdlib('=', 1)
-def mathBrik(context, value):
+@MacroStore.addStdlib('=', 1)
+def mathMacro(context, value):
     '''makes use of dijkstra's shunting yard algorithm to conver to
     reverse polish notation, then parses the rpn'''
     #tokens = context.parse(value).split()
@@ -450,7 +447,7 @@ def mathBrik(context, value):
             opStack.append(op)
         elif token == ')':
             if length == 0:
-                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                raise CLSError("'{value}' is missing an opening parenthesis in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             while length > 0:
@@ -460,7 +457,7 @@ def mathBrik(context, value):
                     break
                 length = len(opStack)
             else:
-                raise bWError("'{value}' is missing an opening parenthesis in brik [{name}| ]", 
+                raise CLSError("'{value}' is missing an opening parenthesis in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             opStack.pop()
@@ -469,20 +466,20 @@ def mathBrik(context, value):
                 rpn.append(opStack.pop())
             opStack.append(op)
         else:
-            raise bWError("'{value}' is an unknown operator in brik [{name}| ]", 
+            raise CLSError("'{value}' is an unknown operator in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=token
                 )
     while len(opStack) > 0:
         op = opStack.pop()
         if op.name == '(':
-            raise bWError("'{value}' is missing a closing parenthesis in brik [{name}| ]", 
+            raise CLSError("'{value}' is missing a closing parenthesis in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
         rpn.append(op)
 
     accum = []
     if len(rpn) < 3:
-        raise bWError("'{value}' is not a valid mathematical expression in brik [{name}| ]", 
+        raise CLSError("'{value}' is not a valid mathematical expression in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     for op in rpn:
@@ -491,14 +488,14 @@ def mathBrik(context, value):
         else:
             if len(accum) < 2:
                 print(accum, op)
-                raise bWError("'{value}' does not have enough operands in brik [{name}| ]", 
+                raise CLSError("'{value}' does not have enough operands in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
             right = accum.pop()
             left = accum.pop()
             accum.append(op.op(left, right))
     if len(accum) != 1:
-        raise bWError("'{value}' has too many operands in brik [{name}| ]", 
+        raise CLSError("'{value}' has too many operands in macro [{name}| ]", 
                 elem=context.elem, prop=context.prop, name=context.name, value=value
                 )
     
@@ -508,8 +505,8 @@ def mathBrik(context, value):
         return str(accum[0])
 
 
-@BrikStore.addStdlib('file', 1)
-def fileBrik(context, filename):
+@MacroStore.addStdlib('file', 1)
+def fileMacro(context, filename):
     name = context.parse(filename)
     if not os.path.isfile(name):
         raise InvalidArgError(context.elem, context.prop, 'file', 'FILENAME', filename)
@@ -517,13 +514,13 @@ def fileBrik(context, filename):
         with open(name, encoding='utf-8') as file:
             fileContents = file.read()
     except OSError:
-        raise bWError("Could not open '{filename}'", elem=context.elem, prop=context.prop, filename=filename)
+        raise CLSError("Could not open '{filename}'", elem=context.elem, prop=context.prop, filename=filename)
     return fileContents
 
-@BrikStore.addStdlib('switch', (3, 99))
-def switchBrik(context, sentinal, *args):
+@MacroStore.addStdlib('switch', (3, 99))
+def switchMacro(context, sentinal, *args):
     if len(args)% 2 != 0:
-        raise bWError("case and results are not balanced in brik [switch| ]", elem=context.elem, prop=context.prop)
+        raise CLSError("case and results are not balanced in macro [switch| ]", elem=context.elem, prop=context.prop)
     test = evalEscapes(context.parse(sentinal))
     for pair in range(len(args)//2):
         case = pair*2
@@ -536,5 +533,5 @@ def switchBrik(context, sentinal, *args):
 
 if __name__ == '__main__':
     context = AttrDict(elem='<test>', prop='<test>', name='=', parse=(lambda x: x))
-    print(mathBrik(context, '2.1/4 - 2/3 ' ))
-    #print(mathBrik(context, ''))
+    print(mathMacro(context, '2.1/4 - 2/3 ' ))
+    #print(mathMacro(context, ''))

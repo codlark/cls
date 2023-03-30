@@ -9,7 +9,7 @@ export {
     }
 }
 
-briks {
+macros {
     dark-red = #a32b1d
 }
 

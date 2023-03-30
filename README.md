@@ -1,3 +1,3 @@
-# brikWork
+# Card Layout Script
 
-This repo is primarily used to hold the docs, see [codlark.itch.io/brikwork](codlark.itch.io/brikwork) for more information
+This repo is only meant as a backup, see [codlark.itch.io/cls](codlark.itch.io/cls) for more information

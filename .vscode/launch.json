@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "test brikWork",
+            "name": "test CLS",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/src/brikWork.py",
+            "program": "${workspaceFolder}/src/app.py",
             "console": "integratedTerminal"
         }
     ]

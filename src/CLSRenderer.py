@@ -5,9 +5,9 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
-from bwStore import BrikStore
-from bwUtils import *
-from bwElements import *
+from CLSMacroStore import MacroStore
+from CLSUtils import *
+from CLSElements import *
 
 class Section():
     @staticmethod
@@ -163,7 +163,7 @@ class Section():
     
     @staticmethod
     def validateCSV(frame, sec):
-        if frame.value.lower() not in ('brikwork', 'excel'):
+        if frame.value.lower() not in ('cls', 'excel'):
             return False
         else:
             sec[frame.prop] = frame.value.lower()
@@ -212,7 +212,7 @@ class BulkExport(ExportSection):
                     image.copy(painter.layout.content).save(name)
 
         except OSError:
-            raise bWError("failed to save image '{asset}' to {ouput}",
+            raise CLSError("failed to save image '{asset}' to {ouput}",
                 output=painter.layout.output, layout=painter.layout.filename, asset=name
             )
 
@@ -245,7 +245,7 @@ class PDFExport(ExportSection):
     @staticmethod
     def postGenerate(layout, sec):
         if sec.xMargin.unit != sec.yMargin.unit:
-            raise bWError("pdf margins must use the same unit", file=layout.filename)
+            raise CLSError("pdf margins must use the same unit", file=layout.filename)
 
         if sec.name == '':
             sec.name = os.path.basename(layout.filename)
@@ -296,7 +296,7 @@ class PDFExport(ExportSection):
             yofs = 0
 
         if assetAcross == 0 or assetDown == 0:
-            raise bWError("failed to render PDF, asset too large for printable area", file=painter.layout.filename)
+            raise CLSError("failed to render PDF, asset too large for printable area", file=painter.layout.filename)
 
         assetPages, mod = divmod(len(painter.images), assetAcross*assetDown)
         if mod > 0:
@@ -306,12 +306,12 @@ class PDFExport(ExportSection):
         painter._pdf = pdfWriter
         pdfWriter.setPageLayout(pageLayout)
         pdfWriter.setResolution(dpi)
-        pdfWriter.setCreator('brikWork')
+        pdfWriter.setCreator('CLS Renderer')
 
         pdfPainter = QPainter()
         result = pdfPainter.begin(pdfWriter)
         if not result:
-            raise bWError("failed to render pdf, is the file open elsewhere?", file=painter.layout.filename)
+            raise CLSError("failed to render pdf, is the file open elsewhere?", file=painter.layout.filename)
         pdfPainter.setRenderHint(QPainter.LosslessImageRendering, True)
 
         assetsSeen = 0
@@ -362,7 +362,7 @@ class TTSExport(ExportSection):
         else:
             width = layout.cardSize.width()
         if width*sec.width > 4096:
-            raise bWError("generated image would be too large for Tabletop Simulator, reduce tts width", elem='tts')
+            raise CLSError("generated image would be too large for Tabletop Simulator, reduce tts width", elem='tts')
         if sec.name == '':
             sec.name = os.path.basename(layout.filename)
         name, ext = os.path.splitext(sec.name)
@@ -418,7 +418,7 @@ class TTSExport(ExportSection):
                 for index, page in enumerate(tts.pages.values()):
                     page.save(str(index+1)+tts.name)
         except OSError:
-            raise bWError("failed to save Tabletop Simulator image to {output}",
+            raise CLSError("failed to save Tabletop Simulator image to {output}",
                 output=painter.layout.output, layout=painter.layout.filename
             )
 
@@ -435,7 +435,7 @@ class LayoutSection(Section):
         bleed = '0in, 0in',
         data = '',
         dpi = '300',
-        csv = 'brikWork',
+        csv = 'CLS',
     ))
 
     validators = ChainMap(dict(
@@ -450,14 +450,14 @@ def parseLayout(filename):
     '''Parses the layout out of the file and turns it into a dict
     also handles templates'''
     if not os.path.isfile(filename):
-        raise bWError("'{file}' is not a valid file",
+        raise CLSError("'{file}' is not a valid file",
         file=filename
         )
     try:
         with open(filename, encoding='utf-8') as file:
             layoutText = file.read()
     except OSError:
-        raise bWError("'{file}' could not be opened",
+        raise CLSError("'{file}' could not be opened",
         file=filename
         )
 
@@ -481,7 +481,7 @@ def buildLayout(filename):
 
     for prop, value in layoutProto.items():
         if prop not in LayoutSection.validators:
-            raise bWError("'{prop}' is not a valid layout property",
+            raise CLSError("'{prop}' is not a valid layout property",
             prop=prop, file=filename)
         func = LayoutSection.validators[prop]
         frame.prop = prop
@@ -506,14 +506,14 @@ def buildLayout(filename):
         if 'data' in sections:
             sections.pop('data')
         if not os.path.isfile(dataFilename):
-            raise bWError("'{filename}' is not a valid file",
+            raise CLSError("'{filename}' is not a valid file",
             file=filename, filename=dataFilename
             )
         try:
             with open(dataFilename, encoding='utf-8') as file:
                 userData = file.read()
         except OSError:
-            raise bWError("'{filename}' could not be opened",
+            raise CLSError("'{filename}' could not be opened",
             file=filename, filename=dataFilename
             )
     elif 'data' in sections:
@@ -521,7 +521,7 @@ def buildLayout(filename):
     else:
         userData = None
     if userData != None:
-        if layout.csv == 'brikwork':
+        if layout.csv == 'cls':
             reader = CSVParser(userData)
             data = reader.parseCSV()
         else:
@@ -575,8 +575,8 @@ def buildLayout(filename):
     else:
         layout.defaults = {}
 
-    #briks
-    def makeBrik(value):
+    #macros
+    def makeMacro(value):
         def func(context, *args):
             newStore = context.store.copy()
             newStore.add('arg-total', str(len(args)))
@@ -585,11 +585,11 @@ def buildLayout(filename):
             newStore.add('args', makeList(args))
             return newStore.parse(value)
         return func
-    layout.userBriks = {}
-    if 'briks' in sections:
-        briks = sections['briks']
-        for name, value in briks.items():
-            layout.userBriks[name] = (makeBrik(value), (0, 99))
+    layout.userMacros = {}
+    if 'macros' in sections:
+        macros = sections['macros']
+        for name, value in macros.items():
+            layout.userMacros[name] = (makeMacro(value), (0, 99))
 
     #elemnts
     def fix(elemName, source, dest, type, renames):
@@ -643,15 +643,15 @@ def buildLayout(filename):
 
     return layout
 
-class CardGenerator():
+class CardRenderer():
     def __init__(self, layout):
         self.layout = layout
-        self.store = BrikStore()
+        self.store = MacroStore()
         if layout.data is not None:
             self.store.add('asset-total', str(len(layout.data)))
             self.store.add('row-total', str(layout.data[-1]['row-index']))
        
-        self.store.briks.update(self.layout.userBriks)
+        self.store.macros.update(self.layout.userMacros)
 
         self.images = []
 
@@ -705,7 +705,7 @@ class CardGenerator():
 
         if self.layout.data is None:
                 image = self.renderCard()
-                self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
+                self.store.macros.update(dict(propertyName='card-name', elementName='layout'))
                 name = self.store.parse(self.layout.assetName)
                 self.images.append((image, name))
 
@@ -713,9 +713,9 @@ class CardGenerator():
             for row in  self.layout.data:
                 #TODO figure out a better way to do this
                 #unless this is the good way
-                self.store.briks.update(row)
+                self.store.macros.update(row)
                 image = self.renderCard()
-                self.store.briks.update(dict(propertyName='card-name', elementName='layout'))
+                self.store.macros.update(dict(propertyName='card-name', elementName='layout'))
                 name = evalEscapes(self.store.parse(self.layout.assetName))
                 self.images.append((image, name))
                 #self.image.save(os.path.join(self.layout.output, name))
@@ -724,7 +724,7 @@ class CardGenerator():
         '''save the generated images.'''
         path = os.getcwd()
         if target not in exportTypes:
-            raise bWError("illegal error, unknown export target", file=self.layout.filename)
+            raise CLSError("illegal error, unknown export target", file=self.layout.filename)
         exportType = exportTypes[target]
         exportSection = self.layout.export[target]
         outputPath = exportSection.output
@@ -733,7 +733,7 @@ class CardGenerator():
                 os.mkdir(outputPath)
             except IOError:
                 os.chdir(path)
-                raise bWError("failed to make output directory", file=self.layout.filename)
+                raise CLSError("failed to make output directory", file=self.layout.filename)
         os.chdir(os.path.realpath(outputPath))
 
         try:
@@ -790,7 +790,7 @@ if __name__ == '__main__':
 
     try:
         pass
-    except bWError as e:
+    except CLSError as e:
         print(e.message)
         import sys
         sys.exit()

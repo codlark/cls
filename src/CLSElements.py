@@ -2,7 +2,7 @@ import re
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from bwUtils import *
+from CLSUtils import *
 
 __all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
 
