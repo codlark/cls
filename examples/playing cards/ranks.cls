@@ -4,18 +4,10 @@ layout {
 macros {
     rank = [=| [repeat-index] + 1]
 }
-#pips are named for their position in a grid, 7 rows, 3 columns
-#we use auto placement as much as possible to keep numbers normal
-
-#.5in tall pips
-#.16in between pips
-#.9 between edge of area and even row pips
 
 defaults {
     source: images/[suit].png
 }
-
-#pips are contained by a row element, which specifies the location of the left most pip
 
 row1 {
     position: .5in, .5in
@@ -29,6 +21,7 @@ row1 {
         x: ^0
     }
 }
+
 row2 {
     position: 0.5in, 0.9in
     size: 1.5in, .5in
@@ -47,6 +40,7 @@ row2 {
         draw: [in| [rank]| 4| 5| 6]
     }
 }
+
 row3 {
     position: .5in, 1.16in
     size: 1.5in, .5in
@@ -59,6 +53,7 @@ row3 {
         x: ^0
         }
 }
+
 row4 {
     position: 0.5in, center
     size: 1.5in, .5in
@@ -77,6 +72,7 @@ row4 {
         draw: [in| [rank]| 6]
     }
 }
+
 row5 {
     position: 0.5in, ^1.16in
     size: 1.5in, .5in
@@ -90,6 +86,7 @@ row5 {
         x: ^0
     }
 }
+
 row6 {
     position: 0.5in, ^.9in
     size: 1.5in, .5in
@@ -109,6 +106,7 @@ row6 {
         draw: [in| [rank]| 4| 5| 6]
     }
 }
+
 row7 {
     position: 0.5in, ^.5in
     size: 1.5in, .5in
@@ -122,6 +120,7 @@ row7 {
         x: ^0
     }
 }
+
 data {
 repeat, suit
 9, spade

@@ -17,7 +17,7 @@ defaults {
     font-family: Palatino Linotype
 }
 
-role-container{
+role-container {
     position: center, .5in
     size: 1.5in, .25in
     

@@ -2,53 +2,85 @@
 
 *note* to build, run `python setup.py build`
 
- - `[layout| ]` and `[card| ]` briks to inspect the layout section and this cards in particular.
+## next
+Not next as in next release, but as in next focus
+ - templates for the game crafter, with
+ - - a preset card size and bleed 
+ - - a holder for full bleed art
+ - - a holder for the safe zone
+ - upgrade python, qt, and cx_freeze
+ - rename the `tts` export type to `texture` and remove/change the limits
+ - - or more likely have both and make `tts` a subclass of `texture`
+ - macros for `<ul>` and `<table>` tags
+ - support for markdown based text elements. You get less complexity, but you get a more friendly experience
+ - some sort of alt art mechanism for image elements. specify an image to load if the desired are doesn't exist, like `src: path\art.png; noArt: path\noArt.png`
+ - `shrink-fit` property of text elements, something like
+   ```
+   font-size: 12pt
+   shrink-font: ( 10pt @100 : 8pt @200 )
+   ```
+   then when there are more than 100 chars the font size is changed to `10pt`, and when there are 200 it gets changed to `8pt`
 
- - font from files
- - take escapes out of parsing non values
- - briks for `[dup| ]` to conditionally render text depending on repeat
+
+## soon
+ - line continues, a la python. so
+    ```
+    [if| [some test] | then do this complicated shit \
+    | otherwise this this stuff \
+    ]
+    ```
+   I might punt on this one, I think I wanna work on the semantics
+ - take escapes out of parsing non values (did I do this already?)
+ - macros for `[dup| ]` to conditionally render text depending on repeat
  - - like `[1st| |\s]` would return `[]` on the first go thru and `\s` after
  - - `[first| TRUE | FALSE ]` `[last| TRUE | FALSE ]` would cover it  I think
+ - - or maybe `[when| FIRST | OTHER | LAST ]`
  - texture element type that allows you yo specify a specific area of the images to draw
 
-
- - `inherit` value that means inherit fromm the container (what would this do if the parent is of a different type?)
- - `c` sign or prefix on positions to allow centering by the center of the element?
- - some sort of alt art mechanism for image elements. specify an image to load if the desired are desn't exist, like `src: path\art.png; noArt: path\noArt.png`
+## later
+ - `inherit` value that means inherit from the container (what would this do if the parent is of a different type?)
  - a working directory folder property, like `folder: ` that specifies a folder that contains the resources and output folder
- - finish annotating types (maybe? not sure if this gets me much)
- - `[assetName]` ???
- - `[print| STRING]` prints a string to the console
- - `[asset| prop]` inspect the current asset? maybe just get the unevaluated value
+ - `[cardName]`
+ - `[print| STRING ]` prints a string to the console
+ - `[asset| prop ]` inspect the current asset? maybe just get the unevaluated value
 
- - linux support
+## far off
+A lot of these are hypothetical, and may never get implemented
+ - automatic shrink-to-fit functionality with full rich text capabilities
+ - `c` sign or prefix on positions to allow centering by the center of the element?
+ - font from files
+ - - still not sure if it's possible
+ - linux support 
+ - - this just might be distributing the python source
  - look at different back ends, but it's hard to find one that supports both images in strings *and* selecting open type features
 
-deeper integration of macro briks, like 
-    
+ - deeper integration of operator macros, like 
+    ```
     x: # 1/8in + 1/4in
     text: [dup| #4+5| asdf]
-the idea being they act like ? in [if| ], so when they get seen the value immediately gets dispatched to the macro. Make them first class. 
-maybe also give macro briks `frame` made in generate
-
-
-1.0
+    ```
+   the idea being they act like ? in `[if| ]`, so when they get seen the value immediately gets dispatched to the macro. Make them first class. 
+   - maybe also give operator macros `frame` made in generate
  - image magick element types, for pango and drop shadows
- - plugin support?
 
 
-probably not gonna happen
+## probably not gonna happen
+
+### if this happens, it'll be so far down the line I'll have rewritten most of CLS by then
+ -  plugin support?
+ - json based data? (i'm not sure what the point of this was)
+ - - array of object, each object is an asset and each kv pair is a column macro maybe?
+ - - The ability to set specific values for each asset???
+ not a bad idea, not a great one either
+ - better toggle handler with custom true and false values
+### I'm limiting the amount of drawing that can be done with CLS on purpose, too much and it can be hard to read
  - polygons and polylines
- - better toggle handler
- - custom true and false values
  - gradients?
- - color briks, like `[hsl| H| S| L]` that emit a color string
+ - color macros, like `[hsl| H| S| L]` that emit a color string
  - -  OR a distinct color type that generate QColors, asColor if you will
  - - something like `color = hsl|12|67|67` or `color = hsl(12,67,67)`?
  - - maybe `(hsl, 12, 67, 67)` and go full lisp?
- - - `hsl` is a keyword for interping `(12, 67, 67)` which is a list like `color: hsl (340: 200: 200)`
- - json based data? (i'm not sure what the point of this was)
- - - array of object, each object is an asset and each kv pair is a brik maybe?
- - -The ability to set specific values for each asset???
- - `[=| NAME | VALUE ]` - change the value of the element's propery
- - `[brik| name | value ]`
+ - - `hsl` is a keyword for interp'ing `(12, 67, 67)` which is a list like `color: hsl (340: 200: 200)`
+### redundant
+ - `[=| NAME | VALUE ]` - change the value of the element's property
+ - `[macro| name | value ]` define a macro

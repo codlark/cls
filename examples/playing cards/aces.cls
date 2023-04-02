@@ -9,4 +9,3 @@ ace {
     position: center, center
     source: images/[suit]-big.png
 }
-#data is pulled from the template

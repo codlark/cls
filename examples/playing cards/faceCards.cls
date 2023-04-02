@@ -1,10 +1,11 @@
 layout {
     template: indexes.cls
 }
+
 macros {
     rank = [slice| [royal]| 1| 1]
-    #grab the first character of [royal]
 }
+
 portrait {
     type: image
     position: center, center
