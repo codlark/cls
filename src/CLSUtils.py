@@ -47,7 +47,13 @@ class UnclosedMacroError(CLSError):
         super().__init__("'{source}' has an unclosed macro in '{prop}' property",
         elem=elem, prop=prop, source=source
         )
-        
+
+class ImbalancedDelimError(CLSError):
+    def __init__(self, elem, prop, source):
+        super().__init__("'{source}' has unbalanced delimiters in '{prop}' property",
+        elem=elem, prop=prop, source=source
+        )
+
 class CLSSyntaxError(CLSError):
     def __init__(self, msg, /, **kwargs):
         if 'origin' in kwargs:
@@ -243,22 +249,37 @@ def build(accum:list) -> str:
 
 def commaSplit(string) -> str:
     accum = []
-    ret = []
+    values = []
     pos = 0
+    stack = []
     char = ''
     while pos < len(string):
         char = string[pos]
         if char == '\\':
             accum.append(string[pos:pos+2])
             pos += 1
+
+        elif char in "[(":
+            stack.append(char)
+            accum.append(char)
+        
+        elif char in ")]":
+            stack.pop()
+            accum.append(char)
+
         elif char == ',':
-            ret.append(build(accum))
-            accum = []
+            if len(stack) == 0:
+                values.append(build(accum))
+                accum = []
+            else:
+                accum.append(char)
+        
         else:
             accum.append(char)
+
         pos += 1
-    ret.append(build(accum))
-    return ret
+    values.append(build(accum))
+    return values
 
 class CSVParser():
     '''Parse a csv file'''
@@ -267,30 +288,33 @@ class CSVParser():
         self.pos = 0
         self.source = source
 
-    def processEscape(self, line, pos):
-        char = line[pos+1]
-        #commas get unescaped, where as all others get passed through
-        #this is basically why lists don't use commas in macros
-        if char == ',':
-            return char
-        else:
-            return line[pos:pos+2]
-
     def parseRow(self, line):
         record = []
         pos = 0
         accum = []
+        stack = []
 
         while pos < len(line):
             char = line[pos]
 
             if char == '\\':
-                accum.append(self.processEscape(line,pos))
+                accum.append(line[pos:pos+2])
                 pos += 1
+
+            elif char in '([':
+                stack.append(char)
+                accum.append(char)
             
+            elif char in '])':
+                stack.pop()
+                accum.append(char)
+
             elif char == ',':
-                record.append(build(accum))
-                accum = []
+                if len(stack) == 0:
+                    record.append(build(accum))
+                    accum = []
+                else:
+                    accum.append(char)
             
             else:
                 accum.append(char)
@@ -602,10 +626,12 @@ class LayoutParser():
 class ListParser():
     '''parse a list'''
 
-    def __init__(self, source):
+    def __init__(self, source, elem, prop):
         
         self.string = source.strip()
         self.pos = 1
+        self.elem = elem
+        self.prop = prop
 
     def parseItem(self):
         accum = []
@@ -618,17 +644,30 @@ class ListParser():
                 accum.append(self.string[self.pos:self.pos+2])
                 self.pos += 1
 
-            elif char == '(':
-                innerStack.append(self.pos)
+            elif char in '([':
+                innerStack.append(char)
                 accum.append(char)
 
-            elif char in ':)':
+            elif char == ']':
                 if len(innerStack) == 0:
+                    raise ImbalancedDelimError(self.elem, self.prop, self.string)
+                opener = innerStack.pop()
+                if opener == '(':
+                    raise ImbalancedDelimError(self.elem, self.prop, self.string)
+                accum.append(char)
+                    
+            elif char in ',)':
+                if len(innerStack) == 0:
+                    if self.pos != len(self.string)-1 and char == ')':
+                        #if we see a ) without an opener and it's notthe last character of the string
+                        raise ImbalancedDelimError(self.elem, self.prop, self.string)
                     return build(accum)
                 else:
                     #we preserve nested lists
                     if char == ')':
-                        innerStack.pop()
+                        opener = innerStack.pop()
+                        if   opener == '[':
+                            raise ImbalancedDelimError(self.elem, self.prop, self.string)
                     accum.append(char)
 
             else:
@@ -636,7 +675,7 @@ class ListParser():
 
             self.pos += 1
         #return build(accum)
-        raise CLSError("list '{list}' failed to propperly parse", list=self.string)
+        raise ImbalancedDelimError(self.elem, self.prop, self.string)
 
     def parse(self):
         '''turn a CLS list into a python list, nested lists are left as text'''
@@ -644,13 +683,13 @@ class ListParser():
             return []
         if self.string[0] != '(' or self.string[-1] != ')':
             return None
-        ret = []
+        contents = []
 
         while self.pos < len(self.string):
-            ret.append(self.parseItem())
+            contents.append(self.parseItem())
             self.pos += 1
 
-        return ret
+        return contents
 
 def makeList(lst):
     '''turn a python list into a CLS list'''
@@ -661,8 +700,8 @@ def makeList(lst):
 
 if __name__ == '__main__':
 
-    test = '(asdf: 564564()654: bad)'
+    test = '(foo, (bar], baz)'
 
-    result = ListParser(test).parse()
+    result = ListParser(test, '<test>', '<test>').parse()
 
     print(result)

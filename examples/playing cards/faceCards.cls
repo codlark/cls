@@ -3,7 +3,7 @@ layout {
 }
 
 macros {
-    rank = [slice| [royal]| 1| 1]
+    rank = [slice| [royal], 1, 2]
 }
 
 portrait {

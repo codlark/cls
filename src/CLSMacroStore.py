@@ -91,17 +91,28 @@ class MacroStore():
                 argB.append(ps.string[ps.pos:ps.pos+2])
                 ps.pos += 1
 
-            elif char == '[':
-                macroStack.append(ps.pos)
+            elif char in '[(':
+                macroStack.append(char)
                 argB.append(char)
             
-            elif char in '|]':
+            elif char == ')':
                 if len(macroStack) == 0:
-                    ps.pos -= 1
+                    #we never saw the opener
+                    raise ImbalancedDelimError(context.elem, context.prop, ps.string)
+                opener = macroStack.pop()
+                if opener == '[':
+                    raise ImbalancedDelimError(context.elem, context.prop, ps.string)
+                argB.append(char)
+
+            elif char in ',|]':
+                if len(macroStack) == 0:
+                    ps.pos -= 1 #backtrack so evalMacro can see the comma/bracket
                     return ''.join(argB).strip()
                 else:
                     if char == ']':
-                        macroStack.pop()
+                        opener = macroStack.pop()
+                        if opener == '(':
+                            raise ImbalancedDelimError(context.elem, context.prop, ps.string)
                     argB.append(char)
             
             else:
@@ -109,7 +120,7 @@ class MacroStore():
 
             ps.pos += 1
         
-        raise UnclosedMacroError(context.elem, context.prop, ps.string)
+        raise ImbalancedDelimError(context.elem, context.prop, ps.string)
 
 
     def evalMacro(self, ps) -> str:
@@ -137,7 +148,7 @@ class MacroStore():
                 nameB.append(ps.string[ps.pos:ps.pos+2])
                 ps.pos += 1
                 
-            elif char == '|':
+            elif char in ',|':
                 ps.pos += 1
                 args.append(self.parseMacroArg(ps, context))
             
@@ -146,6 +157,9 @@ class MacroStore():
                 context.name = name
                 return self.call(name, context, args)
             
+            elif char == ')': #? might be wrong, or might need a stack
+                raise ImbalancedDelimError(context.elem, context.prop, ps.string)
+
             else:
                 nameB.append(char)
 
@@ -153,6 +167,7 @@ class MacroStore():
         raise UnclosedMacroError(context.elem, context.prop, ps.string)
 
     def evalValue(self, string:str) -> str:
+        '''looks at a string, and if it finds a macro, parses it'''
         ps = Collection()
         ps.string = string
         ps.pos = 0
@@ -235,7 +250,7 @@ def inMacro(context, value, *args):
     parsed = evalEscapes(context.parse(value))
     if len(args) == 0:
         return 'false'
-    parsedList = ListParser(args[0]).parse()
+    parsedList = ListParser(args[0], context.elem, context.prop).parse()
     if parsedList == None:
         parsedList = args
     for arg in parsedList:
@@ -278,7 +293,7 @@ def repeatMacro(context, times, value):
 @MacroStore.addStdlib('for-each', 2)
 def forMacro(context, lst, body):
     lst = context.parse(lst)
-    parsedList = ListParser(lst).parse()
+    parsedList = ListParser(lst, context.elem, context.prop).parse()
     if parsedList == None:
         raise InvalidArgError(context.elem, context.prop, 'for-each', 'LIST', lst)
     result = []
@@ -331,7 +346,7 @@ def sliceMacro(context, value, start, stop=None):
         if stopUnit.sign in ('+', ''):
             stop -= 1
         
-    parsedList = ListParser(value).parse()
+    parsedList = ListParser(value, context.elem, context.prop).parse()
     if parsedList is not None:
         return makeList(parsedList[start:stop])
     else:
@@ -340,7 +355,7 @@ def sliceMacro(context, value, start, stop=None):
 @MacroStore.addStdlib('length', 1)
 def lengthMacro(context, value):
     parsedValue = evalEscapes(context.parse(value))
-    parsedList = ListParser(context.parse(value)).parse()
+    parsedList = ListParser(context.parse(value), context.elem, context.prop).parse()
     if parsedList is not None:
         return len(parsedList)
     else:

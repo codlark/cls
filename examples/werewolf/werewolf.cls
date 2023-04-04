@@ -31,9 +31,10 @@ role-container {
         type: text
         size: 100%, 100%
         font: 36pt, Palatino Linotype
-        font-color: [if| [eq| [role] | werewolf ] | [dark-red] | black ]
+        font-color: [if| [eq| [role], werewolf], [dark-red], black]
         align: center, middle
-        text: [capitalize| [role] ]
+        text: [capitalize| [role]]
+
     }
 }
 

@@ -55,13 +55,13 @@ index {
 
 major {
     type: image-box
-    position: .3in, [if|? [repeat-index] == 1| 3/4in | 1in ]
+    position: .3in, [if|? [repeat-index] == 1, 3/4in, 1in]
     source: img/[major].png
 }
 
 minor {
     type: image-box
-    position: ^.3in, [if|? [repeat-index] == 1| 1in | 3/4in ]
+    position: ^.3in, [if|? [repeat-index] == 1, 1in, 3/4in]
     source: img/[minor].png
 }
 
@@ -88,13 +88,13 @@ turns {
 
     major {
         type: image-box
-        position: .3in, [if|? [repeat-index] == 1| 3/4in | 1in ]
+        position: .3in, [if|? [repeat-index] == 1, 3/4in,  1in]
         source: img/[major].png
     }
 
     minor {
         type: image-box
-        position: ^.3in, [if|? [repeat-index] == 1| 1in | 3/4in ]
+        position: ^.3in, [if|? [repeat-index] == 1, 1in, 3/4in]
         source: img/[minor].png
     }
 }
