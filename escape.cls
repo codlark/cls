@@ -1,22 +1,27 @@
 layout{
-    width: 3in
-    height: 3in
+    size: 3in, 3in
     dpi: 300
 }
 
+export {
+    tts {
+        size: 2, 2
+    }
+}
+
 string{
-    type: label
-    fontFamily: Verdana
+    type: text
+    font-family: Verdana
     width: 3in
     height: 3in
     text: Ag,xh\}
-    alignment: left top
-    fontSize: 44 pt
+    align: left, top
+    font-size: 44pt
 }
 
 line_quarterin {
     type: line
-    lineColor: orchid
+    line-color: orchid
     #y: 1/8in
     x: .25in
     x2: .25in
@@ -25,23 +30,23 @@ line_quarterin {
 
 line_38 {
     type: line
-    lineColor: deepskyblue
+    line-color: deepskyblue
     x: 3/8in
     x2: 3/8in
     y2: 3/8in
 }
 
 line_halfin {
-    lineColor: orange
     type: line
+    line-color: orange
     x: .5in
     x2: .5in
     y2: .5in
 }
 
 line_3quarterin {
-    lineColor: red
     type: line
+    line-color: red
     x: 3/4in
     x2: 3/4in
     y2: 3/4in

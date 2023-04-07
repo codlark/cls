@@ -20,7 +20,7 @@ upper-left-index {
         type: text
         size: .3in, .3in
         font: 1/4in, Consolas
-        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        font-color: [if| [in| [suit],  spade, club], [black], [red]]
         align: center, top
         text: [rank]
     }
@@ -41,7 +41,7 @@ lower-right-index {
         type: text
         size: .3in, .3in
         font: 1/4in, Consolas
-        font-color: [if| [in| [suit] | spade | club ] | [black] | [red] ]
+        font-color: [if| [in| [suit], spade, club], [black], [red]]
         align: center, top
         text: [rank]
     }

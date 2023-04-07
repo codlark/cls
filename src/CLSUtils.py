@@ -661,7 +661,12 @@ class ListParser():
                     if self.pos != len(self.string)-1 and char == ')':
                         #if we see a ) without an opener and it's notthe last character of the string
                         raise ImbalancedDelimError(self.elem, self.prop, self.string)
-                    return build(accum)
+                    
+                    item = build(accum)
+                    if char == ')' and item == '':
+                        return None
+                    else:
+                        return item
                 else:
                     #we preserve nested lists
                     if char == ')':
@@ -686,7 +691,9 @@ class ListParser():
         contents = []
 
         while self.pos < len(self.string):
-            contents.append(self.parseItem())
+            item = self.parseItem()
+            if item is not None:
+                contents.append(item)
             self.pos += 1
 
         return contents
@@ -700,7 +707,7 @@ def makeList(lst):
 
 if __name__ == '__main__':
 
-    test = '(foo, (bar], baz)'
+    test = '(red)'
 
     result = ListParser(test, '<test>', '<test>').parse()
 

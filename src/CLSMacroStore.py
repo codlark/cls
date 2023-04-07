@@ -325,6 +325,26 @@ def upperMacro(context, value):
         return m.group(1).lower()
     return re.sub(r'(?<!\\)([A-Z])', repl, value)
 
+@MacroStore.addStdlib('substr', 3)
+def substrMacro(context, value, start, length):
+    value = context.parse(value)
+    
+    start = context.parse(start)
+    startUnit = Unit.fromStr(context.parse(start), signs='+0', units=('',))
+    if startUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'substr', 'START', start)
+    start = startUnit.toInt()
+    if startUnit.sign != '0':
+        start -= 1
+    
+    length = context.parse(length)
+    lengthUnit = Unit.fromStr(context.parse(length), signs='+0', units=('',))
+    if lengthUnit is None:
+        raise InvalidArgError(context.elem, context.prop, 'substr', 'LENGTH', length)
+    length = lengthUnit.toInt()
+    
+    return value[start:start+length]
+
 @MacroStore.addStdlib('slice', (2, 3))
 def sliceMacro(context, value, start, stop=None):
     value = context.parse(value)   
@@ -536,17 +556,33 @@ def fileMacro(context, filename):
 def switchMacro(context, sentinal, *args):
     if len(args)% 2 != 0:
         raise CLSError("case and results are not balanced in macro [switch| ]", elem=context.elem, prop=context.prop)
-    test = evalEscapes(context.parse(sentinal))
-    for pair in range(len(args)//2):
-        case = pair*2
-        if case+2 == len(args):
-            if args[case] == 'default':
-                return args[case+1]
-        if test == evalEscapes(context.parse(args[case])):
-            return args[case+1]
-    return ''
+    
+    sentinal = evalEscapes(context.parse(sentinal))
+    args = list(args)
+
+    if args[-2] == 'default':
+        default = True
+        defaultValue = args.pop()
+        args.pop()
+    else:
+        default = False
+
+    for pair in range(0, len(args), 2):
+        testValue = context.parse(args[pair])
+        testList = ListParser(testValue, context.elem, context.prop).parse()
+        if testList is not None:
+            if sentinal in testList:
+                return args[pair+1]
+        else:
+            if sentinal == evalEscapes(testValue):
+                return args[pair+1]
+    if default:
+        return defaultValue
+    else:
+        return ''        
 
 if __name__ == '__main__':
-    context = AttrDict(elem='<test>', prop='<test>', name='=', parse=(lambda x: x))
-    print(mathMacro(context, '2.1/4 - 2/3 ' ))
+    context = AttrDict(elem='<test>', prop='<test>', name='switch', parse=(lambda x: x))
+    foo = ['a', 'foo', '(b, c)', 'bc', 'default', 'else']
+    print(switchMacro(context, 'd', *foo))
     #print(mathMacro(context, ''))

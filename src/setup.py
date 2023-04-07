@@ -16,7 +16,7 @@ build_options = dict(excludes=[
 
 ], include_files=[
     ('res/logo.ico', 'res/logo.ico')
-],
+], silent=True
 )
 
 base = None
@@ -25,7 +25,7 @@ if sys.platform == 'win32':
 
 setup(
     name='CLS Renderer',
-    version='1.0',
+    version='1.1',
     description='Renderer for Card Layout Script',
     author='Gia Bamrud',
     author_email='codlark@gmail.com',
