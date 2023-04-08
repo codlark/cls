@@ -1,8 +1,11 @@
+### elements.py ###
+
 import re
+from collections import ChainMap
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from CLSUtils import *
+from utils import *
 
 __all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
 

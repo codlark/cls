@@ -14,7 +14,7 @@ string{
     font-family: Verdana
     width: 3in
     height: 3in
-    text: Ag,xh\}
+    text: hi there \< foo bar
     align: left, top
     font-size: 44pt
 }

@@ -3,8 +3,11 @@ import re
 import random
 from collections import ChainMap, deque
 from typing import Union, Callable, Collection
-from CLSUtils import *
 import operator
+from utils import *
+
+__all__ = ['MacroStore']
+
 
 class MacroStore():
 
@@ -579,10 +582,13 @@ def switchMacro(context, sentinal, *args):
     if default:
         return defaultValue
     else:
-        return ''        
+        return ''
+
+
 
 if __name__ == '__main__':
     context = AttrDict(elem='<test>', prop='<test>', name='switch', parse=(lambda x: x))
     foo = ['a', 'foo', '(b, c)', 'bc', 'default', 'else']
     print(switchMacro(context, 'd', *foo))
     #print(mathMacro(context, ''))
+
