@@ -96,13 +96,13 @@ class Section():
         values= commaSplit(frame.value)
         if len(values) == 0:
             return False
-        width = Unit.fromStr(values[0], signs='+', units=('in', 'mm'))
+        width = Unit.fromStr(values[0], signs='+')
         if width is None:
             return False
         if len(values) == 1:
             height = width
         else:
-            height = Unit.fromStr(values[1], signs='+', units=('in', 'mm'))
+            height = Unit.fromStr(values[1], signs='+')
             if height is None:
                 return False
         sec.bleedWidth = width

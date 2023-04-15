@@ -26,6 +26,11 @@ class Unit():
                 return (self.num/25.4)*data['dpi']
             else:
                 return self.num
+        elif self.unit == 'pt':
+            if 'dpi' in data:
+                return (self.num/72)*data['dpi']
+            else:
+                return self.num
         elif self.unit == '%':
             if 'whole' in data:
                 return self.num/100*data['whole']

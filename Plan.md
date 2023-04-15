@@ -57,7 +57,7 @@ A lot of these are hypothetical, and may never get implemented
  - deeper integration of operator macros, like 
     ```
     x: # 1/8in + 1/4in
-    text: [dup| #4+5| asdf]
+    text: [dup|# 4 + 5| asdf]
     ```
    the idea being they act like ? in `[if| ]`, so when they get seen the value immediately gets dispatched to the macro. Make them first class. 
    - maybe also give operator macros `frame` made in generate

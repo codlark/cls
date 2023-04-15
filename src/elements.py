@@ -36,6 +36,13 @@ def validateToggle(frame, elem):
     elem[frame.prop] = value
     return True
 
+def validateList(frame, elem):
+    value = ListParser(frame.value, elem.name, frame.prop).parse()
+    if value is None:
+        return False
+    elem[frame.prop] = value
+    return True
+
 def validateChoices(choices):
     def validator(frame, elem):
         if frame.value.lower() not in choices:
@@ -109,30 +116,10 @@ def validateDraw(frame, elem):
         elem.draw = frame.containerValue
     return True
 
-def validateFontSize(frame, elem):
-    value = Unit.fromStr(frame.value, signs='+', units=('pt', 'px', 'in', 'mm'))
-    if value is None:
-        return False
-    elem[frame.prop] = value, frame.layout.dpi
-    return True
-
 alignments = {'left':Qt.AlignLeft, 'right':Qt.AlignRight, 'center':Qt.AlignHCenter,
         'justify':Qt.AlignJustify,
         'top':Qt.AlignTop, 'bottom':Qt.AlignBottom, 'middle':Qt.AlignVCenter}
 validateAlignment = validateChoices(alignments)
-
-def shortcutDecoration(value):
-    values = commaSplit(value)
-    decos = ['italic', 'bold', 'underline', 'overline', 'word-wrap', 'line-thru', 'line-though']
-    res = {}
-    for value in values:
-        if value in decos:
-            res[value] = 'on'
-        elif value[0:3] == 'no-' and value[3:] in decos:
-            res[value[3:]] = 'off'
-        else:
-            return None
-    return res
 
 def countShortcut(min, *props):
     def func(value):
@@ -170,7 +157,6 @@ class ElementProtoype(ChainMap):
             self.qualName = name
     
     def validate(self, frame:AttrDict):
-        value = frame.value
         trueProp = frame.prop
         if trueProp in self.renames:
             userProp = self.renames[trueProp]
@@ -181,10 +167,11 @@ class ElementProtoype(ChainMap):
 
         if trueProp not in self.type.validators:
             return
+            #we ignore any property we don't knoe, is this too forgiving?
         func = self.type.validators[trueProp]
         result = func(frame, frame.elem)
         if not result:
-            raise InvalidValueError(frame.elem.name, userProp, value)
+            raise InvalidValueError(frame.elem.name, userProp, frame.value)
         else:
             return
 
@@ -224,9 +211,9 @@ class ElementProtoype(ChainMap):
             self.type.midCompile(elem)
 
         for prop in xyProps:
+            #x and y need to be validated after width and height
             if prop not in self:
                 continue
-            #x and y need to be validated after width and height
             value = self[prop]
             if frame.container != 'layout' and prop in frame.container:
                 frame.containerValue = frame.container[prop]
@@ -235,8 +222,8 @@ class ElementProtoype(ChainMap):
             frame.value = store.parse(value)
             self.validate(frame)
         
-        if hasattr(self.type, 'postGenerate'):
-            self.type.postGenerate(elem)
+        if hasattr(self.type, 'postCompile'):
+            self.type.postCompile(elem)
 
         return elem
 
@@ -281,12 +268,60 @@ class Element():
     def paint(elem, painter, upperLeft, size):
         pass
 
+def countPrintingChars(text):
+    text = re.sub(r'<img[^>]*>', '@', text)
+    text = re.sub(r'<br ?/?>', '\n', text)
+    text = re.sub(r'<[^>]*>', '', text)
+    return len(text)
+
+validFontSizes = ('pt', 'px', 'in', 'mm')
+
+def validateShrinkFont(frame, elem):
+    if frame.value[0] != '(' and frame.value[-1] != ')':
+        frame.value = '(' + frame.value + ')'
+    list = ListParser(frame.value, elem.name, frame.prop).parse()
+    if list is None: return False
+    if len(list) == 0:
+        elem.shrinkFont = ()
+        return True
+    result = []
+    for item in list:
+        if ':' not in item:
+            frame.value = item
+            return False
+        num, size = item.split(':', 1)
+        parsedNum = Unit.fromStr(num.strip(), units=('c'))
+        if parsedNum is None:
+            frame.value = num
+            return False
+        parsedSize = Unit.fromStr(size.strip(), units=validFontSizes)
+        if parsedSize is None:
+            frame.value = size
+            return False
+        result.append((parsedNum.toInt(), parsedSize.toInt(dpi=frame.layout.dpi)))
+    elem.shrinkFont = result
+    return True
+
+def shortcutDecoration(value):
+    values = commaSplit(value)
+    decos = ['italic', 'bold', 'underline', 'overline', 'word-wrap', 'line-thru', 'line-though']
+    res = {}
+    for value in values:
+        if value in decos:
+            res[value] = 'on'
+        elif value[0:3] == 'no-' and value[3:] in decos:
+            res[value[3:]] = 'off'
+        else:
+            return None
+    return res
+
 class LabelElement():
     defaults = Element.defaults.new_child(dict(
         text = '',
         fontFamily = 'Verdana',
         fontSize = '22pt',
         fontColor = 'black',
+        shrinkFont = '()',
         wordWrap = 'yes',
         hAlign = 'center',
         vAlign = 'top',
@@ -300,8 +335,9 @@ class LabelElement():
     validators = Element.validators.new_child(dict(
         text = validateString,
         fontFamily = validateString,
-        fontSize = validateFontSize,
+        fontSize = validateNumber(units=validFontSizes),
         fontColor = validateString,
+        shrinkFont = validateShrinkFont,
         wordWrap = validateToggle,
         vAlign = validateAlignment,
         hAlign = validateAlignment,
@@ -325,6 +361,7 @@ class LabelElement():
         'font FONT-COLOR': 'fontColor',
         'font-size': 'fontSize',
         'font FONT-SIZE': 'fontSize',
+        'shrink-font': 'shrinkFont',
         'word-wrap': 'wordWrap',
         'v-align': 'vAlign',
         'align V-ALIGN': 'vAlign',
@@ -336,30 +373,37 @@ class LabelElement():
 
     @staticmethod
     def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
-        label = QLabel()
+
+
+        label = QLabel()        
         label.setTextFormat(Qt.RichText)
-        label.resize(size)
         label.setAttribute(Qt.WA_TranslucentBackground, True)
         label.setAlignment(elem.vAlign|elem.hAlign)
         label.setWordWrap(elem.wordWrap)
-        style = 'QLabel {\n'
-        style += f'font-family: {elem.fontFamily};\n'
-        fontSize, dpi = elem.fontSize
-        if fontSize.unit == 'pt':
-            fontUnit = fontSize.unit
-            fontSize = fontSize.num
-        else:
-            fontUnit = 'px'
-            fontSize = fontSize.toInt(dpi=dpi)
-        style += f'font-size: {fontSize}{fontUnit};\n'
-        style += f'color: {elem.fontColor};\n'
-        if elem.italic: style += 'font-style: italic;\n'
-        if elem.bold: style += 'font-weight: bold;\n'
-        if elem.overline: style += 'text-decoration: overline;\n'
-        if elem.underline: style += 'text-decoration: underline;\n'
-        if elem.lineThrough: style += 'text-decoration: line-through;\n'
-        #style += "font-variant-numeric: lining-nums;\n" someday
-        label.setStyleSheet(style+'}')
+        label.resize(size)
+        
+        if len(elem.shrinkFont) > 0:
+            textLen = countPrintingChars(elem.text)
+            for num, newSize in elem.shrinkFont:
+                if textLen >= num:
+                    elem.fontSize = newSize
+                else:
+                    break
+
+        style = ['QLabel {']
+        style.append(f'font-size: {elem.fontSize}px;\n')
+        style.append(f'font-family: {elem.fontFamily};\n')
+        style.append(f'color: {elem.fontColor};\n')
+        if elem.italic: style.append('font-style: italic;\n')
+        if elem.bold: style.append('font-weight: bold;\n')
+        if elem.overline: style.append('text-decoration: overline;\n')
+        if elem.underline: style.append('text-decoration: underline;\n')
+        if elem.lineThrough: style.append('text-decoration: line-through;\n')
+        #style += "font-variant-numeric: lining-nums;\n" someday *dreamy sigh*
+        style.append('}')
+        label.setStyleSheet(build(style))
+        
+        
         label.setText(re.sub(r'\n', '<br>', elem.text))
         painter.drawPixmap(upperLeft, label.grab())
 
