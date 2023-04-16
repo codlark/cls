@@ -1,5 +1,5 @@
 '''cls command line setup script
-
+note: to build, run `python setup.py build`
 '''
 
 import sys
@@ -25,10 +25,10 @@ if sys.platform == 'win32':
 
 setup(
     name='CLS Renderer',
-    version='1.1',
+    version='1.2',
     description='Renderer for Card Layout Script',
     author='Gia Bamrud',
     author_email='codlark@gmail.com',
     options = dict(build_exe=build_options),
-    executables=[Executable("app.py", icon="res/logo.ico", base=base, target_name="CLS Renderer")]
+    executables=[Executable("main.py", icon="res/logo.ico", base=base, target_name="CLS Renderer")]
     )

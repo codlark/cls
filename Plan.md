@@ -1,25 +1,14 @@
 # Plan
 
-*note* to build, run `python setup.py build`
 
 ## next
 Not next as in next release, but as in next focus
- - templates for the game crafter, with
- - - a preset card size and bleed 
- - - a holder for full bleed art
- - - a holder for the safe zone
- - upgrade python, qt, and cx_freeze
+
  - rename the `tts` export type to `texture` and remove/change the limits
  - - or more likely have both and make `tts` a subclass of `texture`
  - macros for `<ul>` and `<table>` tags
  - support for markdown based text elements. You get less complexity, but you get a more friendly experience
  - some sort of alt art mechanism for image elements. specify an image to load if the desired are doesn't exist, like `src: path\art.png; noArt: path\noArt.png`
- - `shrink-fit` property of text elements, something like
-   ```
-   font-size: 12pt
-   shrink-font: ( 10pt @100 : 8pt @200 )
-   ```
-   then when there are more than 100 chars the font size is changed to `10pt`, and when there are 200 it gets changed to `8pt`
 
 
 ## soon
@@ -80,7 +69,7 @@ A lot of these are hypothetical, and may never get implemented
  - -  OR a distinct color type that generate QColors, asColor if you will
  - - something like `color = hsl|12|67|67` or `color = hsl(12,67,67)`?
  - - maybe `(hsl, 12, 67, 67)` and go full lisp?
- - - `hsl` is a keyword for interp'ing `(12, 67, 67)` which is a list like `color: hsl (340: 200: 200)`
+ - - `hsl` is a keyword for interp'ing `(12, 67, 67)` which is a list like `color: hsl (12, 67, 67)`
 ### redundant
  - `[=| NAME | VALUE ]` - change the value of the element's property
  - `[macro| name | value ]` define a macro

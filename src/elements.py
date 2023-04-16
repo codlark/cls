@@ -299,7 +299,7 @@ def validateShrinkFont(frame, elem):
             frame.value = size
             return False
         result.append((parsedNum.toInt(), parsedSize.toInt(dpi=frame.layout.dpi)))
-    elem.shrinkFont = result
+    elem[frame.prop] = result
     return True
 
 def shortcutDecoration(value):
@@ -563,6 +563,21 @@ class ImageBoxElement():
         elem.source = QPixmap.fromImage(elem.source)
 
 
+def validateSVG(frame, elem):
+    pass
+
+
+class SVGElement():
+    defaults = Element.defaults.new_child(dict())
+    shortcuts = Element.shortcuts.new_child(dict())
+    names = Element.names.new_child(dict())
+
+    @staticmethod
+    def paint(elem, painter:QPainter, upperleft:QPoint, size:QSize):
+        pass
+
+
+
 validateLineJoin = validateChoices({'miter': Qt.MiterJoin, 'bevel': Qt.BevelJoin, 'round': Qt.RoundJoin})
 validateLineCap = validateChoices({'flat': Qt.FlatCap, 'square': Qt.SquareCap, 'round': Qt.RoundCap})
 validateLineStyle = validateChoices({'solid': Qt.SolidLine, 'dash': Qt.DashLine, 'dots': Qt.DotLine,
@@ -675,7 +690,6 @@ class EllipseElement():
             elem.height = elem.width
 
 class LineElement():
-    #AAAAAAAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH
     defaults = ShapeElement.defaults.new_child(dict(
         x2 = '1/4in',
         y2 = '1/4in',

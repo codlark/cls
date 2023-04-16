@@ -147,6 +147,10 @@ class MainWindow(QMainWindow):
         self.textLog.setTabStopDistance(40.0)
         self.textLog.setWordWrapMode(QTextOption.NoWrap)
         self.textLog.setReadOnly(True)
+        codeFont = QFont(["Cascadia Code", "Consolas", "Courier New"])
+        codeFont.setPointSize(10)
+        self.textLog.setCurrentFont(codeFont)
+
         #self.textLog.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.toolbar = QToolBar(self)

@@ -585,7 +585,6 @@ def switchMacro(context, sentinal, *args):
         return ''
 
 
-
 if __name__ == '__main__':
     context = AttrDict(elem='<test>', prop='<test>', name='switch', parse=(lambda x: x))
     foo = ['a', 'foo', '(b, c)', 'bc', 'default', 'else']

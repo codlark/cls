@@ -3,7 +3,7 @@ layout {
 }
 
 export {
-    output: cards
+    destination: cards
     bulk {
         name: [role][repeat-index].png
     }
