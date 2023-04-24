@@ -83,7 +83,7 @@ def validateXY(frame, elem):
 
 def validateHeightWidth(frame, elem):
     if frame.container == 'layout':
-        containerDim = getattr(frame.layout.fullSize, frame.prop)()
+        containerDim = getattr(frame.layout.cardSize, frame.prop)()
         #containerDim = frame.layout[frame.prop]
     else:
         containerDim = frame.container[frame.prop]
