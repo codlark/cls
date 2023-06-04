@@ -15,20 +15,18 @@ defaults {
 
 }
 
-box {
-    type: rect
-    size: 1in, 1in
-}
+
 
 string {
     type: text
-    font-family: Verdana
+    font-family: Ysabeau Infant
     size: 1in, 1in
-    font-size: 12pt
-    shrink-font: 20: 5pt
+    font-size: 10pt
     align: left, top
+    bold: yes
+    #font-weight: 1
     #text: card layout
-    text: this is a long piece of text, I wonder how long it can be????
+    text: this is a [i|fridge]
 }
 
 

@@ -20,21 +20,21 @@ defaults {
 role-container {
     position: center, .5in
     size: 1.5in, .25in
-    
+
     border {
         type: rect
         size: 100%, 100%
         corner-radius: .1in
     }
-    
+
     role {
         type: text
         size: 100%, 100%
-        font: 36pt, Palatino Linotype
+        font-size: 12pt
         font-color: [if| [eq| [role], werewolf], [dark-red], black]
+        
         align: center, middle
-        text: [capitalize| [role]]
-
+        text: [capitalize, [role]]
     }
 }
 
@@ -47,8 +47,8 @@ icon {
 description {
     type: text
     position: center, ^.5in
-    size: 2in, .30in
-    font-family: Palatino Linotype
+    size: 2in, .5in
+    font-size: 10pt
     align: center, middle
     text: [description]
 }

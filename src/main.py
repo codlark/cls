@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
 
         clearAct = QAction('Clear Image Cache', parent=self)
         self.toolbar2.addAction(clearAct)
-        clearAct.triggered.connect(exportFunc)
+        clearAct.triggered.connect(clearCacheFunc)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)

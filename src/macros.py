@@ -261,6 +261,26 @@ def inMacro(context, value, *args):
             return 'true'
     return 'false'
 
+@MacroStore.addStdlib('not', 1)
+def notMacro(context, value):
+    parseVal = context.parse(value)
+    boolVal = asBool(parseVal)
+    if boolVal is not None:
+        if boolVal:
+            return 'false'
+        else:
+            return 'true'
+    else:
+        return 'false'
+
+@MacroStore.addStdlib('either', 2)
+def eitherMacro(context, left, right):
+    parsedVal = context.parse(left)
+    if asBool(parsedVal) is False:
+        return right
+    else:
+        return left
+
 @MacroStore.addStdlib('i', 1)
 def italicMacro(context, string):
     return f'<i>{string}</i>'

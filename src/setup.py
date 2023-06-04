@@ -25,7 +25,7 @@ if sys.platform == 'win32':
 
 setup(
     name='CLS Renderer',
-    version='1.2',
+    version='1.3',
     description='Renderer for Card Layout Script',
     author='Gia Bamrud',
     author_email='codlark@gmail.com',

@@ -3,10 +3,11 @@
 from collections.abc import Mapping
 from types import SimpleNamespace
 from PySide6.QtGui import QImage
+from PySide6.QtSvg import QSvgRenderer
 from typing import *
 
 
-__all__ = ['AttrDict', 'Collection', 'ImageGetter', 'build', 'commaSplit', 'deepUpdate']
+__all__ = ['AttrDict', 'Collection', 'ImageGetter', 'build', 'commaSplit', 'deepUpdate', 'SvgGetter']
 
 
 class Collection(SimpleNamespace):
@@ -49,6 +50,20 @@ class ImageGetter():
     @staticmethod
     def clearCache():
         ImageGetter.cache = {}
+
+class SvgGetter():
+    '''a static class that holds a cache of svg files'''
+    cache = {}
+
+    @staticmethod
+    def getSvg(name) -> QSvgRenderer:
+        if name not in SvgGetter.cache:
+            SvgGetter.cache[name] = QSvgRenderer(name)
+        return SvgGetter.cache[name]
+    
+    @staticmethod
+    def clearChache():
+        SvgGetter.cache = {}
 
 def deepUpdate(self:Mapping, other:Mapping):
     '''like update, but if a given index is a mapping in both self and other we recurse'''

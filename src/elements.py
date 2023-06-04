@@ -1,10 +1,12 @@
 ### elements.py ###
 
+import os
 import re
 from collections import ChainMap
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
+from PySide6.QtSvg import *
 from utils import *
 
 __all__ = ["elemClasses", "ElementProtoype", "validateString", "validateNumber", "validateToggle",]
@@ -302,6 +304,17 @@ def validateShrinkFont(frame, elem):
     elem[frame.prop] = result
     return True
 
+def validateFontWeight(frame, elem):
+    if frame.value == '':
+        return True
+    value = Unit.fromStr(frame.value, signs='+', units=('',))
+    if value is None:
+        return False
+    elem.fontWeight = value.toInt()
+    return True
+
+
+
 def shortcutDecoration(value):
     values = commaSplit(value)
     decos = ['italic', 'bold', 'underline', 'overline', 'word-wrap', 'line-thru', 'line-though']
@@ -327,6 +340,7 @@ class LabelElement():
         vAlign = 'top',
         italic = 'no',
         bold = 'no',
+        fontWieight = '',
         overline = 'no',
         underline = 'no',
         lineThrough = 'no',
@@ -343,6 +357,7 @@ class LabelElement():
         hAlign = validateAlignment,
         italic = validateToggle,
         bold = validateToggle,
+        fontWeight = validateFontWeight,
         overline = validateToggle,
         underline = validateToggle,
         lineThrough = validateToggle,
@@ -367,6 +382,7 @@ class LabelElement():
         'align V-ALIGN': 'vAlign',
         'h-align': 'hAlign',
         'align H-ALIGN': 'hAlign',
+        'font-weight': 'fontWeight',
         'line-through': 'lineThrough',
         'line-thru': 'lineThrough',
     })
@@ -395,7 +411,10 @@ class LabelElement():
         style.append(f'font-family: {elem.fontFamily};\n')
         style.append(f'color: {elem.fontColor};\n')
         if elem.italic: style.append('font-style: italic;\n')
-        if elem.bold: style.append('font-weight: bold;\n')
+        if 'fontWeight' in elem:
+            style.append(f'font-weight: {elem.fontWeight};\n')
+        else:
+            if elem.bold: style.append('font-weight: bold;\n')
         if elem.overline: style.append('text-decoration: overline;\n')
         if elem.underline: style.append('text-decoration: underline;\n')
         if elem.lineThrough: style.append('text-decoration: line-through;\n')
@@ -408,6 +427,18 @@ class LabelElement():
         painter.drawPixmap(upperLeft, label.grab())
 
 
+def validateScale(frame, elem):
+    parsedValue = Unit.fromStr(frame.value, units=('x', '%', 'dpi'))
+    if parsedValue is None:
+        return False
+    if parsedValue.unit == '%':
+        scale = parsedValue.num/100
+    elif parsedValue.unit == 'dpi':
+        scale = frame.layout.dpi/parsedValue.num
+    else:
+        scale = parsedValue.num
+    elem[frame.prop] = scale
+    return True
 
 def validateImage(frame, elem):
 
@@ -420,15 +451,15 @@ class ImageElement():
         height = '0px',
         source = '',
         keepAspectRatio = 'yes',
-        scaleWidth = '0',
-        scaleHeight = '0'
+        scaleWidth = '1x',
+        scaleHeight = '1x'
     ))
 
     validators = Element.validators.new_child(dict(
         source = validateImage,
         keepAspectRatio = validateToggle,
-        scaleWidth = validateNumber(units=('%', 'x'), out=Unit),
-        scaleHeight = validateNumber(units=('%', 'x'), out=Unit),
+        scaleWidth = validateScale,
+        scaleHeight = validateScale,
         
     ))
 
@@ -458,20 +489,14 @@ class ImageElement():
 
         if elem.width == 0 and elem.height == 0:
 
-            if elem.scaleWidth.num != 0:
-                if elem.scaleHeight.num == 0:
+            if elem.scaleWidth != 1:
+                if elem.scaleHeight == 1:
                     elem.scaleHeight = elem.scaleWidth
         
                 width = elem.source.width()
                 height = elem.source.height()
-                if elem.scaleWidth.unit == '%':
-                    newWidth = int(elem.scaleWidth.num/100 * width)
-                else:
-                    newWidth = int(elem.scaleWidth.num*width)
-                if elem.scaleHeight.unit == '%':
-                    newHeight = int(elem.scaleHeight.num/100 * height)
-                else:
-                    newHeight = int(elem.scaleHeight.num*height)
+                newWidth = int(elem.scaleWidth * width)
+                newHeight = int(elem.scaleHeight * height)
                 elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
             
         elif elem.keepAspectRatio:
@@ -488,93 +513,68 @@ class ImageElement():
         elem.height = elem.source.height()
         elem.source = QPixmap.fromImage(elem.source)
 
-class ImageBoxElement():
-    defaults = ImageElement.defaults.new_child(dict(
-        hAlign = 'center',
-        vAlign = 'top',
-    ))
-
-    validators = ImageElement.validators.new_child(dict(
-        vAlign = validateAlignment,
-        hAlign = validateAlignment,
-    ))
-
-    shortcuts = ImageElement.shortcuts.new_child(dict(
-        align = countShortcut(2, 'align H-ALIGN', 'align V-ALIGN')
-    ))
-
-    names = ImageElement.names.new_child({
-        'v-align': 'vAlign',
-        'align V-ALIGN': 'vAlign',
-        'h-align': 'hAlign',
-        'align H-ALIGN': 'hAlign',
-    })
-    
-    @staticmethod
-    def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
-
-        widthDif = abs(elem.source.width()-elem.width)
-        heightDif = abs(elem.source.height()-elem.height)
-        
-        if elem.hAlign & Qt.AlignLeft:
-            xOfs = 0
-        elif elem.hAlign & Qt.AlignRight:
-            xOfs = widthDif
-        else: #center or justify
-            xOfs = widthDif/2
-        
-        if elem.vAlign & Qt.AlignTop:
-            yOfs = 0
-        elif elem.vAlign & Qt.AlignBottom:
-            yOfs = heightDif
-        else:
-            yOfs = heightDif/2
-
-        painter.drawPixmap(upperLeft+QPoint(xOfs, yOfs), elem.source)
-    
-    @staticmethod
-    def midCompile(elem):
-        scaleMode = Qt.SmoothTransformation
-        if elem.keepAspectRatio:
-            aspect = Qt.KeepAspectRatio
-        else:
-            aspect = Qt.IgnoreAspectRatio
-
-        if elem.scaleWidth.num != 0:
-            if elem.scaleHeight.num == 0:
-                elem.scaleHeight = elem.scaleWidth
-            width = elem.source.width()
-            height = elem.source.height()
-
-            if elem.scaleWidth.unit == '%':
-                newWidth = int(elem.scaleWidth.num/100 * width)
-            else:
-                newWidth = int(elem.scaleWidth.num*width)
-            if elem.scaleHeight.unit == '%':
-                newHeight = int(elem.scaleHeight.num/100 * height)
-            else:
-                newHeight = int(elem.scaleHeight.num*height)
-
-            elem.source = elem.source.scaled(newWidth, newHeight, aspect, scaleMode)
-
-        if elem.source.width() > elem.width or elem.source.height() > elem.height:
-            elem.source = elem.source.scaled(elem.width, elem.height, aspect, scaleMode)
-
-        elem.source = QPixmap.fromImage(elem.source)
-
 
 def validateSVG(frame, elem):
-    pass
+    elem[frame.prop] = SvgGetter.getSvg(frame.value)
+    return elem[frame.prop].isValid()
 
 
 class SVGElement():
-    defaults = Element.defaults.new_child(dict())
-    shortcuts = Element.shortcuts.new_child(dict())
-    names = Element.names.new_child(dict())
+    defaults = ImageElement.defaults.new_child(dict(
+        id = '',
+    ))
+    validators = ImageElement.validators.new_child(dict(
+        source = validateSVG,
+        id = validateString,
+    ))
+    shortcuts = ImageElement.shortcuts.new_child(dict())
+    names = ImageElement.names.new_child({
+    })
 
     @staticmethod
-    def paint(elem, painter:QPainter, upperleft:QPoint, size:QSize):
-        pass
+    def midCompile(elem):
+        
+        if elem.id != '' and elem.source.elementExists(elem.id):
+            size = elem.source.boundsOnElement(elem.id).size()
+        else:
+            elem.id = ''
+            size = elem.source.viewBox().size()
+        
+        if elem.width == 0 and elem.height == 0:
+
+            if elem.scaleWidth != 1 and elem.scaleHeight == 1:
+                elem.scaleHeight = elem.scaleWidth
+            elem.width = int(elem.scaleWidth * size.width())
+            elem.height = int(elem.scaleHeight * size.height())
+        elif elem.keepAspectRatio:
+            if elem.width == 0:
+                scale = elem.height / size.height()
+                elem.width = int(size.width() * scale)
+            elif elem.height == 0:
+                scale = elem.width / size.width()
+                elem.height = int(size.height() * scale)
+            else:
+                widthScale = elem.width / size.width()
+                heightScale = elem.height / size.height()
+                if widthScale > heightScale:
+                    elem.width = int(size.width() * heightScale)
+                elif heightScale > widthScale:
+                    elem.height = int(size.height() * widthScale)
+
+        else:
+            pass
+        
+
+
+    @staticmethod
+    def paint(elem, painter:QPainter, upperLeft:QPoint, size:QSize):
+        print(f"viewBox: {elem.source.viewBox()}, defaultSize: {elem.source.defaultSize()}")
+        if elem.id != '':
+            print(f"elementBounds: {elem.source.boundsOnElement(elem.id).size()}")
+            elem.source.render(painter, elem.id, QRect(upperLeft, size))
+        else:
+            elem.source.render(painter, QRect(upperLeft, size))
+        
 
 
 
@@ -731,7 +731,7 @@ elemClasses = {
     'none': Element,
     'text': LabelElement,
     'image': ImageElement,
-    'image-box': ImageBoxElement,
+    'svg': SVGElement,
     'rect': RectangleElement,
     'ellipse': EllipseElement,
     'circle': EllipseElement,
